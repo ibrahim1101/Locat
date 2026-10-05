@@ -7,7 +7,7 @@ a self-hosted server for identity, conversation membership, realtime connections
 and temporary encrypted delivery. The current implementation is a responsive web
 app, not a native mobile app or an installable offline PWA.
 
-## Repaired in this change
+## Implemented
 
 - Installation: replace unavailable private mirror URLs in the lockfile; remove
   the template inspection plugin; declare a supported Node version.
@@ -21,7 +21,16 @@ app, not a native mobile app or an installable offline PWA.
   input zoom on iOS. Display Locat on login and in browser metadata.
 - Messaging: serialize deduplication in an IndexedDB transaction and avoid storing
   optimistic pending state in confirmed messages.
-- Validation: add direct/group encryption and identity restore tests plus CI.
+- Reliability: commit envelope/deliveries/retry receipts in one transaction, serialize
+  direct conversation creation, rollback incomplete groups, enforce owned acknowledgements,
+  paginate backlog and limit media reads/responses, and serialize client delivery handling.
+- Local history: account-specific databases and unread state, verified legacy migration,
+  query-cache cleanup and cross-tab session-change reloads, encrypted history export/import,
+  persistent-storage requests and usage feedback.
+- Installation: add the ARM64 Pi OS installer, staged application updates with rollback,
+  automatic systemd startup, additive database setup and readiness checks. Use explicit
+  bigint IDs instead of serial declarations that generated invalid MariaDB DDL.
+- Validation: add browser-storage, backup and MariaDB tests plus CI.
 
 ## Existing implementation
 
@@ -34,15 +43,16 @@ verified in this environment.
 
 ## Prioritized remaining work
 
-1. **Local data safety:** history is plaintext in IndexedDB and is shared across
-   accounts on the same browser origin. Scope archives/unread state per account,
-   implement export/import, request persistent storage, and expose storage status.
-   Account changes must also reset React Query caches.
-2. **Delivery integrity:** queue rows are per account, not per device. The first
-   device to acknowledge can remove another device's backlog. Use device identities
-   and acknowledgements or explicitly support one active device per account.
-   Sending and conversation creation need database transactions. The 500-message
-   sync limit can strand later messages behind undecryptable queued messages.
+1. **Local data safety:** IndexedDB archives are still plaintext at rest. Backup files
+   are encrypted, but password recovery for them is impossible. Backups are currently
+   limited to 50 MB and the same account/server origin; add larger/portable archives.
+   Account scoping prevents accidental mixing, not access by someone who controls the
+   browser profile. Legacy data remains in place for recovery.
+2. **Device delivery and durable outbox:** acknowledgements are still per account;
+   multiple devices may miss messages when another acknowledges first. Pending sends
+   and their retry IDs currently live in memory, not a durable outbox. Explicit retries
+   within a running page are deduplicated for seven days. Add device identities,
+   per-device delivery or enforced single-active-device sessions, and a persistent outbox.
 3. **Key lifecycle:** pin verified public keys, warn on changes, invalidate cached
    keys, and implement group-key rotation. The current identity-reset option can
    wrap a new key with a password different from the account's login password.
@@ -54,8 +64,8 @@ verified in this environment.
    states, visible send failures, archive management, and optional push notifications.
    SSE only receives messages while the app page runs; mobile background delivery
    requires a separate push design that does not expose message content.
-6. **Operations:** automated MariaDB integration tests, repeatable schema migrations,
-   database readiness checks, encrypted metadata backups, and real Android/iOS QA.
+6. **Operations:** physical Raspberry Pi/systemd testing, real Android/iOS QA,
+   encrypted metadata backups, and formal migration tracking for future schema revisions.
 
 ## Encryption limits
 
@@ -66,12 +76,22 @@ and independent fingerprint verification. Generated identity keys are extractabl
 for backup; restored private keys are non-extractable. Local archive encryption at
 rest is not implemented.
 
-The old internal crypto salts and IndexedDB name remain solely to preserve existing
-data. Renaming these blindly would break decryption or hide previous history.
+Old crypto salts remain to preserve decryption compatibility. The old IndexedDB
+archive is only read for a membership-filtered migration to account-specific databases;
+it is not deleted. Renaming crypto salts blindly would break existing ciphertext.
 
 ## Validation
 
-Clean npm install, production build, TypeScript checks, and three encryption tests
-pass. ESLint has no errors, with development fast-refresh warnings for shared exports.
-HTTP smoke checks cover health, UI, SPA routes, and unknown API routes. MariaDB,
-Raspberry Pi ARM execution, and physical phone/browser behavior were not tested.
+Production builds and TypeScript checks pass. ESLint has no errors, with development
+fast-refresh warnings for shared exports. Unit tests cover direct/group encryption,
+identity backups, encrypted history backups, account isolation, legacy migration,
+concurrent IndexedDB deduplication, and import merging. MariaDB 10.11 integration
+checks registration/login, concurrent direct-chat creation, encrypted delivery,
+authorization, acknowledgement cleanup, retries after deletion, rollback on failed
+delivery/group insertion, >500-message pagination, media response budgets, and
+additive upgrade preservation.
+
+The Pi installer passes Bash syntax/help checks; it has not run on physical ARM64
+hardware or systemd here. Browser automation could not run here because the Chromium download was unavailable;
+physical Android/iOS QA remains outstanding. This is the reliability/storage/deployment foundation, not a finished public
+release: PWA/background delivery and abuse controls remain follow-up work.

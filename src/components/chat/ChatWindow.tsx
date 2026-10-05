@@ -231,6 +231,7 @@ function MessageBubble({
             <span className={`micro-label ${mine ? "text-primary-foreground/70" : ""}`}>
               {timeLabel(m.createdAt)}
             </span>
+            {mine && !m.failed && <span className="text-[10px] text-primary-foreground/70">{m.pending ? "Sending…" : "Sent"}</span>}
             {m.failed && m.tempId && (
               <button
                 type="button"

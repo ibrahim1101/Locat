@@ -1,7 +1,6 @@
 import {
   mysqlTable,
   mysqlEnum,
-  serial,
   bigint,
   varchar,
   text,
@@ -16,7 +15,7 @@ import {
 // backup (wrapped with a key derived from the user's password client-side).
 // The server can never read the private key.
 export const users = mysqlTable("users", {
-  id: serial("id").primaryKey(),
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
   username: varchar("username", { length: 64 }).notNull().unique(),
   displayName: varchar("display_name", { length: 128 }).notNull(),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
@@ -32,7 +31,7 @@ export const users = mysqlTable("users", {
 export const sessions = mysqlTable(
   "sessions",
   {
-    id: serial("id").primaryKey(),
+    id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
     token: varchar("token", { length: 128 }).notNull().unique(),
     userId: bigint("user_id", { mode: "number", unsigned: true })
       .notNull()
@@ -45,7 +44,7 @@ export const sessions = mysqlTable(
 
 // ─── Conversations ───────────────────────────────────────────────────────────
 export const conversations = mysqlTable("conversations", {
-  id: serial("id").primaryKey(),
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
   type: mysqlEnum("type", ["direct", "group"]).notNull(),
   name: varchar("name", { length: 128 }),
   createdBy: bigint("created_by", { mode: "number", unsigned: true })
@@ -57,7 +56,7 @@ export const conversations = mysqlTable("conversations", {
 export const conversationMembers = mysqlTable(
   "conversation_members",
   {
-    id: serial("id").primaryKey(),
+    id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
     conversationId: bigint("conversation_id", { mode: "number", unsigned: true })
       .notNull()
       .references(() => conversations.id, { onDelete: "cascade" }),
@@ -83,7 +82,7 @@ export const conversationMembers = mysqlTable(
 export const messages = mysqlTable(
   "messages",
   {
-    id: serial("id").primaryKey(),
+    id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
     conversationId: bigint("conversation_id", { mode: "number", unsigned: true })
       .notNull()
       .references(() => conversations.id, { onDelete: "cascade" }),
@@ -91,15 +90,19 @@ export const messages = mysqlTable(
       .notNull()
       .references(() => users.id),
     envelope: mediumtext("envelope").notNull(),
+    clientMessageId: varchar("client_message_id", { length: 36 }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [index("messages_conv_idx").on(t.conversationId)],
+  (t) => [
+    index("messages_conv_idx").on(t.conversationId),
+    uniqueIndex("messages_sender_client_unique").on(t.senderId, t.clientMessageId),
+  ],
 );
 
 export const messageDeliveries = mysqlTable(
   "message_deliveries",
   {
-    id: serial("id").primaryKey(),
+    id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
     messageId: bigint("message_id", { mode: "number", unsigned: true })
       .notNull()
       .references(() => messages.id, { onDelete: "cascade" }),
@@ -120,3 +123,16 @@ export type Conversation = typeof conversations.$inferSelect;
 export type ConversationMember = typeof conversationMembers.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type MessageDelivery = typeof messageDeliveries.$inferSelect;
+
+// Retry receipts contain metadata only; retained for seven days after sending.
+export const sendReceipts = mysqlTable("send_receipts", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  senderId: bigint("sender_id", { mode: "number", unsigned: true }).notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  clientMessageId: varchar("client_message_id", { length: 36 }).notNull(),
+  messageId: bigint("message_id", { mode: "number", unsigned: true }).notNull(),
+  conversationId: bigint("conversation_id", { mode: "number", unsigned: true }).notNull(),
+  envelopeHash: varchar("envelope_hash", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").notNull(),
+}, (t) => [uniqueIndex("receipt_sender_client_unique").on(t.senderId, t.clientMessageId),
+  index("receipt_created_idx").on(t.createdAt)]);

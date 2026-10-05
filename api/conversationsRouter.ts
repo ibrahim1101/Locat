@@ -72,42 +72,28 @@ export const conversationsRouter = createRouter({
       });
       if (!other) throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
 
-      // find an existing direct conversation shared by both users
-      const myMemberships = await db
-        .select()
-        .from(conversationMembers)
-        .where(eq(conversationMembers.userId, me));
-      const myConvIds = myMemberships.map((m) => m.conversationId);
-      if (myConvIds.length > 0) {
-        const shared = await db
-          .select({ conversationId: conversationMembers.conversationId })
-          .from(conversationMembers)
-          .where(
-            and(
-              eq(conversationMembers.userId, input.userId),
-              inArray(conversationMembers.conversationId, myConvIds),
-            ),
-          );
-        for (const s of shared) {
-          const conv = await db.query.conversations.findFirst({
-            where: and(
-              eq(conversations.id, s.conversationId),
-              eq(conversations.type, "direct"),
-            ),
-          });
-          if (conv) return { conversationId: conv.id, created: false };
+      return db.transaction(async (tx) => {
+        // Lock the same user row for both directions of this pair, so simultaneous
+        // creation requests cannot both miss the existing conversation.
+        await tx.select({ id: users.id }).from(users)
+          .where(eq(users.id, Math.min(me, input.userId))).for("update");
+        const mine = await tx.select().from(conversationMembers)
+          .where(eq(conversationMembers.userId, me));
+        const convIds = mine.map((m) => m.conversationId);
+        if (convIds.length > 0) {
+          const shared = await tx.select({ id: conversations.id }).from(conversationMembers)
+            .innerJoin(conversations, eq(conversationMembers.conversationId, conversations.id))
+            .where(and(eq(conversationMembers.userId, input.userId),
+              inArray(conversations.id, convIds), eq(conversations.type, "direct"))).limit(1);
+          if (shared[0]) return { conversationId: shared[0].id, created: false };
         }
-      }
-
-      const [{ id }] = await db
-        .insert(conversations)
-        .values({ type: "direct", createdBy: me })
-        .$returningId();
-      await db.insert(conversationMembers).values([
-        { conversationId: id, userId: me },
-        { conversationId: id, userId: input.userId },
-      ]);
-      return { conversationId: id, created: true };
+        const [{ id }] = await tx.insert(conversations)
+          .values({ type: "direct", createdBy: me }).$returningId();
+        await tx.insert(conversationMembers).values([
+          { conversationId: id, userId: me }, { conversationId: id, userId: input.userId },
+        ]);
+        return { conversationId: id, created: true };
+      });
     }),
 
   /**
@@ -152,18 +138,14 @@ export const conversationsRouter = createRouter({
         }
       }
 
-      const [{ id: convId }] = await db
-        .insert(conversations)
-        .values({ type: "group", name: input.name, createdBy: me })
-        .$returningId();
-      await db.insert(conversationMembers).values(
-        memberIds.map((userId) => ({
-          conversationId: convId,
-          userId,
-          wrappedKey: wrapped.get(userId)!,
-          wrappedBy: me,
-        })),
-      );
+      const convId = await db.transaction(async (tx) => {
+        const [{ id }] = await tx.insert(conversations)
+          .values({ type: "group", name: input.name, createdBy: me }).$returningId();
+        await tx.insert(conversationMembers).values(memberIds.map((userId) => ({
+          conversationId: id, userId, wrappedKey: wrapped.get(userId)!, wrappedBy: me,
+        })));
+        return id;
+      });
       return { conversationId: convId };
     }),
 });

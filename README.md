@@ -25,77 +25,55 @@ dumb relay. Built to run on a Raspberry Pi.
 - **Verify contacts** — the shield icon shows key fingerprints ("safety numbers") to
   compare out-of-band.
 
-## Run it on a Raspberry Pi
-
-### 1. Prerequisites (Raspberry Pi OS 64-bit)
+## Install on Raspberry Pi (64-bit OS Lite supported)
 
 ```bash
-# Node.js 22.12+ (64-bit)
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
-sudo apt install -y nodejs mariadb-server git
-
-# database
-sudo mysql -e "CREATE DATABASE locat; CREATE USER 'locat'@'localhost' IDENTIFIED BY 'pick-a-strong-password'; GRANT ALL ON locat.* TO 'locat'@'localhost';"
-```
-
-### 2. Deploy the code
-
-Clone the project on the Pi:
-
-```bash
+sudo apt update
+sudo apt install -y git
 git clone https://github.com/ibrahim1101/Locat.git
 cd Locat
-npm ci
-
-cat > .env <<EOF
-DATABASE_URL=mysql://locat:pick-a-strong-password@localhost:3306/locat
-NODE_ENV=production
-PORT=3000
-EOF
-
-npm run db:push   # create tables
-npm run build
-npm start         # serves UI + API on :3000
+sudo bash scripts/install-pi.sh
 ```
 
-### 3. Run as a service
+The installer handles Node, MariaDB, database credentials, schema setup, builds,
+service installation, and safe application updates. For an existing installation,
+copy your old `.env` to `/opt/locat/.env` first so your database is preserved.
+
+**Next, configure HTTPS** using [the Raspberry Pi guide](docs/RASPBERRY_PI.md).
+The server listens on loopback by default; use Tailscale Serve for private access
+or Caddy with a domain for public access. Phone browsers require HTTPS to encrypt
+messages. Share the resulting HTTPS URL with people who should use Locat.
+
+## Development / manual deployment
+
+Use Node 22.12+ (or Node 24+) and a MySQL/MariaDB database:
 
 ```bash
-sudo tee /etc/systemd/system/locat.service <<EOF
-[Unit]
-Description=Locat
-After=network-online.target mariadb.service
-
-[Service]
-# Replace pi with your actual Raspberry Pi username and path.
-User=pi
-WorkingDirectory=/home/pi/Locat
-ExecStart=/usr/bin/npm start
-Restart=always
-Environment=NODE_ENV=production
-
-[Install]
-WantedBy=multi-user.target
-EOF
-sudo systemctl enable --now locat
+npm ci
+cp .env.example .env
+# Edit DATABASE_URL in .env to use your database and credentials.
+npm run db:setup
+npm run dev
 ```
 
-### 4. HTTPS — **required, not optional**
+For production: `npm run build && npm start`, with an HTTPS reverse proxy pointing
+to the configured HOST/PORT. `npm run db:setup` is an additive, repeatable bootstrap
+for new and original Locat databases; it does not drop or truncate tables.
 
-WebCrypto (the browser encryption API) only works in a **secure context**.
-`http://pi.local:3000` will not work outside localhost. Pick one:
+## History and delivery
 
-- **Tailscale (easiest, free):** `sudo apt install tailscale && sudo tailscale up`,
-  then `sudo tailscale serve --bg 3000` → you get `https://<pi>.<tailnet>.ts.net`,
-  reachable from your phone/laptop anywhere, end-to-end encrypted by WireGuard.
-- **Caddy + a domain:** point a DNS record at your home IP, forward ports 80/443,
-  `caddy reverse-proxy --from chat.example.com --to localhost:3000` — automatic
-  Let's Encrypt certificates.
-
-### 5. Invite people
-
-Share the HTTPS URL. Everyone creates an account (username + password) — the user
-directory lets them find each other by name.
+- Account-specific IndexedDB archives prevent history/unread state mixing when
+  switching accounts on a shared browser. This is not encryption at rest.
+- The gear button opens **History & backups**: export/import password-encrypted
+  history files and request persistent browser storage. Backups are limited to
+  50 MB and bound to the same account and server origin. Identity keys are restored
+  separately by signing in. Keep regular backups before changing phones.
+- Sending commits the envelope, recipient deliveries, and retry receipt together.
+  Retrying the same send uses the same message ID, including after acknowledgement
+  has removed the transient envelope. Metadata-only retry receipts last seven days
+  and are cleaned up on subsequent sends; they contain no message plaintext.
+- Offline sync uses cursor pages and a response-size budget. An unreadable envelope
+  does not block fetching later pages. Reconnecting or foregrounding resumes sync.
 
 ## Honest limitations (v1)
 
@@ -116,15 +94,16 @@ directory lets them find each other by name.
   access Locat from a browser on your phone.
 - Copy `.env.example` to `.env` and set the real database credentials. No APP_ID or
   APP_SECRET is needed; authentication uses database-backed opaque sessions.
-- Run `npm run db:push` before starting. `db:migrate` is only for generated migrations;
-  this repository does not ship an initial migration history.
+- Run `npm run db:setup` before starting. Use the additive bootstrap for existing
+  databases; do not apply the initial migration over tables created by db:push.
 - URL-encode special characters in the password in DATABASE_URL.
 - Check `curl http://localhost:3000/api/health`, then `journalctl -u locat -n 100`.
-  The health endpoint checks the HTTP process, not database readiness.
+  `/api/ready` separately checks database connectivity and schema readiness.
 - An HTTP Pi LAN address cannot use browser encryption. Use HTTPS on the phone.
 - If upgrading from an earlier deployment, keep your existing database URL. Do not
   create an empty replacement database or clear browser storage just for a rename.
-  Internal legacy crypto salts and IndexedDB identifiers are retained for compatibility.
+  Legacy crypto salts are retained, and legacy history is copied only for verified
+  memberships into account-specific storage; the original archive is left intact.
 
 ## Mobile behavior and next work
 
@@ -133,7 +112,19 @@ PWA or a native app. Receiving messages requires the page to be open; there are 
 background push notifications. Clearing site data removes local history. IndexedDB
 is local storage, not an encrypted-at-rest archive.
 
-Before a wider release: implement archive export/import, account-scoped local
-storage, persistent-storage requests, device-specific acknowledgements, bounded
-queue retention, authentication rate limits, transactional conversation/message
-creation, pinned contact keys and key-change handling, and group-key rotation.
+Before a wider release: implement device-specific acknowledgements, bounded queue
+retention, authentication rate limits, pinned contact keys/key-change handling,
+group-key rotation, offline installation, and push notifications. See
+[the current review](docs/REVIEW.md) for limits and next work.
+
+## Tests
+
+`npm test`, `npm run check`, `npm run lint`, and `npm run build` run local checks.
+Database integration tests are opt-in locally and run in CI with MariaDB 10.11:
+
+```bash
+TEST_DATABASE_URL=mysql://user:password@127.0.0.1:3306/locat_test npm test
+```
+
+**The integration suite drops tables in the specified database.** Use a disposable
+schema whose name ends with `_test`, never your real Locat database.

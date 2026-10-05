@@ -14,7 +14,8 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "db:setup": "node scripts/setup-db.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "2.0.78",
@@ -90,6 +91,7 @@
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
+    "fake-indexeddb": "^6.2.5",
     "globals": "^16.5.0",
     "postcss": "^8.5.6",
     "prettier": "^3.7.4",
