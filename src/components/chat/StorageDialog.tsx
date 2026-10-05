@@ -1,3 +1,4 @@
+import { Notifications } from "./Notifications";
 import { Preferences } from "./Preferences";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -45,6 +46,7 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
         <DialogDescription>Your chat history lives on this device. Keep a backup before clearing browser data or changing phones.</DialogDescription>
       </DialogHeader>
       <Preferences />
+      <Notifications />
       <p className="text-xs text-secondary">One active login per account. Signing in on another device ends this session; saved history stays here.</p>
       <p className="text-sm text-secondary">{storage}</p>
       <Button variant="outline" disabled={busy} onClick={() => void perform(async () => {

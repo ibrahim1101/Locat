@@ -91,8 +91,12 @@ try {
         command === "disable",
         user.id,
       ]);
-    if (["disable", "revoke-sessions", "revoke-admin"].includes(command))
+    if (["disable", "revoke-sessions", "revoke-admin"].includes(command)) {
+      await db.query("DELETE FROM push_subscriptions WHERE user_id = ?", [
+        user.id,
+      ]);
       await db.query("DELETE FROM sessions WHERE user_id = ?", [user.id]);
+    }
     if (!["grant-admin", "revoke-admin"].includes(command))
       await db.query(
         "INSERT INTO admin_audit(actor_id, action, target_id) VALUES (0, ?, ?)",

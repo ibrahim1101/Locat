@@ -141,9 +141,17 @@ Contact public keys are pinned on first use; changed keys block encryption/decry
 - [Server account administration and backups](docs/SERVER_ADMIN.md)
 - [Windows/macOS/Linux hosting](docs/CROSS_PLATFORM.md)
 
-Still planned: true background push, per-device queues, group membership changes with key rotation/history, encrypted voice/files, structured reactions, advanced media controls, native packages, and calling infrastructure. These are not claimed as shipped in this batch.
+Still planned: per-device queues, encrypted voice/files, structured reactions, advanced media controls, native packages, and calling infrastructure. Push delivery and the new group UI require physical-device QA.
 
 
 ### Browser administration
 
 Locat now has an administrator dashboard at `/admin`: account controls, session revocation, server statistics, encrypted metadata downloads, cleanup, and action history. Grant an existing account with `npm run admin -- grant-admin USERNAME` on the server. Admin roles are never granted through registration or the browser. See [server administration](docs/SERVER_ADMIN.md) for Pi commands and backup recovery.
+
+### Background notifications
+
+Optional Web Push alerts are available in Settings once the server's VAPID keys are configured. Alerts contain no message previews or contact names and are bound to the active login. See [notification setup](docs/NOTIFICATIONS.md). Real phone/browser delivery still needs testing after configuration.
+
+### Secure group management
+
+Group details now supports owner-controlled name/member changes, fresh key versions, ownership transfer, and leaving. Removing a member rotates the encryption key; leaving pauses sending until the owner rotates it. Historical wrapped keys let remaining members unlock older queued messages. Departed conversations stay locally archived. See [group behavior and upgrade notes](docs/GROUPS.md).

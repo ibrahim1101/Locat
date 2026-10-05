@@ -1,3 +1,4 @@
+import { notifyUsers } from "./push";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -7,6 +8,7 @@ import { eq, and, asc, gt, lt, inArray, sql } from "drizzle-orm";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import {
+  conversations,
   conversationMembers,
   messages,
   messageDeliveries,
@@ -72,6 +74,14 @@ export const messagesRouter = createRouter({
       limit(`send:${me}`, 1200, 60000);
       // Commit the envelope and every delivery together. Never publish before commit.
       const { messageId, recipients, deliveryIds, createdAt } = await db.transaction(async (tx) => {
+        const [conversation] = await tx.select().from(conversations).where(eq(conversations.id,input.conversationId)).for("update");
+        const [membership] = await tx.select({id:conversationMembers.id}).from(conversationMembers).where(and(eq(conversationMembers.conversationId,input.conversationId),eq(conversationMembers.userId,me)));
+        if(!conversation || !membership) throw new TRPCError({code:"FORBIDDEN",message:"Not a member"});
+        if(conversation.type === "group") {
+          let epoch = 1;
+          try { epoch = JSON.parse(input.envelope).groupEpoch ?? 1; } catch { throw new TRPCError({code:"BAD_REQUEST",message:"Invalid group envelope"}); }
+          if(conversation.rotationRequired || epoch !== conversation.groupEpoch) throw new TRPCError({code:"PRECONDITION_FAILED",message:"Group encryption changed. Refresh and retry after the owner rotates the key."});
+        }
         await tx.select({ id: users.id }).from(users).where(eq(users.id, me)).for("update");
         const [queued] = await tx.select({ bytes: sql<number>`COALESCE(SUM(OCTET_LENGTH(${messages.envelope})), 0)` }).from(messages).where(eq(messages.senderId, me));
         if (Number(queued.bytes) + Buffer.byteLength(input.envelope) > 100_000_000) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Your undelivered queue is full. Wait for recipients to connect." });
@@ -117,6 +127,7 @@ export const messagesRouter = createRouter({
         emitToUsers([recipientId], event);
       }
 
+      void notifyUsers(recipients.filter(id => id !== me)).catch(() => {});
       return { messageId, createdAt };
     }),
 

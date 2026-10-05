@@ -6,7 +6,7 @@ export const MAX_BACKUP_BYTES = 50 * 1024 * 1024;
 const base64 = z.string().regex(/^[A-Za-z0-9+/]*={0,2}$/);
 export const messagePayloadSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("text"), text: z.string().max(1_000_000) }),
-  z.object({ type: z.literal("image"), mime: z.string().regex(/^image\/[a-zA-Z0-9.+-]+$/),
+  z.object({ type: z.literal("image"), mime: z.enum(["image/jpeg","image/png","image/webp","image/gif","image/avif"]),
     name: z.string().max(1024), dataB64: base64.max(6_000_000) }),
 ]);
 const messageSchema = z.object({

@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { openDB } from "idb";
 import { beforeEach, describe, expect, it } from "vitest";
-import { allMessages, savePending, pendingMessages, completePending, deleteLocalMessage, importMessages, kvGet, kvSet, migrateLegacyHistory, storeMessage, wipeAll } from "./localdb";
+import { allMessages, cacheConversations, cachedConversations, savePending, pendingMessages, completePending, deleteLocalMessage, importMessages, kvGet, kvSet, migrateLegacyHistory, storeMessage, wipeAll } from "./localdb";
 import type { LocalMessage } from "./localdb";
 
 const message: LocalMessage = { mid: 7, conversationId: 10, senderId: 1,
@@ -60,5 +60,18 @@ describe("durable outbox", () => {
     expect(await pendingMessages(1)).toEqual([]);
     await deleteLocalMessage(1, message.mid);
     expect(await allMessages(1)).toEqual([]);
+  });
+});
+
+
+describe("archived memberships",()=>{
+  it("retains local conversation metadata when membership ends",async()=>{
+    const conversation={id:10,type:"group" as const,name:"Saved group",createdAt:new Date(1000),members:[],wrappedKey:null,wrappedBy:null};
+    await cacheConversations(1,[conversation]);
+    await cacheConversations(1,[]);
+    expect(await cachedConversations(1)).toEqual([{...conversation,archived:true}]);
+    expect(await cachedConversations(2)).toEqual([]);
+    await cacheConversations(1,[conversation]);
+    expect((await cachedConversations(1))[0].archived).toBe(false);
   });
 });

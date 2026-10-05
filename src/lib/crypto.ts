@@ -225,7 +225,7 @@ export async function imageToPayload(file: File): Promise<MessagePayload> {
 }
 
 export function imageUrl(payload: MessagePayload): string | null {
-  if (payload.type !== "image") return null;
+  if (payload.type !== "image" || !["image/jpeg","image/png","image/webp","image/gif","image/avif"].includes(payload.mime)) return null;
   const blob = new Blob([b64decode(payload.dataB64) as BlobPart], { type: payload.mime });
   return URL.createObjectURL(blob);
 }

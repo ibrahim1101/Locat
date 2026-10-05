@@ -1,6 +1,7 @@
 import {
   mysqlTable,
   boolean,
+  int,
   mysqlEnum,
   bigint,
   varchar,
@@ -49,6 +50,8 @@ export const sessions = mysqlTable(
 export const conversations = mysqlTable("conversations", {
   id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
   type: mysqlEnum("type", ["direct", "group"]).notNull(),
+  groupEpoch: int("group_epoch").notNull().default(1),
+  rotationRequired: boolean("rotation_required").notNull().default(false),
   name: varchar("name", { length: 128 }),
   createdBy: bigint("created_by", { mode: "number", unsigned: true })
     .notNull()
@@ -147,3 +150,23 @@ export const adminAudit = mysqlTable("admin_audit", {
   targetId: bigint("target_id", { mode: "number", unsigned: true }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const pushSubscriptions = mysqlTable("push_subscriptions", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  sessionToken: varchar("session_token", { length: 128 }).notNull(),
+  endpointHash: varchar("endpoint_hash", { length: 64 }).notNull().unique(),
+  endpoint: text("endpoint").notNull(),
+  p256dh: varchar("p256dh", { length: 128 }).notNull(),
+  auth: varchar("auth", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const groupKeys = mysqlTable("group_keys", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  conversationId: bigint("conversation_id", { mode: "number", unsigned: true }).notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  epoch: int("epoch").notNull(),
+  wrappedKey: text("wrapped_key").notNull(),
+  wrapperPublicKey: text("wrapper_public_key").notNull(),
+}, t => [uniqueIndex("group_key_user_epoch_unique").on(t.conversationId,t.userId,t.epoch)]);

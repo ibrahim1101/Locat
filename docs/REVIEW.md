@@ -106,3 +106,11 @@ Validation: TypeScript/build/lint and MariaDB integration pass locally. Phone ke
 ## Browser administration batch
 
 Added explicit server-granted admin roles, fresh authorization checks on every admin operation, paginated public-safe account/audit lists, password-confirmed account actions/cleanup/backups, host/database statistics, encrypted metadata export, and transactional empty-database restoration. Roles cannot be granted from the GUI; administrator accounts cannot be disabled through GUI controls. Private network access remains an operator responsibility. Action history is not tamper-proof. Browser visual QA is still required on actual devices.
+
+## Push and group management batch
+
+Implemented opt-in session-bound Web Push, generic alerts, provider destination allowlisting, local account checks in the service worker, key setup without printing secrets, and subscription revocation/cleanup. Push delivery still needs real-device testing with configured VAPID keys.
+
+Implemented group-owner member/name controls, ownership transfer, leave, encrypted key versions with wrapper public-key snapshots, historical key access scoped to current members, fresh keys for membership changes, and sending pauses after voluntary departure. Transactions lock group state against sends; removed queued deliveries are deleted. Archived local metadata preserves readable departed histories. Metadata backups/restores include key versions. These controls cannot revoke previously downloaded copies or provide forward secrecy.
+
+Validation for this batch: 27 unit/MariaDB integration tests pass, including actual group-key wrapping/decryption across membership changes, historical key restrictions, archived metadata, and encrypted metadata recovery. Service-worker checks verify generic notifications and suppression after sign-out/account mismatch. Production dependency audit reports zero vulnerabilities. Pi push-key setup writes protected configuration and refuses accidental key replacement. Physical phone notification delivery and group UI layout remain unverified.

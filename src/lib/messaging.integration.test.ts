@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import mysql, { type Connection, type RowDataPacket } from "mysql2/promise";
 import { spawnSync } from "node:child_process";
 import { eq } from "drizzle-orm";
-import { generateIdentity, wrapPrivateKeyForBackup, deriveDirectKey, encryptPayload, decryptPayload } from "./crypto";
+import { generateIdentity, wrapPrivateKeyForBackup, deriveDirectKey, encryptPayload, decryptPayload, generateGroupKey, wrapGroupKey, unwrapGroupKey } from "./crypto";
 import type { appRouter as Router } from "../../api/router";
 import type { getDb as GetDb } from "../../api/queries/connection";
 import type * as Schema from "../../db/schema";
@@ -21,6 +21,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
   let conversationId: number;
   let envelope: string;
   let receivingKey: CryptoKey;
+  let identities: Awaited<ReturnType<typeof generateIdentity>>[];
 
   function setup() {
     const result = spawnSync(process.execPath, ["scripts/setup-db.mjs"], {
@@ -39,7 +40,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     process.env.DATABASE_URL = databaseUrl;
     connection = await mysql.createConnection(databaseUrl!);
     await connection.query("SET FOREIGN_KEY_CHECKS=0");
-    for (const table of ["admin_audit", "send_receipts", "message_deliveries", "messages", "conversation_members", "conversations", "sessions", "users"]) {
+    for (const table of ["group_keys", "push_subscriptions", "admin_audit", "send_receipts", "message_deliveries", "messages", "conversation_members", "conversations", "sessions", "users"]) {
       await connection.query(`DROP TABLE IF EXISTS ${table}`);
     }
     await connection.query("SET FOREIGN_KEY_CHECKS=1");
@@ -48,7 +49,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     schema = await import("../../db/schema");
     db = (await import("../../api/queries/connection")).getDb();
     const publicCaller = router.createCaller({ req: new Request("http://localhost"), resHeaders: new Headers() });
-    const identities = await Promise.all([generateIdentity(), generateIdentity(), generateIdentity()]);
+    identities = await Promise.all([generateIdentity(), generateIdentity(), generateIdentity()]);
     const callers = [];
     for (const [index, username] of ["alice", "bob", "outsider"].entries()) {
       const keys = identities[index];
@@ -196,6 +197,68 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
       expect(await count("conversations")).toBe(before);
     } finally { await connection.query("DROP TRIGGER locat_test_fail_membership"); }
   });
+  it("rotates group keys, retains historical access, and revokes removed members", async () => {
+    const [third]=await db.select().from(schema.users).where(eq(schema.users.username,"outsider"));
+    const thirdId=third.id;
+    const all=[aliceId,bobId,thirdId];
+    const wrap=async(key:CryptoKey, ids:number[], wrapper=0)=>Promise.all(ids.map(async id=>({userId:id,publicKey:identities[all.indexOf(id)].publicKeyB64,wrappedKey:await wrapGroupKey(key,identities[wrapper].privateKey,identities[all.indexOf(id)].publicKeyB64)})));
+    const firstKey=await generateGroupKey();
+    const created=await alice.conversations.createGroup({name:"Rotation test",memberIds:[bobId],wrappedKeys:await wrap(firstKey,[aliceId,bobId])});
+    const id=created.conversationId;
+    const envelopeFor=async(key:CryptoKey,epoch:number)=>JSON.stringify({...JSON.parse(await encryptPayload(key,{type:"text",text:`epoch ${epoch}`})),groupEpoch:epoch});
+    const first=await alice.messages.send({conversationId:id,envelope:await envelopeFor(firstKey,1),clientMessageId:crypto.randomUUID()});
+    const secondKey=await generateGroupKey();
+    await expect(bob.conversations.updateGroup({conversationId:id,expectedEpoch:1,name:"No",memberIds:[aliceId,bobId],wrappedKeys:await wrap(secondKey,[aliceId,bobId])})).rejects.toThrow("owner");
+    await alice.conversations.updateGroup({conversationId:id,expectedEpoch:1,name:"With third",memberIds:all,wrappedKeys:await wrap(secondKey,all)});
+    const historical=await bob.conversations.groupKey({conversationId:id,epoch:1});
+    const oldKey=await unwrapGroupKey(historical.wrappedKey,identities[1].privateKey,historical.wrapperPublicKey);
+    const backlog=(await bob.messages.sync({after:first.messageId-1})).items.find(m=>m.messageId===first.messageId)!;
+    expect(await decryptPayload(oldKey,backlog.envelope)).toEqual({type:"text",text:"epoch 1"});
+    await expect(outsider.conversations.groupKey({conversationId:id,epoch:1})).rejects.toThrow("no key");
+    const thirdKey=await generateGroupKey();
+    await alice.conversations.updateGroup({conversationId:id,expectedEpoch:2,name:"Bob removed",memberIds:[aliceId,thirdId],wrappedKeys:await wrap(thirdKey,[aliceId,thirdId])});
+    await expect(bob.conversations.groupKey({conversationId:id,epoch:1})).rejects.toThrow();
+    expect((await bob.messages.sync({after:first.messageId-1})).items.filter(m=>m.conversationId===id)).toHaveLength(0);
+    await expect(bob.messages.send({conversationId:id,envelope:await envelopeFor(thirdKey,3),clientMessageId:crypto.randomUUID()})).rejects.toThrow("Not a member");
+    await expect(alice.messages.send({conversationId:id,envelope:await envelopeFor(secondKey,2),clientMessageId:crypto.randomUUID()})).rejects.toThrow("encryption changed");
+    const future=await alice.messages.send({conversationId:id,envelope:await envelopeFor(thirdKey,3),clientMessageId:crypto.randomUUID()});
+    const wrapped=await outsider.conversations.groupKey({conversationId:id,epoch:3});
+    const receiving=await unwrapGroupKey(wrapped.wrappedKey,identities[2].privateKey,wrapped.wrapperPublicKey);
+    expect(await decryptPayload(receiving,(await outsider.messages.sync({after:future.messageId-1})).items.find(m=>m.messageId===future.messageId)!.envelope)).toEqual({type:"text",text:"epoch 3"});
+    await expect(alice.conversations.leaveGroup({conversationId:id})).rejects.toThrow("Transfer ownership");
+    await alice.conversations.transferGroup({conversationId:id,ownerId:thirdId});
+    await alice.conversations.leaveGroup({conversationId:id});
+    await expect(outsider.messages.send({conversationId:id,envelope:await envelopeFor(thirdKey,3),clientMessageId:crypto.randomUUID()})).rejects.toThrow("encryption changed");
+    const fourthKey=await generateGroupKey();
+    await outsider.conversations.updateGroup({conversationId:id,expectedEpoch:3,name:"Remaining owner",memberIds:[thirdId],wrappedKeys:await wrap(fourthKey,[thirdId],2)});
+    expect((await outsider.conversations.list()).find(c=>c.id===id)?.rotationRequired).toBe(false);
+    await outsider.messages.send({conversationId:id,envelope:await envelopeFor(fourthKey,4),clientMessageId:crypto.randomUUID()});
+    await expect(alice.conversations.groupKey({conversationId:id,epoch:4})).rejects.toThrow();
+    const closingKey=await generateGroupKey();
+    const closing=await alice.conversations.createGroup({name:"Close test",memberIds:[bobId],wrappedKeys:await wrap(closingKey,[aliceId,bobId])});
+    await alice.conversations.updateGroup({conversationId:closing.conversationId,expectedEpoch:1,name:"Only owner",memberIds:[aliceId],wrappedKeys:await wrap(await generateGroupKey(),[aliceId])});
+    await alice.conversations.leaveGroup({conversationId:closing.conversationId});
+    expect((await alice.conversations.list()).some(c=>c.id===closing.conversationId)).toBe(false);
+  }, 20000);
+
+  it("binds push subscriptions to the owning active session", async () => {
+    const webpush = (await import("web-push")).default;
+    const keys = webpush.generateVAPIDKeys();
+    process.env.VAPID_PUBLIC_KEY = keys.publicKey; process.env.VAPID_PRIVATE_KEY = keys.privateKey; process.env.VAPID_SUBJECT = "mailto:test@example.com";
+    const user = await db.query.users.findFirst({ where:eq(schema.users.id,aliceId) });
+    const login = await alice.auth.login({ username:"alice", password:"test-password-long" });
+    const signedIn = router.createCaller({ req:new Request("http://localhost"),resHeaders:new Headers(),user,sessionToken:login.token });
+    const input = { endpoint:"https://fcm.googleapis.com/fcm/send/locat-test",keys:{ p256dh:keys.publicKey, auth:Buffer.alloc(16,1).toString("base64url") } };
+    await signedIn.push.subscribe(input); await signedIn.push.subscribe(input);
+    expect(await count("push_subscriptions")).toBe(1);
+    await expect(bob.push.subscribe(input)).rejects.toThrow();
+    await expect(signedIn.push.subscribe({ ...input, endpoint:"https://127.0.0.1/private" })).rejects.toThrow();
+    await signedIn.push.unsubscribe(input); expect(await count("push_subscriptions")).toBe(0);
+    await signedIn.push.subscribe(input); await alice.auth.login({ username:"alice",password:"test-password-long" });
+    expect(await count("push_subscriptions")).toBe(0);
+    delete process.env.VAPID_PUBLIC_KEY; delete process.env.VAPID_PRIVATE_KEY; delete process.env.VAPID_SUBJECT;
+  });
+
   it("protects admin routes, audits account controls, and encrypts recoverable metadata", async () => {
     await expect(bob.admin.stats()).rejects.toThrow("Administrator");
     await db.update(schema.users).set({ isAdmin: true }).where(eq(schema.users.id, aliceId));
@@ -229,11 +292,12 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     try {
       expect(restore().stderr).toContain("target database is not empty");
       await connection.query("SET FOREIGN_KEY_CHECKS=0");
-      for(const table of ["admin_audit","message_deliveries","messages","send_receipts","sessions","conversation_members","conversations","users"]) await connection.query(`DELETE FROM ${table}`);
+      for(const table of ["group_keys","push_subscriptions","admin_audit","message_deliveries","messages","send_receipts","sessions","conversation_members","conversations","users"]) await connection.query(`DELETE FROM ${table}`);
       await connection.query("SET FOREIGN_KEY_CHECKS=1");
       const result = restore(); expect(result.status, result.stderr).toBe(0);
       expect(await count("users")).toBe(3);
       expect(await count("conversations")).toBe(metadata.conversations.length);
+      expect(await count("group_keys")).toBe(metadata.groupKeys.length);
       expect(await count("sessions")).toBe(0);
       const restored = await db.query.users.findFirst({ where:eq(schema.users.id,aliceId) });
       expect(restored!.isAdmin).toBe(true);

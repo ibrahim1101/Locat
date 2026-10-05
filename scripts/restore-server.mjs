@@ -68,6 +68,8 @@ const conversation = z.object({
   type: z.enum(["direct", "group"]),
   name: z.string().max(128).nullable(),
   createdBy: id,
+  groupEpoch: z.number().int().positive().default(1),
+  rotationRequired: z.boolean().default(false),
   createdAt: date,
 });
 const member = z.object({
@@ -85,6 +87,19 @@ const data = z
     accounts: z.array(account).max(10000),
     conversations: z.array(conversation).max(10000),
     members: z.array(member).max(100000),
+    groupKeys: z
+      .array(
+        z.object({
+          id,
+          conversationId: id,
+          userId: id,
+          epoch: z.number().int().positive(),
+          wrappedKey: z.string().max(16000),
+          wrapperPublicKey: z.string().max(16000),
+        })
+      )
+      .max(100000)
+      .default([]),
   })
   .parse(JSON.parse(plain.toString("utf8")));
 const db = await mysql.createConnection(process.env.DATABASE_URL);
@@ -96,6 +111,8 @@ try {
     "conversation_members",
     "messages",
     "sessions",
+    "group_keys",
+    "push_subscriptions",
   ]) {
     const [rows] = await db.query(`SELECT id FROM ${table} LIMIT 1 FOR UPDATE`);
     if (rows.length)
@@ -121,8 +138,16 @@ try {
     );
   for (const row of data.conversations)
     await db.query(
-      "INSERT INTO conversations (id,type,name,created_by,created_at) VALUES (?,?,?,?,?)",
-      [row.id, row.type, row.name, row.createdBy, row.createdAt]
+      "INSERT INTO conversations (id,type,name,created_by,created_at,group_epoch,rotation_required) VALUES (?,?,?,?,?,?,?)",
+      [
+        row.id,
+        row.type,
+        row.name,
+        row.createdBy,
+        row.createdAt,
+        row.groupEpoch,
+        row.rotationRequired,
+      ]
     );
   for (const row of data.members)
     await db.query(
@@ -136,6 +161,21 @@ try {
         row.joinedAt,
       ]
     );
+  for (const row of data.groupKeys)
+    await db.query(
+      "INSERT INTO group_keys (id,conversation_id,user_id,epoch,wrapped_key,wrapper_public_key) VALUES (?,?,?,?,?,?)",
+      [
+        row.id,
+        row.conversationId,
+        row.userId,
+        row.epoch,
+        row.wrappedKey,
+        row.wrapperPublicKey,
+      ]
+    );
+  await db.query(
+    "INSERT INTO group_keys (conversation_id,user_id,epoch,wrapped_key,wrapper_public_key) SELECT cm.conversation_id,cm.user_id,c.group_epoch,cm.wrapped_key,u.public_key FROM conversation_members cm JOIN conversations c ON c.id=cm.conversation_id JOIN users u ON u.id=cm.wrapped_by WHERE c.type='group' AND cm.wrapped_key IS NOT NULL AND NOT EXISTS (SELECT 1 FROM group_keys g WHERE g.conversation_id=c.id AND g.user_id=cm.user_id AND g.epoch=c.group_epoch)"
+  );
   await db.query(
     "INSERT INTO admin_audit (actor_id,action) VALUES (0,'metadata-restore')"
   );

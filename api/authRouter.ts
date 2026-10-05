@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { createRouter, publicQuery, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { users, sessions } from "@db/schema";
+import { users, sessions, pushSubscriptions } from "@db/schema";
 import { hashPassword, verifyPassword, newSessionToken } from "./crypto";
 import { sessionCookie } from "./context";
 
@@ -96,6 +96,7 @@ export const authRouter = createRouter({
       // Delivery is currently account-scoped. Keep one active login until per-device queues exist.
       await db.transaction(async (tx) => {
         await tx.select({ id: users.id }).from(users).where(eq(users.id, user.id)).for("update");
+        await tx.delete(pushSubscriptions).where(eq(pushSubscriptions.userId, user.id));
         await tx.delete(sessions).where(eq(sessions.userId, user.id));
         await tx.insert(sessions).values({ token, userId: user.id, expiresAt });
       });
@@ -119,6 +120,7 @@ export const authRouter = createRouter({
   logout: publicQuery.mutation(async ({ ctx }) => {
     const db = getDb();
     if (ctx.sessionToken) {
+      await db.delete(pushSubscriptions).where(eq(pushSubscriptions.sessionToken, ctx.sessionToken));
       await db.delete(sessions).where(eq(sessions.token, ctx.sessionToken));
     }
     ctx.resHeaders.append("Set-Cookie", sessionCookie("deleted", 0));

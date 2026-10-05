@@ -20,9 +20,12 @@ app.use("*", async (c, next) => {
 app.get("/api/health", (c) => c.json({ app: "Locat", status: "ok" }));
 app.get("/api/ready", async (c) => {
   try {
-    await getDb().execute(sql`SELECT id FROM users LIMIT 0`);
+    await getDb().execute(sql`SELECT id, is_admin FROM users LIMIT 0`);
     await getDb().execute(sql`SELECT client_message_id FROM messages LIMIT 0`);
     await getDb().execute(sql`SELECT id FROM send_receipts LIMIT 0`);
+    await getDb().execute(sql`SELECT group_epoch, rotation_required FROM conversations LIMIT 0`);
+    await getDb().execute(sql`SELECT id FROM group_keys LIMIT 0`);
+    await getDb().execute(sql`SELECT id FROM push_subscriptions LIMIT 0`);
     return c.json({ app: "Locat", status: "ready" });
   } catch { return c.json({ app: "Locat", status: "database unavailable or schema missing" }, 503); }
 });

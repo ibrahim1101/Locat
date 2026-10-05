@@ -16,6 +16,7 @@ import {
   unwrapPrivateKeyBackup,
   type IdentityKeys,
 } from "@/lib/crypto";
+import { stopDeviceNotifications } from "@/lib/notifications";
 import { loadIdentity, saveIdentity } from "@/lib/localdb";
 
 export type SessionUser = {
@@ -110,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [me.isLoading, me.isError, me.data, state.status]);
 
   const finishWithKeys = useCallback(async (user: SessionUser, keys: IdentityKeys) => {
+    await stopDeviceNotifications().catch(() => {});
     await queryClient.cancelQueries();
     queryClient.clear();
     await saveIdentity(user.id, { privateKey: keys.privateKey, publicKey: keys.publicKey });
@@ -189,13 +191,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         encryptedPrivateKey: backup.encryptedPrivateKey,
         keySalt: backup.keySalt,
       });
-      await finishWithKeys(state.user, keys);
+      await finishWithKeys({...state.user,publicKey:keys.publicKeyB64}, keys);
     },
     [state, rotateMut, finishWithKeys],
   );
 
   const logout = useCallback(async () => {
     await logoutMut.mutateAsync();
+    await stopDeviceNotifications().catch(() => {});
     localStorage.removeItem("locat-offline-account");
     setState({ status: "signedOut" });
     await queryClient.cancelQueries();

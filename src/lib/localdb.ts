@@ -200,7 +200,10 @@ export async function completePending(userId: number, clientMessageId: string, m
 }
 export async function cacheConversations(userId: number, conversations: ConversationSummary[]): Promise<void> {
   // Structured cloning preserves dates and keeps account metadata scoped locally.
-  await (await db(userId)).put("kv", conversations, "conversations");
+  const previous: ConversationSummary[] = await cachedConversations(userId);
+  const ids=new Set(conversations.map(c=>c.id));
+  const merged=[...conversations.map(c=>({...c,archived:false})),...previous.filter(c=>!ids.has(c.id)).map(c=>({...c,archived:true}))];
+  await (await db(userId)).put("kv", merged, "conversations");
 }
 export async function cachedConversations(userId: number): Promise<ConversationSummary[]> {
   return await (await db(userId)).get("kv", "conversations") ?? [];

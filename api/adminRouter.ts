@@ -11,6 +11,8 @@ import {
   messages,
   sendReceipts,
   adminAudit,
+  groupKeys,
+  pushSubscriptions,
 } from "@db/schema";
 import { verifyPassword } from "./crypto";
 import { limit } from "./rateLimit";
@@ -153,8 +155,10 @@ export const adminRouter = createRouter({
             .update(users)
             .set({ disabled: input.action === "disable" })
             .where(eq(users.id, input.userId));
-        if (input.action !== "enable")
-          await tx.delete(sessions).where(eq(sessions.userId, input.userId));
+        if (input.action !== "enable") {
+          await tx.delete(pushSubscriptions).where(eq(pushSubscriptions.userId,input.userId));
+          await tx.delete(sessions).where(eq(sessions.userId,input.userId));
+        }
         await tx.insert(adminAudit).values({
           actorId: ctx.user.id,
           action: input.action,
@@ -179,6 +183,9 @@ export const adminRouter = createRouter({
     .mutation(async ({ ctx, input }) => {
       await reauthenticate(ctx.user, input.password);
       await getDb().transaction(async tx => {
+        await tx.execute(
+          sql`DELETE p FROM push_subscriptions p LEFT JOIN sessions s ON s.token=p.session_token WHERE s.id IS NULL OR s.expires_at<NOW()`
+        );
         await tx.delete(sessions).where(lt(sessions.expiresAt, new Date()));
         await tx
           .delete(sendReceipts)
@@ -215,13 +222,24 @@ export const adminRouter = createRouter({
             bytes: sql<number>`COALESCE(SUM(COALESCE(OCTET_LENGTH(${conversationMembers.wrappedKey}),0) + 512),0)`,
           })
           .from(conversationMembers);
-        if (Number(accountSize.bytes) + Number(memberSize.bytes) > 20_000_000)
+        const [keySize] = await tx
+          .select({
+            bytes: sql<number>`COALESCE(SUM(OCTET_LENGTH(${groupKeys.wrappedKey}) + OCTET_LENGTH(${groupKeys.wrapperPublicKey}) + 256),0)`,
+          })
+          .from(groupKeys);
+        if (
+          Number(keySize.bytes) +
+            Number(accountSize.bytes) +
+            Number(memberSize.bytes) >
+          20_000_000
+        )
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Use the server-terminal backup for this database size.",
           });
         const accounts = await tx.select().from(users).limit(10001);
         const chats = await tx.select().from(conversations).limit(10001);
+        const versions = await tx.select().from(groupKeys).limit(100001);
         const members = await tx
           .select()
           .from(conversationMembers)
@@ -229,7 +247,8 @@ export const adminRouter = createRouter({
         if (
           accounts.length > 10000 ||
           chats.length > 10000 ||
-          members.length > 100000
+          members.length > 100000 ||
+          versions.length > 100000
         )
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -244,6 +263,7 @@ export const adminRouter = createRouter({
           accounts,
           conversations: chats,
           members,
+          groupKeys: versions,
         };
       });
       const plain = Buffer.from(JSON.stringify(metadata));

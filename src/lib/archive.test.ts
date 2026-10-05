@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { decodeArchive, encodeArchive } from "./archive";
+import { imageUrl } from "./crypto";
+import { messagePayloadSchema, decodeArchive, encodeArchive } from "./archive";
 import type { LocalMessage } from "./localdb";
 
 const account = { userId: 1, username: "alice", origin: "https://locat.test" };
@@ -25,4 +26,11 @@ describe("encrypted history backups", () => {
     await expect(encodeArchive(account, messages, "short")).rejects.toThrow("at least 8");
     await expect(encodeArchive(account, [{ ...messages[0], mid: -1 }], "backup-password")).rejects.toThrow();
   });
+});
+
+
+it("rejects active image formats in received payloads",()=>{
+  expect(messagePayloadSchema.safeParse({type:"image",mime:"image/svg+xml",name:"image.svg",dataB64:"YWJj"}).success).toBe(false);
+  expect(imageUrl({type:"image",mime:"image/svg+xml",name:"image.svg",dataB64:"YWJj"})).toBeNull();
+  expect(messagePayloadSchema.safeParse({type:"image",mime:"image/png",name:"image.png",dataB64:"YWJj"}).success).toBe(true);
 });

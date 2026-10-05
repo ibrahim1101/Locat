@@ -26,4 +26,45 @@ self.addEventListener('fetch', event => {
     event.respondWith(caches.open(CACHE).then(cache => cache.match(url.pathname)).then(cached => cached || fetch(event.request)));
   }
 });
+async function pushAccount(value) {
+  const db = await new Promise((resolve, reject) => {
+    const request = indexedDB.open('locat-notification-settings', 1);
+    request.onupgradeneeded = () => request.result.createObjectStore('settings');
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  try {
+    return await new Promise((resolve, reject) => {
+      const transaction = db.transaction('settings', value === undefined ? 'readonly' : 'readwrite');
+      const store = transaction.objectStore('settings');
+      const request = value === undefined ? store.get('account') : store.put(value, 'account');
+      let result;
+      request.onsuccess = () => result = request.result;
+      transaction.oncomplete = () => resolve(result);
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+  } finally { db.close(); }
+}
+self.addEventListener('message', event => {
+  if (event.data?.type === 'locat-push-account' && Number.isSafeInteger(event.data.userId) && event.data.userId >= 0) event.waitUntil(pushAccount(event.data.userId));
+});
+self.addEventListener('push', event => {
+  event.waitUntil((async () => {
+    let payload;
+    try { payload = event.data?.json(); } catch { return; }
+    if (payload?.type !== 'new-message' || !payload.userId || payload.userId !== await pushAccount()) return;
+    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (clients.some(client => client.visibilityState === 'visible')) return;
+    await self.registration.showNotification('Locat', { body: 'New messages on Locat', icon: '/icon-192.png', badge: '/icon-192.png', tag: 'locat-inbox', data: { url: '/' } });
+  })());
+});
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of clients) if (new URL(client.url).origin === self.location.origin) { await client.focus(); return; }
+    await self.clients.openWindow('/');
+  })());
+});
 `);

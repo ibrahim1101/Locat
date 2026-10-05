@@ -1,0 +1,11 @@
+import 'dotenv/config';
+import webpush from 'web-push';
+import { readFile, appendFile, chmod } from 'node:fs/promises';
+const subject = process.argv[2];
+if (!subject || /\s/.test(subject) || !(subject.startsWith('mailto:') && /^mailto:[^\s@]+@[^\s@]+$/.test(subject) || subject.startsWith('https:') && new URL(subject).hostname)) throw new Error('Usage: npm run push:setup -- mailto:YOUR_EMAIL (or your HTTPS contact URL)');
+const content = await readFile('.env', 'utf8');
+if (/^\s*VAPID_(PUBLIC_KEY|PRIVATE_KEY)\s*=/m.test(content)) throw new Error('Push keys already exist in .env. Preserve them; changing keys invalidates existing browser subscriptions.');
+const keys = webpush.generateVAPIDKeys();
+await appendFile('.env', `\nVAPID_SUBJECT=${subject}\nVAPID_PUBLIC_KEY=${keys.publicKey}\nVAPID_PRIVATE_KEY=${keys.privateKey}\n`);
+await chmod('.env', 0o600);
+console.log('Push keys saved to .env without printing them. Restart Locat to enable push. Keep the .env file in your secure deployment backup.');

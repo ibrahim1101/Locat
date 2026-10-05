@@ -72,7 +72,7 @@ The action log records successful dashboard mutations and terminal account/role 
 
 ## Restore an encrypted dashboard backup
 
-Dashboard downloads use the `.locat-server` extension and a separate backup password of at least 12 characters. They include account credentials as password hashes, encrypted identity backups, and group membership/key metadata inside authenticated encryption. They exclude sessions, queued messages, retry receipts, and action logs. Keep the backup password separately; Locat cannot recover it.
+Dashboard downloads use the `.locat-server` extension and a separate backup password of at least 12 characters. They include account credentials as password hashes, encrypted identity backups, and group membership/key metadata inside authenticated encryption. They include encrypted group key versions, and exclude sessions, push subscriptions, queued messages, retry receipts, and action logs. Keep the backup password separately; Locat cannot recover it.
 
 On a fresh installation with no accounts, stop the application and run database setup before restore. Restore refuses any nonempty account/conversation/message/session database and runs in one transaction. The current working deployment must never be the restore target.
 

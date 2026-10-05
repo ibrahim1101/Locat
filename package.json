@@ -18,7 +18,8 @@
     "db:setup": "node scripts/setup-db.mjs",
     "admin": "node scripts/admin.mjs",
     "backup:server": "node scripts/backup-db.mjs",
-    "restore:server": "node scripts/restore-server.mjs"
+    "restore:server": "node scripts/restore-server.mjs",
+    "push:setup": "node scripts/configure-push.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "2.0.78",
@@ -79,6 +80,7 @@
     "superjson": "^2.2.6",
     "tailwind-merge": "^3.4.0",
     "vaul": "^1.1.2",
+    "web-push": "^3.6.7",
     "zod": "^4.3.5"
   },
   "devDependencies": {
@@ -87,6 +89,7 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
+    "@types/web-push": "^3.6.4",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.23",
     "drizzle-kit": "^0.31.8",

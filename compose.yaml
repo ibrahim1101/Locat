@@ -21,6 +21,9 @@ services:
       DATABASE_URL: mysql://locat:${LOCAT_DB_PASSWORD}@db:3306/locat
       COOKIE_SECURE: "true"
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       HOST: 0.0.0.0
     ports:
       - "127.0.0.1:3000:3000"

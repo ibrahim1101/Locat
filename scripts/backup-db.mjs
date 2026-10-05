@@ -10,7 +10,7 @@ const file = await open(path, 'wx', 0o600);
 try {
   const args = ['--single-transaction', '--skip-lock-tables', '--protocol=TCP',
     `--host=${url.hostname}`, `--port=${url.port || 3306}`, `--user=${decodeURIComponent(url.username)}`,
-    ...['sessions', 'messages', 'message_deliveries', 'send_receipts'].map(table => `--ignore-table=${database}.${table}`), database];
+    ...['sessions', 'messages', 'message_deliveries', 'send_receipts', 'push_subscriptions'].map(table => `--ignore-table=${database}.${table}`), database];
   await new Promise((resolve, reject) => {
     const child = spawn(process.env.MARIADB_DUMP || 'mariadb-dump', args, {
       env: { ...process.env, MYSQL_PWD: decodeURIComponent(url.password) }, stdio: ['ignore', file.fd, 'inherit'],
