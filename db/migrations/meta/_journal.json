@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1791201871960,
+      "tag": "0000_locat",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1791207581511,
+      "tag": "0001_many_speedball",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1791208868156,
+      "tag": "0002_bored_marvel_boy",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1791210704271,
+      "tag": "0003_wild_tattoo",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1791211402770,
+      "tag": "0004_wise_joseph",
+      "breakpoints": true
+    }
+  ]
+}

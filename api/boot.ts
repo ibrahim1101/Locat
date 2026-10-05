@@ -5,8 +5,30 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
+import { getDb } from "./queries/connection";
+import { sql } from "drizzle-orm";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
+app.use("*", async (c, next) => {
+  await next();
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("Referrer-Policy", "same-origin");
+  c.header("X-Frame-Options", "DENY");
+  if (c.req.path.startsWith("/api/") || c.req.path === "/sw.js" || c.req.path === "/index.html") c.header("Cache-Control", "no-store");
+});
+
+app.get("/api/health", (c) => c.json({ app: "Locat", status: "ok" }));
+app.get("/api/ready", async (c) => {
+  try {
+    await getDb().execute(sql`SELECT id, is_admin FROM users LIMIT 0`);
+    await getDb().execute(sql`SELECT client_message_id FROM messages LIMIT 0`);
+    await getDb().execute(sql`SELECT id FROM send_receipts LIMIT 0`);
+    await getDb().execute(sql`SELECT group_epoch, rotation_required FROM conversations LIMIT 0`);
+    await getDb().execute(sql`SELECT id FROM group_keys LIMIT 0`);
+    await getDb().execute(sql`SELECT id FROM push_subscriptions LIMIT 0`);
+    return c.json({ app: "Locat", status: "ready" });
+  } catch { return c.json({ app: "Locat", status: "database unavailable or schema missing" }, 503); }
+});
 
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
 app.use("/api/trpc/*", async (c) => {
@@ -26,8 +48,10 @@ if (env.isProduction) {
   const { serveStaticFiles } = await import("./lib/vite");
   serveStaticFiles(app);
 
-  const port = parseInt(process.env.PORT || "3000");
-  serve({ fetch: app.fetch, port }, () => {
-    console.log(`Server running on http://localhost:${port}/`);
+  const port = Number(process.env.PORT || "3000");
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("PORT must be between 1 and 65535");
+  const hostname = process.env.HOST || "127.0.0.1";
+  serve({ fetch: app.fetch, port, hostname }, () => {
+    console.log(`Locat running on http://${hostname}:${port}/`);
   });
 }

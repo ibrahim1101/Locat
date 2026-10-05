@@ -76,6 +76,7 @@ export function NewConversationDialog({
       const wrappedKeys = await Promise.all(
         all.map(async (m) => ({
           userId: m.id,
+          publicKey: m.publicKey,
           wrappedKey: await wrapGroupKey(groupKey, me.keys.privateKey, m.publicKey),
         })),
       );

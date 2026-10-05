@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `disabled` boolean DEFAULT false NOT NULL;

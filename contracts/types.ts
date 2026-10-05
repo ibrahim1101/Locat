@@ -27,7 +27,8 @@ export type RelayEvent =
       envelope: string; // JSON-serialized EncryptedEnvelope
       createdAt: Date;
     }
-  | { type: "presence"; online: number[] };
+  | { type: "presence"; online: number[] }
+  | { type: "conversations-changed" };
 
 export type PublicUser = {
   id: number;
@@ -42,6 +43,11 @@ export type ConversationSummary = {
   name: string | null;
   createdAt: Date;
   members: PublicUser[];
+  createdBy?: number;
+  groupEpoch?: number;
+  rotationRequired?: boolean;
+  wrapperPublicKey?: string | null;
+  archived?: boolean;
   /** my wrapped group key (group chats only) */
   wrappedKey: string | null;
   wrappedBy: number | null;

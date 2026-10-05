@@ -1,0 +1,42 @@
+services:
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: locat
+      MARIADB_USER: locat
+      MARIADB_PASSWORD: ${LOCAT_DB_PASSWORD:?Set LOCAT_DB_PASSWORD in .env}
+      MARIADB_ROOT_PASSWORD: ${LOCAT_DB_ROOT_PASSWORD:?Set LOCAT_DB_ROOT_PASSWORD in .env}
+    volumes:
+      - locat-db:/var/lib/mysql
+    healthcheck:
+      test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mysql://locat:${LOCAT_DB_PASSWORD}@db:3306/locat
+      COOKIE_SECURE: "true"
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  locat-db:

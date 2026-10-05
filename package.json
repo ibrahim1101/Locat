@@ -1,20 +1,26 @@
 {
-  "name": "my-app",
+  "name": "locat",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && esbuild api/boot.ts --platform=node --bundle --format=esm --outdir=dist --banner:js=\"import { createRequire } from 'module';const require = createRequire(import.meta.url);\"",
+    "build": "vite build && node scripts/build-offline.mjs && esbuild api/boot.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --banner:js=\"import { createRequire } from 'module';const require = createRequire(import.meta.url);\"",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start": "NODE_ENV=production node dist/boot.js",
+    "start": "node scripts/start.mjs",
+    "doctor": "node scripts/doctor.mjs",
     "check": "tsc -b",
     "format": "prettier --write .",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "db:setup": "node scripts/setup-db.mjs",
+    "admin": "node scripts/admin.mjs",
+    "backup:server": "node scripts/backup-db.mjs",
+    "restore:server": "node scripts/restore-server.mjs",
+    "push:setup": "node scripts/configure-push.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "2.0.78",
@@ -75,6 +81,7 @@
     "superjson": "^2.2.6",
     "tailwind-merge": "^3.4.0",
     "vaul": "^1.1.2",
+    "web-push": "^3.6.7",
     "zod": "^4.3.5"
   },
   "devDependencies": {
@@ -83,6 +90,7 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
+    "@types/web-push": "^3.6.4",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.23",
     "drizzle-kit": "^0.31.8",
@@ -90,8 +98,8 @@
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
+    "fake-indexeddb": "^6.2.5",
     "globals": "^16.5.0",
-    "kimi-plugin-inspect-react": "^1.0.3",
     "postcss": "^8.5.6",
     "prettier": "^3.7.4",
     "tailwindcss": "^3.4.19",
@@ -101,5 +109,8 @@
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4",
     "vitest": "^4.0.16"
+  },
+  "engines": {
+    "node": "^22.12.0 || >=24.0.0"
   }
 }

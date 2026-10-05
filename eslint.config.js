@@ -15,6 +15,10 @@ export default defineConfig([
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
+    rules: {
+      // Shared UI variants and provider hooks are intentional exports.
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+    },
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,

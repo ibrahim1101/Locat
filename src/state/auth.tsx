@@ -7,14 +7,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { trpc } from "@/providers/trpc";
+import { trpc, queryClient } from "@/providers/trpc";
 import {
   generateIdentity,
+  b64encode,
   importPublicKey,
   wrapPrivateKeyForBackup,
   unwrapPrivateKeyBackup,
   type IdentityKeys,
 } from "@/lib/crypto";
+import { stopDeviceNotifications } from "@/lib/notifications";
 import { loadIdentity, saveIdentity } from "@/lib/localdb";
 
 export type SessionUser = {
@@ -22,6 +24,7 @@ export type SessionUser = {
   username: string;
   displayName: string;
   publicKey: string;
+  isAdmin?: boolean;
 };
 
 type AuthState =
@@ -43,7 +46,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: "loading" });
-  const me = trpc.auth.me.useQuery(undefined, { retry: false });
+  const me = trpc.auth.me.useQuery(undefined, { retry: false, enabled: state.status === "loading" });
   const loginMut = trpc.auth.login.useMutation();
   const registerMut = trpc.auth.register.useMutation();
   const rotateMut = trpc.auth.rotateKeys.useMutation();
@@ -53,38 +56,74 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     retry: false,
   });
 
+  // Cookies are shared between tabs: a login/logout elsewhere must retire old
+  // queries and encryption state here before this tab can send as another account.
+  useEffect(() => {
+    const changed = (event: StorageEvent) => {
+      if (event.key === "locat-auth-change") {
+        queryClient.clear();
+        window.location.reload();
+      }
+    };
+    window.addEventListener("storage", changed);
+    return () => window.removeEventListener("storage", changed);
+  }, []);
+  const notifyOtherTabs = useCallback(() => {
+    try { localStorage.setItem("locat-auth-change", crypto.randomUUID()); } catch { /* unavailable storage */ }
+  }, []);
+
   // bootstrap: cookie session → local identity keys
   useEffect(() => {
-    if (me.isLoading) return;
+    if (state.status !== "loading" || me.isLoading) return;
     if (!me.data) {
+      if (!navigator.onLine) {
+        const cached = localStorage.getItem("locat-offline-account");
+        if (cached) {
+          void (async () => {
+            try {
+              const user = JSON.parse(cached) as SessionUser;
+              const keys = await loadIdentity(user.id);
+              if (keys) setState({ status: "ready", user, keys: { ...keys, publicKeyB64: user.publicKey } });
+              else setState({ status: "signedOut" });
+            } catch { setState({ status: "signedOut" }); }
+          })();
+          return;
+        }
+      }
+      // Synchronize the external authentication query with the provider state.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState({ status: "signedOut" });
       return;
     }
     const user = me.data as SessionUser;
+    let cancelled = false;
     void (async () => {
       const id = await loadIdentity(user.id);
-      if (id) {
+      if (cancelled) return;
+      if (id && b64encode(await crypto.subtle.exportKey("spki", id.publicKey)) === user.publicKey) {
+        localStorage.setItem("locat-offline-account", JSON.stringify(user));
         setState({ status: "ready", user, keys: { ...id, publicKeyB64: user.publicKey } });
       } else {
         setState({ status: "needsKeyRestore", user });
       }
-    })();
-  }, [me.isLoading, me.data]);
+    })().catch(() => { if (!cancelled) setState({ status: "needsKeyRestore", user }); });
+    return () => { cancelled = true; };
+  }, [me.isLoading, me.isError, me.data, state.status]);
 
   const finishWithKeys = useCallback(async (user: SessionUser, keys: IdentityKeys) => {
+    await stopDeviceNotifications().catch(() => {});
+    await queryClient.cancelQueries();
+    queryClient.clear();
     await saveIdentity(user.id, { privateKey: keys.privateKey, publicKey: keys.publicKey });
+    localStorage.setItem("locat-offline-account", JSON.stringify(user));
     setState({ status: "ready", user, keys });
-  }, []);
+    notifyOtherTabs();
+  }, [notifyOtherTabs]);
 
   const login = useCallback(
     async (username: string, password: string) => {
       const res = await loginMut.mutateAsync({ username, password });
       const user = res.user as SessionUser;
-      const local = await loadIdentity(user.id);
-      if (local) {
-        await finishWithKeys(user, { ...local, publicKeyB64: user.publicKey });
-        return;
-      }
       // new device: unwrap the password-protected backup from the server
       const privateKey = await unwrapPrivateKeyBackup(
         res.keys.encryptedPrivateKey,
@@ -152,18 +191,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         encryptedPrivateKey: backup.encryptedPrivateKey,
         keySalt: backup.keySalt,
       });
-      await finishWithKeys(state.user, keys);
+      await finishWithKeys({...state.user,publicKey:keys.publicKeyB64}, keys);
     },
     [state, rotateMut, finishWithKeys],
   );
 
   const logout = useCallback(async () => {
-    try {
-      await logoutMut.mutateAsync();
-    } finally {
-      setState({ status: "signedOut" });
-    }
-  }, [logoutMut]);
+    await logoutMut.mutateAsync();
+    await stopDeviceNotifications().catch(() => {});
+    localStorage.removeItem("locat-offline-account");
+    setState({ status: "signedOut" });
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    notifyOtherTabs();
+  }, [logoutMut, notifyOtherTabs]);
 
   const value = useMemo(
     () => ({ state, login, register, restoreKeys, resetIdentity, logout }),

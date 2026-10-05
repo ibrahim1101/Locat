@@ -1,7 +1,8 @@
 import {
   mysqlTable,
+  boolean,
+  int,
   mysqlEnum,
-  serial,
   bigint,
   varchar,
   text,
@@ -16,9 +17,11 @@ import {
 // backup (wrapped with a key derived from the user's password client-side).
 // The server can never read the private key.
 export const users = mysqlTable("users", {
-  id: serial("id").primaryKey(),
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
   username: varchar("username", { length: 64 }).notNull().unique(),
   displayName: varchar("display_name", { length: 128 }).notNull(),
+  isAdmin: boolean("is_admin").notNull().default(false),
+  disabled: boolean("disabled").notNull().default(false),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
   // base64 SPKI of the user's ECDH P-256 public key (public key directory)
   publicKey: text("public_key").notNull(),
@@ -32,7 +35,7 @@ export const users = mysqlTable("users", {
 export const sessions = mysqlTable(
   "sessions",
   {
-    id: serial("id").primaryKey(),
+    id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
     token: varchar("token", { length: 128 }).notNull().unique(),
     userId: bigint("user_id", { mode: "number", unsigned: true })
       .notNull()
@@ -45,8 +48,10 @@ export const sessions = mysqlTable(
 
 // ─── Conversations ───────────────────────────────────────────────────────────
 export const conversations = mysqlTable("conversations", {
-  id: serial("id").primaryKey(),
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
   type: mysqlEnum("type", ["direct", "group"]).notNull(),
+  groupEpoch: int("group_epoch").notNull().default(1),
+  rotationRequired: boolean("rotation_required").notNull().default(false),
   name: varchar("name", { length: 128 }),
   createdBy: bigint("created_by", { mode: "number", unsigned: true })
     .notNull()
@@ -57,7 +62,7 @@ export const conversations = mysqlTable("conversations", {
 export const conversationMembers = mysqlTable(
   "conversation_members",
   {
-    id: serial("id").primaryKey(),
+    id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
     conversationId: bigint("conversation_id", { mode: "number", unsigned: true })
       .notNull()
       .references(() => conversations.id, { onDelete: "cascade" }),
@@ -83,7 +88,7 @@ export const conversationMembers = mysqlTable(
 export const messages = mysqlTable(
   "messages",
   {
-    id: serial("id").primaryKey(),
+    id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
     conversationId: bigint("conversation_id", { mode: "number", unsigned: true })
       .notNull()
       .references(() => conversations.id, { onDelete: "cascade" }),
@@ -91,15 +96,19 @@ export const messages = mysqlTable(
       .notNull()
       .references(() => users.id),
     envelope: mediumtext("envelope").notNull(),
+    clientMessageId: varchar("client_message_id", { length: 36 }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [index("messages_conv_idx").on(t.conversationId)],
+  (t) => [
+    index("messages_conv_idx").on(t.conversationId),
+    uniqueIndex("messages_sender_client_unique").on(t.senderId, t.clientMessageId),
+  ],
 );
 
 export const messageDeliveries = mysqlTable(
   "message_deliveries",
   {
-    id: serial("id").primaryKey(),
+    id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
     messageId: bigint("message_id", { mode: "number", unsigned: true })
       .notNull()
       .references(() => messages.id, { onDelete: "cascade" }),
@@ -120,3 +129,44 @@ export type Conversation = typeof conversations.$inferSelect;
 export type ConversationMember = typeof conversationMembers.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type MessageDelivery = typeof messageDeliveries.$inferSelect;
+
+// Retry receipts contain metadata only; retained for seven days after sending.
+export const sendReceipts = mysqlTable("send_receipts", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  senderId: bigint("sender_id", { mode: "number", unsigned: true }).notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  clientMessageId: varchar("client_message_id", { length: 36 }).notNull(),
+  messageId: bigint("message_id", { mode: "number", unsigned: true }).notNull(),
+  conversationId: bigint("conversation_id", { mode: "number", unsigned: true }).notNull(),
+  envelopeHash: varchar("envelope_hash", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").notNull(),
+}, (t) => [uniqueIndex("receipt_sender_client_unique").on(t.senderId, t.clientMessageId),
+  index("receipt_created_idx").on(t.createdAt)]);
+
+export const adminAudit = mysqlTable("admin_audit", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  actorId: bigint("actor_id", { mode: "number", unsigned: true }).notNull(),
+  action: varchar("action", { length: 64 }).notNull(),
+  targetId: bigint("target_id", { mode: "number", unsigned: true }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const pushSubscriptions = mysqlTable("push_subscriptions", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  sessionToken: varchar("session_token", { length: 128 }).notNull(),
+  endpointHash: varchar("endpoint_hash", { length: 64 }).notNull().unique(),
+  endpoint: text("endpoint").notNull(),
+  p256dh: varchar("p256dh", { length: 128 }).notNull(),
+  auth: varchar("auth", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const groupKeys = mysqlTable("group_keys", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  conversationId: bigint("conversation_id", { mode: "number", unsigned: true }).notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  epoch: int("epoch").notNull(),
+  wrappedKey: text("wrapped_key").notNull(),
+  wrapperPublicKey: text("wrapper_public_key").notNull(),
+}, t => [uniqueIndex("group_key_user_epoch_unique").on(t.conversationId,t.userId,t.epoch)]);

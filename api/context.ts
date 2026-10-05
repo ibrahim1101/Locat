@@ -2,6 +2,7 @@ import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import { eq } from "drizzle-orm";
 import { getDb } from "./queries/connection";
 import { sessions, users, type User } from "@db/schema";
+import { env } from "./lib/env";
 
 export type TrpcContext = {
   req: Request;
@@ -13,7 +14,9 @@ export type TrpcContext = {
 const SESSION_COOKIE = "rc_session";
 
 export function sessionCookie(token: string, maxAgeSeconds: number): string {
-  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}`;
+  const secure = process.env.COOKIE_SECURE === "true" ||
+    (env.isProduction && process.env.COOKIE_SECURE !== "false");
+  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}${secure ? "; Secure" : ""}`;
 }
 
 function extractToken(req: Request): string | undefined {
@@ -23,7 +26,9 @@ function extractToken(req: Request): string | undefined {
   if (cookie) {
     for (const part of cookie.split(";")) {
       const [k, ...v] = part.trim().split("=");
-      if (k === SESSION_COOKIE) return decodeURIComponent(v.join("="));
+      if (k === SESSION_COOKIE) {
+        try { return decodeURIComponent(v.join("=")); } catch { return undefined; }
+      }
     }
   }
   return undefined;
@@ -45,7 +50,7 @@ export async function createContext(
     .limit(1);
 
   const row = rows[0];
-  if (row && row.session.expiresAt > new Date()) {
+  if (row && !row.user.disabled && row.session.expiresAt > new Date()) {
     ctx.user = row.user;
     ctx.sessionToken = token;
   }

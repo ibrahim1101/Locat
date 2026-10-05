@@ -1,0 +1,52 @@
+name: Locat checks
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: locat_ci_root
+          MARIADB_DATABASE: locat_test
+          MARIADB_USER: locat
+          MARIADB_PASSWORD: locat_ci_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      TEST_DATABASE_URL: mysql://locat:locat_ci_test@127.0.0.1:3306/locat_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: bash -n scripts/install-pi.sh
+      - run: bash scripts/install-pi.sh --help
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    env:
+      LOCAT_DB_PASSWORD: 6f3562767ddbc7b831ac97be88b64a56
+      LOCAT_DB_ROOT_PASSWORD: 0d335af4ceda705637617bbb2351ab98
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config --quiet
+      - run: docker compose up -d --build --wait --wait-timeout 180
+      - run: docker compose exec -T app npm run doctor
+      - run: curl --fail http://127.0.0.1:3000/api/ready
+      - run: docker compose exec -T app npm run admin -- stats
+      - if: always()
+        run: docker compose logs --tail=100
+      - if: always()
+        run: docker compose down -v
