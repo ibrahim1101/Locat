@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { openDB } from "idb";
 import { beforeEach, describe, expect, it } from "vitest";
-import { allMessages, importMessages, kvGet, kvSet, migrateLegacyHistory, storeMessage, wipeAll } from "./localdb";
+import { allMessages, savePending, pendingMessages, completePending, deleteLocalMessage, importMessages, kvGet, kvSet, migrateLegacyHistory, storeMessage, wipeAll } from "./localdb";
 import type { LocalMessage } from "./localdb";
 
 const message: LocalMessage = { mid: 7, conversationId: 10, senderId: 1,
@@ -36,5 +36,29 @@ describe("account-local history", () => {
     await migrateLegacyHistory(2, [10, 99]);
     expect(await allMessages(2)).toHaveLength(1);
     legacy.close();
+  });
+});
+
+
+describe("durable outbox", () => {
+  it("keeps the original encrypted retry envelope scoped to the account", async () => {
+    const pending = { clientMessageId: "stable-id", conversationId: 10, senderId: 1,
+      senderName: "Alice", payload: message.payload, envelope: "same-ciphertext", createdAt: 1000 };
+    await savePending(1, pending);
+    expect(await pendingMessages(1)).toEqual([pending]);
+    expect(await pendingMessages(2)).toEqual([]);
+    await completePending(1, pending.clientMessageId, message);
+    expect(await pendingMessages(1)).toEqual([]);
+    expect(await allMessages(1)).toHaveLength(1);
+  });
+  it("handles a server echo arriving before send confirmation", async () => {
+    await savePending(1, { clientMessageId: "echo", conversationId: 10, senderId: 1,
+      senderName: "Alice", payload: message.payload, envelope: "ciphertext", createdAt: 1000 });
+    await storeMessage(1, message);
+    await completePending(1, "echo", message);
+    expect(await allMessages(1)).toHaveLength(1);
+    expect(await pendingMessages(1)).toEqual([]);
+    await deleteLocalMessage(1, message.mid);
+    expect(await allMessages(1)).toEqual([]);
   });
 });

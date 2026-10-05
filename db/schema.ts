@@ -1,5 +1,6 @@
 import {
   mysqlTable,
+  boolean,
   mysqlEnum,
   bigint,
   varchar,
@@ -18,6 +19,7 @@ export const users = mysqlTable("users", {
   id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
   username: varchar("username", { length: 64 }).notNull().unique(),
   displayName: varchar("display_name", { length: 128 }).notNull(),
+  disabled: boolean("disabled").notNull().default(false),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
   // base64 SPKI of the user's ECDH P-256 public key (public key directory)
   publicKey: text("public_key").notNull(),

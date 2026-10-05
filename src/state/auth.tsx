@@ -74,6 +74,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (state.status !== "loading" || me.isLoading) return;
     if (!me.data) {
+      if (!navigator.onLine) {
+        const cached = localStorage.getItem("locat-offline-account");
+        if (cached) {
+          void (async () => {
+            try {
+              const user = JSON.parse(cached) as SessionUser;
+              const keys = await loadIdentity(user.id);
+              if (keys) setState({ status: "ready", user, keys: { ...keys, publicKeyB64: user.publicKey } });
+              else setState({ status: "signedOut" });
+            } catch { setState({ status: "signedOut" }); }
+          })();
+          return;
+        }
+      }
       // Synchronize the external authentication query with the provider state.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setState({ status: "signedOut" });
@@ -85,18 +99,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const id = await loadIdentity(user.id);
       if (cancelled) return;
       if (id && b64encode(await crypto.subtle.exportKey("spki", id.publicKey)) === user.publicKey) {
+        localStorage.setItem("locat-offline-account", JSON.stringify(user));
         setState({ status: "ready", user, keys: { ...id, publicKeyB64: user.publicKey } });
       } else {
         setState({ status: "needsKeyRestore", user });
       }
     })().catch(() => { if (!cancelled) setState({ status: "needsKeyRestore", user }); });
     return () => { cancelled = true; };
-  }, [me.isLoading, me.data, state.status]);
+  }, [me.isLoading, me.isError, me.data, state.status]);
 
   const finishWithKeys = useCallback(async (user: SessionUser, keys: IdentityKeys) => {
     await queryClient.cancelQueries();
     queryClient.clear();
     await saveIdentity(user.id, { privateKey: keys.privateKey, publicKey: keys.publicKey });
+    localStorage.setItem("locat-offline-account", JSON.stringify(user));
     setState({ status: "ready", user, keys });
     notifyOtherTabs();
   }, [notifyOtherTabs]);
@@ -179,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await logoutMut.mutateAsync();
+    localStorage.removeItem("locat-offline-account");
     setState({ status: "signedOut" });
     await queryClient.cancelQueries();
     queryClient.clear();

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { limit } from "./rateLimit";
 import { observable } from "@trpc/server/observable";
 import { eq, and, asc, gt, lt, inArray, sql } from "drizzle-orm";
 import { createRouter, authedQuery } from "./middleware";
@@ -11,6 +12,7 @@ import {
   messageDeliveries,
   users,
   sendReceipts,
+  sessions,
 } from "@db/schema";
 import { subscribe as hubSubscribe, emitToUsers, onlineUserIds } from "./hub";
 import type { RelayEvent } from "@contracts/types";
@@ -67,8 +69,12 @@ export const messagesRouter = createRouter({
       };
       const existing = await findExisting();
       if (existing) return { messageId: existing.messageId, createdAt: existing.createdAt };
+      limit(`send:${me}`, 1200, 60000);
       // Commit the envelope and every delivery together. Never publish before commit.
       const { messageId, recipients, deliveryIds, createdAt } = await db.transaction(async (tx) => {
+        await tx.select({ id: users.id }).from(users).where(eq(users.id, me)).for("update");
+        const [queued] = await tx.select({ bytes: sql<number>`COALESCE(SUM(OCTET_LENGTH(${messages.envelope})), 0)` }).from(messages).where(eq(messages.senderId, me));
+        if (Number(queued.bytes) + Buffer.byteLength(input.envelope) > 100_000_000) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Your undelivered queue is full. Wait for recipients to connect." });
         const createdAt = new Date(Math.floor(Date.now() / 1000) * 1000);
         const [{ id: messageId }] = await tx.insert(messages).values({
           conversationId: input.conversationId, senderId: me,
@@ -182,7 +188,14 @@ export const messagesRouter = createRouter({
     return observable<RelayEvent>((emit) => {
       emit.next({ type: "presence", online: onlineUserIds() });
       const unsubscribe = hubSubscribe(me, (event) => emit.next(event));
-      return unsubscribe;
+      const timer = setInterval(() => {
+        if (!ctx.sessionToken) return;
+        void getDb().select({ token: sessions.token }).from(sessions).innerJoin(users, eq(sessions.userId, users.id))
+          .where(and(eq(sessions.token, ctx.sessionToken), eq(users.disabled, false), gt(sessions.expiresAt, new Date())))
+          .then((rows) => { if (!rows.length) { emit.error(new TRPCError({ code: "UNAUTHORIZED", message: "Session ended. Sign in again." })); unsubscribe(); clearInterval(timer); } })
+          .catch(() => { emit.error(new TRPCError({ code: "INTERNAL_SERVER_ERROR" })); unsubscribe(); clearInterval(timer); });
+      }, 30000);
+      return () => { clearInterval(timer); unsubscribe(); };
     });
   }),
 });

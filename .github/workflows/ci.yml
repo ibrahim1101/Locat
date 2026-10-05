@@ -33,3 +33,19 @@ jobs:
       - run: npm run build
       - run: bash -n scripts/install-pi.sh
       - run: bash scripts/install-pi.sh --help
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    env:
+      LOCAT_DB_PASSWORD: 6f3562767ddbc7b831ac97be88b64a56
+      LOCAT_DB_ROOT_PASSWORD: 0d335af4ceda705637617bbb2351ab98
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config --quiet
+      - run: docker compose up -d --build --wait --wait-timeout 180
+      - run: curl --fail http://127.0.0.1:3000/api/ready
+      - run: docker compose exec -T app npm run admin -- stats
+      - if: always()
+        run: docker compose logs --tail=100
+      - if: always()
+        run: docker compose down -v

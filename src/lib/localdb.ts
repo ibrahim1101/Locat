@@ -2,7 +2,7 @@
 // This is where chat history and identity keys actually live — the server
 // only relays. Clearing site data wipes the local archive (by design).
 import { openDB, type IDBPDatabase } from "idb";
-import type { MessagePayload } from "@contracts/types";
+import type { ConversationSummary, MessagePayload } from "@contracts/types";
 
 export type LocalMessage = {
   lid?: number; // local autoincrement id
@@ -37,8 +37,10 @@ function db(userId: number): Promise<IDBPDatabase> {
   if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("Invalid account");
   let promise = databases.get(userId);
   if (!promise) {
-    promise = openDB(`locat-account-${userId}`, 1, {
-      upgrade(d) {
+    promise = openDB(`locat-account-${userId}`, 2, {
+      upgrade(d, oldVersion) {
+        if (oldVersion < 2) d.createObjectStore("outbox", { keyPath: "clientMessageId" });
+        if (oldVersion >= 1) return;
         d.createObjectStore("kv");
         d.createObjectStore("identity");
         const msgs = d.createObjectStore("messages", { keyPath: "lid", autoIncrement: true });
@@ -131,6 +133,7 @@ export async function wipeAll(userId: number): Promise<void> {
   await d.clear("kv");
   await d.clear("identity");
   await d.clear("messages");
+  await d.clear("outbox");
 }
 
 /** Copy only histories whose membership has been verified against the server. */
@@ -169,4 +172,42 @@ export async function importMessages(userId: number, messages: LocalMessage[]): 
   }
   await tx.done;
   return count;
+}
+
+
+export type PendingMessage = {
+  clientMessageId: string;
+  conversationId: number;
+  senderId: number;
+  senderName: string;
+  payload: MessagePayload;
+  envelope: string;
+  createdAt: number;
+};
+export async function savePending(userId: number, message: PendingMessage): Promise<void> {
+  await (await db(userId)).put("outbox", message);
+}
+export async function pendingMessages(userId: number): Promise<PendingMessage[]> {
+  const rows: PendingMessage[] = await (await db(userId)).getAll("outbox");
+  return rows.sort((a, b) => a.createdAt - b.createdAt);
+}
+export async function completePending(userId: number, clientMessageId: string, message: LocalMessage): Promise<void> {
+  const tx = (await db(userId)).transaction(["messages", "outbox"], "readwrite");
+  const messages = tx.objectStore("messages");
+  if (await messages.index("byMid").getKey(message.mid) === undefined) await messages.add(message);
+  await tx.objectStore("outbox").delete(clientMessageId);
+  await tx.done;
+}
+export async function cacheConversations(userId: number, conversations: ConversationSummary[]): Promise<void> {
+  // Structured cloning preserves dates and keeps account metadata scoped locally.
+  await (await db(userId)).put("kv", conversations, "conversations");
+}
+export async function cachedConversations(userId: number): Promise<ConversationSummary[]> {
+  return await (await db(userId)).get("kv", "conversations") ?? [];
+}
+export async function deleteLocalMessage(userId: number, mid: number): Promise<void> {
+  const tx = (await db(userId)).transaction("messages", "readwrite");
+  const key = await tx.store.index("byMid").getKey(mid);
+  if (key !== undefined) await tx.store.delete(key);
+  await tx.done;
 }

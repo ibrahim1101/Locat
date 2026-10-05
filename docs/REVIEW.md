@@ -95,3 +95,9 @@ The Pi installer passes Bash syntax/help checks; it has not run on physical ARM6
 hardware or systemd here. Browser automation could not run here because the Chromium download was unavailable;
 physical Android/iOS QA remains outstanding. This is the reliability/storage/deployment foundation, not a finished public
 release: PWA/background delivery and abuse controls remain follow-up work.
+
+## October mobile and administration batch
+
+Implemented: account-local durable outbox with atomic confirmation, build-versioned static PWA cache that excludes APIs, cached offline conversations/account bootstrap, theme and installation settings, chat/message search, quoted replies/copy/local deletion, accessible full-screen media dialog, first-use contact-key pinning with explicit changed-key verification, single-active-session policy, account disable/session revocation CLI, metadata backup command, authentication throttling/origin checks, encrypted sender queue limit, portable Docker deployment and CI smoke job. Lodash updated; the production dependency audit currently reports zero vulnerabilities.
+
+Validation: TypeScript/build/lint and MariaDB integration pass locally. Phone keyboard/install/offline service-worker behavior still requires physical-device QA after this update. Container smoke verification runs in CI; Windows/macOS and phone-server hosting have not been physically tested. No claim of finished public-release readiness: group key epochs/rotation, true background push, durable per-device delivery, richer encrypted payloads, and calls/native distribution remain separate work.

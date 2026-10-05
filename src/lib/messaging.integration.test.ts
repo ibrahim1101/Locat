@@ -82,6 +82,21 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     expect(await bob.conversations.createDirect({ userId: aliceId })).toEqual({ conversationId, created: false });
   });
 
+  it("rejects cross-origin mutations and disabled accounts, and retires older sessions", async () => {
+    const { createContext } = await import("../../api/context");
+    const first = await alice.auth.login({ username: "alice", password: "test-password-long" });
+    const second = await alice.auth.login({ username: "alice", password: "test-password-long" });
+    const oldContext = await createContext({ req: new Request("http://localhost", { headers: { authorization: `Bearer ${first.token}` } }), resHeaders: new Headers(), info: {} as never });
+    expect(oldContext.user).toBeUndefined();
+    const crossOrigin = router.createCaller({ req: new Request("http://localhost", { headers: { origin: "https://untrusted.example" } }), resHeaders: new Headers() });
+    await expect(crossOrigin.auth.login({ username: "alice", password: "test-password-long" })).rejects.toThrow("origin");
+    await db.update(schema.users).set({ disabled: true }).where(eq(schema.users.id, aliceId));
+    await expect(alice.auth.login({ username: "alice", password: "test-password-long" })).rejects.toThrow("Invalid username");
+    const disabled = await createContext({ req: new Request("http://localhost", { headers: { authorization: `Bearer ${second.token}` } }), resHeaders: new Headers(), info: {} as never });
+    expect(disabled.user).toBeUndefined();
+    await db.update(schema.users).set({ disabled: false }).where(eq(schema.users.id, aliceId));
+  });
+
   it("delivers ciphertext, enforces membership, and purges only after every acknowledgement", async () => {
     const sent = await alice.messages.send({ conversationId, envelope, clientMessageId: crypto.randomUUID() });
     const page = await bob.messages.sync({ after: 0 });

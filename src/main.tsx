@@ -6,6 +6,9 @@ import { AuthProvider } from "./state/auth";
 import App from "./App";
 import "./index.css";
 
+const savedTheme = localStorage.getItem("locat-theme") ?? "dark";
+document.documentElement.dataset.theme = savedTheme === "system" ? matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light" : savedTheme;
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
@@ -13,3 +16,13 @@ createRoot(document.getElementById("root")!).render(
     </BrowserRouter>
   </StrictMode>,
 );
+
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    void navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).catch(console.error);
+  });
+}
+const resize = () => document.documentElement.style.setProperty("--app-height", `${window.visualViewport?.height ?? window.innerHeight}px`);
+resize();
+window.visualViewport?.addEventListener("resize", resize);
+window.addEventListener("resize", resize);

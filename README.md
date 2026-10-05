@@ -128,3 +128,17 @@ TEST_DATABASE_URL=mysql://user:password@127.0.0.1:3306/locat_test npm test
 
 **The integration suite drops tables in the specified database.** Use a disposable
 schema whose name ends with `_test`, never your real Locat database.
+
+
+## Mobile and administration update
+
+Locat now includes a standalone web-app manifest, build-versioned static offline cache, account-local conversation metadata, and a durable encrypted outbox. Open it online once before testing offline history. Android uses the browser's Install app menu; iPhone uses Safari → Share → Add to Home Screen. Close all Locat windows after an update so the waiting service worker can activate.
+
+Settings includes light/dark/system themes, installation instructions, and encrypted history backup/restore. Conversation search, saved-message search, copy/reply/local-delete actions, and a full-screen image viewer are available. Replies currently use a quoted-text format compatible with existing clients.
+
+Contact public keys are pinned on first use; changed keys block encryption/decryption until accepted in Encryption details. Verify fingerprints over another trusted channel. Accounts allow one active login until per-device delivery is implemented. A retry older than seven days stops automatically rather than risk duplicate sending.
+
+- [Server account administration and backups](docs/SERVER_ADMIN.md)
+- [Windows/macOS/Linux hosting](docs/CROSS_PLATFORM.md)
+
+Still planned: true background push, per-device queues, group membership changes with key rotation/history, encrypted voice/files, structured reactions, advanced media controls, native packages, and calling infrastructure. These are not claimed as shipped in this batch.

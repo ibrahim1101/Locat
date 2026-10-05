@@ -11,7 +11,9 @@ import {
   unwrapGroupKey,
 } from "@/lib/crypto";
 import {
-  getMessages,
+  getMessages, deleteLocalMessage,
+  cachedConversations, cacheConversations, pendingMessages, savePending, completePending,
+  type PendingMessage,
   migrateLegacyHistory,
   kvGet,
   kvSet,
@@ -46,11 +48,15 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   const { logout } = useAuth();
   const utils = trpc.useUtils();
 
+  const [cached, setCached] = useState<ConversationSummary[]>([]);
+  const [search, setSearch] = useState("");
   const conversationsQ = trpc.conversations.list.useQuery();
   const conversations = useMemo(
-    () => (conversationsQ.data ?? []) as ConversationSummary[],
-    [conversationsQ.data],
+    () => (conversationsQ.data ?? cached) as ConversationSummary[],
+    [conversationsQ.data, cached],
   );
+  useEffect(() => { void cachedConversations(user.id).then(setCached).catch(() => {}); }, [user.id]);
+  useEffect(() => { if (conversationsQ.data) void cacheConversations(user.id, conversationsQ.data).catch(() => {}); }, [user.id, conversationsQ.data]);
   const convsRef = useRef(conversations);
   useEffect(() => { convsRef.current = conversations; }, [conversations]);
 
@@ -78,6 +84,11 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       let p = cached?.signature === signature ? cached.key : undefined;
       if (!p) {
         p = (async () => {
+          for (const member of conv.members.filter((m) => m.id !== user.id)) {
+            const pin = await kvGet<string>(user.id, `contact-key-${member.id}`);
+            if (pin && pin !== member.publicKey) throw new Error("Contact encryption key changed. Verify it in Encryption details before continuing.");
+            if (!pin) await kvSet(user.id, `contact-key-${member.id}`, member.publicKey);
+          }
           if (conv.type === "direct") {
             const other = conv.members.find((m) => m.id !== user.id);
             if (!other) throw new Error("Missing peer");
@@ -107,12 +118,15 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   const [deliveryWarning, setDeliveryWarning] = useState(false);
   const [localReady, setLocalReady] = useState(false);
   useEffect(() => {
-    if (!conversationsQ.isSuccess) return;
+    if (!conversationsQ.isSuccess && cached.length === 0) return;
     let cancelled = false;
     void (async () => {
-      await migrateLegacyHistory(user.id, conversations.map((c) => c.id));
+      if (conversationsQ.isSuccess) await migrateLegacyHistory(user.id, conversations.map((c) => c.id));
       lastReadRef.current = (await kvGet<Record<string, number>>(user.id, "lastRead")) ?? {};
       const latestMap = await latestMessagePerConversation(user.id);
+      for (const pending of await pendingMessages(user.id)) {
+        if ((latestMap.get(pending.conversationId)?.createdAt ?? 0) <= pending.createdAt) latestMap.set(pending.conversationId, pendingUi(pending));
+      }
       const counts = new Map<number, number>();
       for (const [convId] of latestMap) {
         const lr = lastReadRef.current[convId] ?? 0;
@@ -123,7 +137,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       if (!cancelled) { setLatest(latestMap); setUnread(counts); setLocalReady(true); }
     })().catch(() => { if (!cancelled) setArchiveError("Cannot open local history. Check your browser storage settings."); });
     return () => { cancelled = true; };
-  }, [user.id, conversations, conversationsQ.isSuccess, archiveRevision]);
+  }, [user.id, conversations, conversationsQ.isSuccess, cached.length, archiveRevision]);
 
   // ── incoming deliveries: decrypt → store locally → ack (relay deletes) ──
   type Delivery = {
@@ -216,7 +230,10 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         void enqueue([event]).catch(() => setConnection("Retrying delivery…"));
       }
     },
-    onError: () => { setConnection("Reconnecting…"); reconnectRef.current(); },
+    onError: (error) => {
+      if (error.data?.code === "UNAUTHORIZED" && navigator.onLine) { window.location.reload(); return; }
+      setConnection("Reconnecting…"); reconnectRef.current();
+    },
   });
 
   useEffect(() => {
@@ -267,7 +284,9 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
     setMessages([]);
     const msgs = await getMessages(user.id, id);
     if (activeIdRef.current !== id || !alive.current) return;
-    setMessages(msgs);
+    const pending = await pendingMessages(user.id);
+    if (activeIdRef.current !== id) return;
+    setMessages([...msgs, ...pending.filter((m) => m.conversationId === id).map(pendingUi)]);
     const maxMid = msgs.reduce((m, x) => Math.max(m, x.mid), 0);
     lastReadRef.current[id] = Math.max(lastReadRef.current[id] ?? 0, maxMid);
     void kvSet(user.id, "lastRead", lastReadRef.current);
@@ -279,53 +298,76 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   }, [user.id]);
 
   // ── sending ──
-  const outgoingEnvelopes = useRef(new Map<string, string>());
+  function pendingUi(item: PendingMessage): UiMessage {
+    return { ...item, mid: -item.createdAt, outgoing: true, tempId: item.clientMessageId, pending: true };
+  }
+  const sending = useRef(new Set<string>());
+  const flushRef = useRef<() => Promise<void>>(async () => {});
+  async function transmit(item: PendingMessage) {
+    if (sending.current.has(item.clientMessageId) || !navigator.onLine) return;
+    // Retry receipts expire after seven days. Do not silently resend an old ambiguous attempt.
+    if (Date.now() - item.createdAt > 7 * 86400000) {
+      setArchiveError("A pending message is over seven days old. Automatic retry stopped to avoid a duplicate. Check with the recipient before sending it again.");
+      return;
+    }
+    sending.current.add(item.clientMessageId);
+    try {
+      const { messageId, createdAt } = await sendMut.mutateAsync({ conversationId: item.conversationId,
+        envelope: item.envelope, clientMessageId: item.clientMessageId });
+      const stored: LocalMessage = { mid: messageId, conversationId: item.conversationId,
+        senderId: item.senderId, senderName: item.senderName, outgoing: true,
+        payload: item.payload, createdAt: createdAt.getTime() };
+      await completePending(user.id, item.clientMessageId, stored);
+      if (!alive.current) return;
+      if (activeIdRef.current === item.conversationId) setMessages((prev) =>
+        [...prev.filter((m) => m.tempId !== item.clientMessageId && m.mid !== messageId), stored]
+          .sort((a, b) => a.createdAt - b.createdAt));
+      setLatest((prev) => new Map(prev).set(item.conversationId, stored));
+    } catch {
+      if (alive.current && activeIdRef.current === item.conversationId) setMessages((prev) =>
+        prev.map((m) => m.tempId === item.clientMessageId ? { ...m, pending: false, failed: true } : m));
+    } finally { sending.current.delete(item.clientMessageId); }
+  }
+  flushRef.current = async () => {
+    for (const item of await pendingMessages(user.id)) {
+      if (!alive.current) return;
+      await transmit(item);
+    }
+  };
+  useEffect(() => {
+    if (!localReady) return;
+    const flush = () => { void flushRef.current().catch(() => {}); };
+    flush();
+    const timer = window.setInterval(flush, 15000);
+    window.addEventListener("online", flush);
+    return () => { clearInterval(timer); window.removeEventListener("online", flush); };
+  }, [localReady]);
   async function sendPayload(conv: ConversationSummary, payload: MessagePayload, tempId: string) {
-    const optimistic: UiMessage = {
-      mid: -Date.now(),
-      conversationId: conv.id,
-      senderId: user.id,
-      senderName: user.displayName,
-      outgoing: true,
-      payload,
-      createdAt: Date.now(),
-      pending: true,
-      tempId,
-    };
-    if (activeIdRef.current === conv.id) setMessages((prev) => [...prev, optimistic]);
-    setLatest((prev) => new Map(prev).set(conv.id, optimistic));
     try {
       messagePayloadSchema.parse(payload);
-      const key = await keyFor(conv);
-      const envelope = outgoingEnvelopes.current.get(tempId) ?? await encryptPayload(key, payload);
-      outgoingEnvelopes.current.set(tempId, envelope);
-      const { messageId, createdAt } = await sendMut.mutateAsync({ conversationId: conv.id, envelope, clientMessageId: tempId });
-      const stored: LocalMessage = {
-        mid: messageId, conversationId: conv.id, senderId: user.id,
-        senderName: user.displayName, outgoing: true, payload,
-        createdAt: createdAt.getTime(),
-      };
-      await storeMessage(user.id, stored);
-      outgoingEnvelopes.current.delete(tempId);
-      if (activeIdRef.current === conv.id) setMessages((prev) => [...prev.filter((m) => m.tempId !== tempId && m.mid !== messageId), stored].sort((a, b) => a.createdAt - b.createdAt || a.mid - b.mid));
-      setLatest((prev) => new Map(prev).set(conv.id, stored));
-    } catch {
-      const failed = { ...optimistic, pending: false, failed: true };
-      if (activeIdRef.current === conv.id) setMessages((prev) => prev.map((m) => m.tempId === tempId ? failed : m));
-      setLatest((prev) => prev.get(conv.id)?.mid === optimistic.mid ? new Map(prev).set(conv.id, failed) : prev);
-    }
+      const existing = (await pendingMessages(user.id)).find((m) => m.clientMessageId === tempId);
+      const item: PendingMessage = existing ?? { clientMessageId: tempId, conversationId: conv.id,
+        senderId: user.id, senderName: user.displayName, payload, createdAt: Date.now(),
+        envelope: await encryptPayload(await keyFor(conv), payload) };
+      await savePending(user.id, item);
+      const optimistic = pendingUi(item);
+      if (activeIdRef.current === conv.id) setMessages((prev) =>
+        [...prev.filter((m) => m.tempId !== tempId), optimistic]);
+      setLatest((prev) => new Map(prev).set(conv.id, optimistic));
+      await transmit(item);
+    } catch (error) { setArchiveError(error instanceof Error ? error.message : "Could not save this message on your device. Check available storage and try again."); }
   }
 
   const activeConv = conversations.find((c) => c.id === activeId) ?? null;
 
   const sortedConversations = useMemo(() => {
-    return [...conversations].sort((a, b) => {
+    return [...conversations].filter((c) => conversationTitle(c, user.id).title.toLowerCase().includes(search.toLowerCase())).sort((a, b) => {
       const la = latest.get(a.id);
       const lb = latest.get(b.id);
       return (lb?.createdAt ?? new Date(b.createdAt).getTime()) -
         (la?.createdAt ?? new Date(a.createdAt).getTime());
     });
-  }, [conversations, latest]);
+  }, [conversations, latest, search, user.id]);
 
   // ── layout ──
   const sidebar = (
@@ -359,6 +401,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         </button>
       </div>
 
+      <div className="px-4 py-3"><input aria-label="Search conversations" placeholder="Search chats…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-xl border bg-background px-3 py-2 text-sm" /></div>
       {deliveryWarning && <p role="status" className="border-b px-4 py-3 text-xs text-destructive">
         Some messages could not be unlocked or saved. They remain queued; check your keys and available storage.
       </p>}
@@ -434,7 +477,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   );
 
   return (
-    <div className="flex h-dvh bg-background text-foreground">
+    <div className="flex app-height bg-background text-foreground">
       {archiveError && <div role="alert" className="fixed left-4 right-4 top-4 z-50 rounded-lg border bg-card p-4 text-sm text-destructive">
         {archiveError}<button className="ml-3 underline" onClick={() => setArchiveError(null)}>Dismiss</button>
       </div>}
@@ -447,6 +490,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       <div className={`${activeId ? "flex" : "hidden"} min-w-0 flex-1 md:flex`}>
         {activeConv ? (
           <ChatWindow
+            key={activeConv.id}
             conversation={activeConv}
             messages={messages}
             myId={user.id}
@@ -468,6 +512,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
               void sendPayload(activeConv, failed.payload, tempId);
             }}
             onShowSecurity={() => setSecurityOpen(true)}
+            onDelete={(mid) => { void deleteLocalMessage(user.id, mid).then(() => { setArchiveRevision((n) => n + 1); void openConversation(activeConv.id); }).catch(() => setArchiveError("Could not delete this message.")); }}
           />
         ) : (
           <div className="hidden flex-1 items-center justify-center md:flex">
@@ -497,6 +542,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         conversation={activeConv}
         open={securityOpen}
         onOpenChange={setSecurityOpen}
+        onVerified={() => { keyCache.current.clear(); reconnectRef.current(); }}
       />
     </div>
   );

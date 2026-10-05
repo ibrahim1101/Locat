@@ -1,3 +1,4 @@
+import { Preferences } from "./Preferences";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -40,9 +41,11 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
     onOpenChange(next);
   }}>
     <DialogContent className="surface-2 max-h-[90dvh] overflow-y-auto sm:max-w-md">
-      <DialogHeader><DialogTitle>History & backups</DialogTitle>
+      <DialogHeader><DialogTitle>Settings & backups</DialogTitle>
         <DialogDescription>Your chat history lives on this device. Keep a backup before clearing browser data or changing phones.</DialogDescription>
       </DialogHeader>
+      <Preferences />
+      <p className="text-xs text-secondary">One active login per account. Signing in on another device ends this session; saved history stays here.</p>
       <p className="text-sm text-secondary">{storage}</p>
       <Button variant="outline" disabled={busy} onClick={() => void perform(async () => {
         const allowed = await navigator.storage?.persist?.();

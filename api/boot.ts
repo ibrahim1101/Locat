@@ -9,6 +9,13 @@ import { getDb } from "./queries/connection";
 import { sql } from "drizzle-orm";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
+app.use("*", async (c, next) => {
+  await next();
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("Referrer-Policy", "same-origin");
+  c.header("X-Frame-Options", "DENY");
+  if (c.req.path.startsWith("/api/") || c.req.path === "/sw.js" || c.req.path === "/index.html") c.header("Cache-Control", "no-store");
+});
 
 app.get("/api/health", (c) => c.json({ app: "Locat", status: "ok" }));
 app.get("/api/ready", async (c) => {

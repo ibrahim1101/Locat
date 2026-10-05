@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { like, ne, and, or, inArray } from "drizzle-orm";
+import { like, eq, ne, and, or, inArray } from "drizzle-orm";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { users } from "@db/schema";
@@ -26,6 +26,7 @@ export const usersRouter = createRouter({
         .where(
           and(
             ne(users.id, ctx.user!.id),
+            eq(users.disabled, false),
             or(like(users.username, q), like(users.displayName, q)),
           ),
         )

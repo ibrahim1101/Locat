@@ -50,7 +50,7 @@ export async function createContext(
     .limit(1);
 
   const row = rows[0];
-  if (row && row.session.expiresAt > new Date()) {
+  if (row && !row.user.disabled && row.session.expiresAt > new Date()) {
     ctx.user = row.user;
     ctx.sessionToken = token;
   }

@@ -35,6 +35,8 @@ try {
     } else { throw new Error("Unrecognized bootstrap statement; review the schema upgrade."); }
     if (rows.length === 0) await connection.query(statement);
   }
+  const [[disabledColumn]] = await connection.query("SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'disabled'");
+  if (Number(disabledColumn.n) === 0) await connection.query("ALTER TABLE users ADD COLUMN disabled BOOLEAN NOT NULL DEFAULT FALSE");
   console.log("Locat database ready. Existing accounts and messages were preserved.");
 } finally {
   if (locked) await connection.query("SELECT RELEASE_LOCK('locat_schema_setup')");
