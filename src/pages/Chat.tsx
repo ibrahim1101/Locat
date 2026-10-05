@@ -49,7 +49,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
     [conversationsQ.data],
   );
   const convsRef = useRef(conversations);
-  convsRef.current = conversations;
+  useEffect(() => { convsRef.current = conversations; }, [conversations]);
 
   const [activeId, setActiveId] = useState<number | null>(null);
   const [messages, setMessages] = useState<UiMessage[]>([]);
@@ -115,7 +115,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   };
 
   const activeIdRef = useRef<number | null>(null);
-  activeIdRef.current = activeId;
+  useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
 
   const processDeliveries = useCallback(
     async (items: Delivery[]) => {
@@ -170,7 +170,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   );
 
   const processRef = useRef(processDeliveries);
-  processRef.current = processDeliveries;
+  useEffect(() => { processRef.current = processDeliveries; }, [processDeliveries]);
 
   // realtime stream (SSE subscription)
   trpc.messages.subscribe.useSubscription(undefined, {
@@ -226,7 +226,11 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       const key = await keyFor(conv);
       const envelope = await encryptPayload(key, payload);
       const { messageId } = await sendMut.mutateAsync({ conversationId: conv.id, envelope });
-      const stored: LocalMessage = { ...optimistic, mid: messageId };
+      const stored: LocalMessage = {
+        mid: messageId, conversationId: conv.id, senderId: user.id,
+        senderName: user.displayName, outgoing: true, payload,
+        createdAt: optimistic.createdAt,
+      };
       await storeMessage(stored);
       setMessages((prev) => prev.map((m) => (m.tempId === tempId ? stored : m)));
       setLatest((prev) => new Map(prev).set(conv.id, stored));
@@ -282,7 +286,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
           <p className="micro-label px-4 py-10 text-center normal-case leading-relaxed tracking-normal">
             No conversations yet.
             <br />
-            Tap + to find people on this relay.
+            Tap + to find people on Locat.
           </p>
         )}
         {sortedConversations.map((c) => {
@@ -340,7 +344,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       </div>
 
       <p className="micro-label shrink-0 border-t px-4 py-3 pb-safe normal-case tracking-normal">
-        history lives on this device · relay keeps nothing
+        Locat · history saved on this device
       </p>
     </div>
   );
@@ -386,7 +390,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
               </div>
               <p className="text-sm font-medium">Pick a conversation</p>
               <p className="micro-label mt-2 normal-case tracking-normal">
-                end-to-end encrypted · relay stores nothing
+                end-to-end encrypted · saved on your device
               </p>
             </div>
           </div>

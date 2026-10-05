@@ -8,6 +8,8 @@ import { env } from "./lib/env";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 
+app.get("/api/health", (c) => c.json({ app: "Locat", status: "ok" }));
+
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
 app.use("/api/trpc/*", async (c) => {
   return fetchRequestHandler({

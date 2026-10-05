@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --background: 222 28% 7%;
+    --foreground: 210 25% 95%;
+    --card: 222 24% 11%;
+    --card-foreground: 210 25% 95%;
+    --popover: 222 24% 11%;
+    --popover-foreground: 210 25% 95%;
+    --primary: 174 76% 48%;
+    --primary-foreground: 222 28% 7%;
+    --secondary: 215 15% 65%;
+    --secondary-foreground: 210 25% 95%;
+    --muted: 222 20% 16%;
+    --muted-foreground: 215 15% 65%;
+    --accent: 222 20% 18%;
+    --accent-foreground: 210 25% 95%;
+    --destructive: 0 75% 62%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 222 18% 21%;
+    --input: 222 18% 24%;
+    --ring: 174 76% 48%;
+    --radius: 0.75rem;
+    --sidebar-background: 222 26% 9%;
+    --sidebar-foreground: 210 25% 95%;
+    --sidebar-primary: 174 76% 48%;
+    --sidebar-primary-foreground: 222 28% 7%;
+    --sidebar-accent: 222 20% 18%;
+    --sidebar-accent-foreground: 210 25% 95%;
+    --sidebar-border: 222 18% 21%;
+    --sidebar-ring: 174 76% 48%;
+  }
+  * { @apply border-border; }
+  body { @apply m-0 bg-background text-foreground antialiased; font-family: Inter, system-ui, sans-serif; }
+  button, input, textarea { touch-action: manipulation; }
+  button:focus-visible { @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background; }
+  /* Prevent iOS from zooming the viewport while composing. */
+  @media (max-width: 767px) { input, textarea { font-size: 16px !important; } }
+}
+@layer utilities {
+  .surface-2 { background: hsl(var(--card)); }
+  .surface-3 { background: hsl(var(--accent)); }
+  .micro-label { @apply text-[11px] font-medium uppercase tracking-wider text-secondary; }
+  .font-mono-ui { font-family: "IBM Plex Mono", monospace; }
+  .pt-safe { padding-top: max(0.75rem, env(safe-area-inset-top)); }
+  .pb-safe { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+  .scroll-slim { scrollbar-width: thin; scrollbar-color: hsl(var(--border)) transparent; }
+  .shadow-super { box-shadow: 0 24px 80px rgb(0 0 0 / 0.25); }
+}

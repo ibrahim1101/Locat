@@ -33,6 +33,9 @@ export type IdentityKeys = {
 };
 
 export async function generateIdentity(): Promise<IdentityKeys> {
+  if (!globalThis.crypto?.subtle) {
+    throw new Error("Open Locat over HTTPS to enable encryption. HTTP only works on localhost.");
+  }
   const pair = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, [
     "deriveBits",
   ]);
@@ -115,7 +118,7 @@ async function hkdfAesKey(bits: ArrayBuffer, salt: string, info: string): Promis
   );
 }
 
-/** Deterministic pairwise key for a 1:1 conversation (order-independent). */
+/** Deterministic pairwise key. Legacy protocol salts preserve existing ciphertext. */
 export function deriveDirectKey(
   myPriv: CryptoKey,
   theirPubB64: string,

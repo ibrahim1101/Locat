@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/state/auth";
 
-function RelayMark({ className = "h-8 w-8" }: { className?: string }) {
+function LocatMark({ className = "h-8 w-8" }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" fill="none" className={className} aria-hidden>
       <circle cx="7" cy="16" r="3.5" stroke="hsl(187 100% 50%)" strokeWidth="2" />
@@ -45,8 +45,8 @@ function Shell({ children }: { children: React.ReactNode }) {
 function Brand() {
   return (
     <div className="mb-8">
-      <RelayMark className="mb-4 h-9 w-9 text-foreground" />
-      <h1 className="text-xl font-semibold tracking-tight">RelayChat</h1>
+      <LocatMark className="mb-4 h-9 w-9 text-foreground" />
+      <h1 className="text-xl font-semibold tracking-tight">Locat</h1>
       <p className="micro-label mt-2">end-to-end encrypted · stored on your devices</p>
     </div>
   );

@@ -21,6 +21,7 @@ let dbPromise: Promise<IDBPDatabase> | null = null;
 
 function db(): Promise<IDBPDatabase> {
   if (!dbPromise) {
+    // Legacy storage identifier retained so existing users keep their history.
     dbPromise = openDB("relaychat", 1, {
       upgrade(d) {
         d.createObjectStore("kv");
@@ -68,9 +69,14 @@ export async function loadIdentity(
 /** Insert if the server message id is new. Returns true when inserted. */
 export async function storeMessage(msg: LocalMessage): Promise<boolean> {
   const d = await db();
-  const existing = await d.getKeyFromIndex("messages", "byMid", msg.mid);
-  if (existing !== undefined) return false;
-  await d.add("messages", msg);
+  const tx = d.transaction("messages", "readwrite");
+  const existing = await tx.store.index("byMid").getKey(msg.mid);
+  if (existing !== undefined) {
+    await tx.done;
+    return false;
+  }
+  await tx.store.add(msg);
+  await tx.done;
   return true;
 }
 
