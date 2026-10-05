@@ -53,9 +53,11 @@ Node.js 22.12+ (or supported Node.js 24+) and MariaDB can also run without Docke
 npm ci
 npm run db:setup
 npm run build
+npm run doctor
+npm start
 ```
 
-For a cross-platform production launch, set `NODE_ENV=production` using your service manager and execute `node dist/boot.js`. The `npm start` shell assignment is Linux/macOS-specific. Use a service manager appropriate to the host and an HTTPS proxy; the Pi systemd installer is specifically for Debian-based ARM64 Raspberry Pi systems.
+`npm start` sets production mode through Node.js and works with Windows, Linux, and macOS shells. `npm run doctor` performs read-only runtime, build, configuration, database connectivity and schema checks without printing credentials; it exits with a nonzero status when a required check fails. Push configuration is optional. Run diagnostics from the deployment directory containing `.env`. Use a service manager appropriate to the host and an HTTPS proxy; the Pi systemd installer is specifically for Debian-based ARM64 Raspberry Pi systems.
 
 ## Hosting on a phone
 

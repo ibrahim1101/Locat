@@ -155,3 +155,14 @@ Optional Web Push alerts are available in Settings once the server's VAPID keys 
 ### Secure group management
 
 Group details now supports owner-controlled name/member changes, fresh key versions, ownership transfer, and leaving. Removing a member rotates the encryption key; leaving pauses sending until the owner rotates it. Historical wrapped keys let remaining members unlock older queued messages. Departed conversations stay locally archived. See [group behavior and upgrade notes](docs/GROUPS.md).
+
+### Installation diagnostics
+
+From the deployed directory containing `.env`, run `npm run doctor` for read-only installation checks. On Raspberry Pi:
+
+```bash
+cd /opt/locat
+sudo -u locat npm run doctor
+```
+
+The output includes suggested fixes without printing credentials. Native deployments on Windows, Linux and macOS can start with `npm start`.
