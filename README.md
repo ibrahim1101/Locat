@@ -142,3 +142,8 @@ Contact public keys are pinned on first use; changed keys block encryption/decry
 - [Windows/macOS/Linux hosting](docs/CROSS_PLATFORM.md)
 
 Still planned: true background push, per-device queues, group membership changes with key rotation/history, encrypted voice/files, structured reactions, advanced media controls, native packages, and calling infrastructure. These are not claimed as shipped in this batch.
+
+
+### Browser administration
+
+Locat now has an administrator dashboard at `/admin`: account controls, session revocation, server statistics, encrypted metadata downloads, cleanup, and action history. Grant an existing account with `npm run admin -- grant-admin USERNAME` on the server. Admin roles are never granted through registration or the browser. See [server administration](docs/SERVER_ADMIN.md) for Pi commands and backup recovery.

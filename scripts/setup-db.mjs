@@ -37,6 +37,9 @@ try {
   }
   const [[disabledColumn]] = await connection.query("SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'disabled'");
   if (Number(disabledColumn.n) === 0) await connection.query("ALTER TABLE users ADD COLUMN disabled BOOLEAN NOT NULL DEFAULT FALSE");
+  const [[adminColumn]] = await connection.query("SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'is_admin'");
+  if (Number(adminColumn.n) === 0) await connection.query("ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT FALSE");
+  await connection.query("CREATE TABLE IF NOT EXISTS admin_audit (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, actor_id BIGINT UNSIGNED NOT NULL, action VARCHAR(64) NOT NULL, target_id BIGINT UNSIGNED NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)");
   console.log("Locat database ready. Existing accounts and messages were preserved.");
 } finally {
   if (locked) await connection.query("SELECT RELEASE_LOCK('locat_schema_setup')");

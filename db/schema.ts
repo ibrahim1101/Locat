@@ -19,6 +19,7 @@ export const users = mysqlTable("users", {
   id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
   username: varchar("username", { length: 64 }).notNull().unique(),
   displayName: varchar("display_name", { length: 128 }).notNull(),
+  isAdmin: boolean("is_admin").notNull().default(false),
   disabled: boolean("disabled").notNull().default(false),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
   // base64 SPKI of the user's ECDH P-256 public key (public key directory)
@@ -138,3 +139,11 @@ export const sendReceipts = mysqlTable("send_receipts", {
   createdAt: timestamp("created_at").notNull(),
 }, (t) => [uniqueIndex("receipt_sender_client_unique").on(t.senderId, t.clientMessageId),
   index("receipt_created_idx").on(t.createdAt)]);
+
+export const adminAudit = mysqlTable("admin_audit", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  actorId: bigint("actor_id", { mode: "number", unsigned: true }).notNull(),
+  action: varchar("action", { length: 64 }).notNull(),
+  targetId: bigint("target_id", { mode: "number", unsigned: true }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

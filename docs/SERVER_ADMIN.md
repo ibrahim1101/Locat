@@ -22,7 +22,7 @@ Disable blocks login and invalidates sessions. Enabling does not restore old ses
 
 One active login per account is enforced until per-device delivery queues are implemented. Signing in elsewhere ends the old session. Locally saved history remains on the old device. This prevents one device acknowledging and deleting a message before another device receives it.
 
-The tools are local terminal commands, authorized by access to the installation's database credentials. There is no publicly exposed administrator API. Account deletion is intentionally excluded because conversation ownership and identity recovery need a separate, reviewed workflow.
+Terminal tools require access to the installation's database credentials. The browser dashboard uses authenticated administrator-only API routes; regular accounts cannot use them. Account deletion is intentionally excluded because conversation ownership and identity recovery need a separate, reviewed workflow.
 
 ## Metadata backup
 
@@ -47,3 +47,46 @@ sudo systemctl start locat
 ```
 
 Test recovery on a disposable database first. Restoring a dump replaces included tables; never run it against a working database without a separate current backup. Users must log in again. Their local chat archives are not restored by a server backup; those need `.locat` backups from their own devices.
+
+
+## Browser dashboard
+
+After updating Locat, grant your existing account administrator access on the server:
+
+```bash
+cd /opt/locat
+sudo -u locat npm run admin -- grant-admin YOUR_USERNAME
+```
+
+Refresh Locat and open `/admin` on the same HTTPS address. A Server administration link also appears after your account profile reloads. The dashboard provides searchable/paginated account controls, session revocation, server/database/queue statistics, encrypted metadata backup downloads, cleanup, and an administrator action log. Mutations require your administrator login password again. It does not display password hashes, session tokens, private-key backups, or chat contents. Administrator accounts and role grants are managed only from the terminal, preventing accidental self-lockout in the dashboard.
+
+Keep the deployment on your private Tailscale network. Administrator roles protect API access, but they are not a network access restriction. If you later expose the chat service publicly, restrict both `/admin` and `/api/trpc/admin.*` at the reverse proxy or place administration on a private listener; hiding only the page does not hide its API.
+
+To revoke administrator access and sessions:
+
+```bash
+sudo -u locat npm run admin -- revoke-admin YOUR_USERNAME
+```
+
+The action log records successful dashboard mutations and terminal account/role changes. It is a database log, not a tamper-proof audit service; the database owner can modify it. Host storage/memory metrics may reflect the container or its underlying host.
+
+## Restore an encrypted dashboard backup
+
+Dashboard downloads use the `.locat-server` extension and a separate backup password of at least 12 characters. They include account credentials as password hashes, encrypted identity backups, and group membership/key metadata inside authenticated encryption. They exclude sessions, queued messages, retry receipts, and action logs. Keep the backup password separately; Locat cannot recover it.
+
+On a fresh installation with no accounts, stop the application and run database setup before restore. Restore refuses any nonempty account/conversation/message/session database and runs in one transaction. The current working deployment must never be the restore target.
+
+```bash
+sudo systemctl stop locat
+cd /opt/locat
+sudo -u locat npm run db:setup
+sudo -u locat bash
+read -s -r -p "Backup password: " LOCAT_BACKUP_PASSWORD
+export LOCAT_BACKUP_PASSWORD
+npm run restore:server -- /secure/path/Locat-server.locat-server
+unset LOCAT_BACKUP_PASSWORD
+exit
+sudo systemctl start locat
+```
+
+Use the exact downloaded filename. Restore expects a backup from this metadata format; `.locat` device-history files and SQL dumps use their own restore workflows. Restored administrator roles are retained, but all users must log in again. Device chat histories still require their own backups.

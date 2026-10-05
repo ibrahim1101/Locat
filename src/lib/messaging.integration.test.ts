@@ -39,7 +39,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     process.env.DATABASE_URL = databaseUrl;
     connection = await mysql.createConnection(databaseUrl!);
     await connection.query("SET FOREIGN_KEY_CHECKS=0");
-    for (const table of ["send_receipts", "message_deliveries", "messages", "conversation_members", "conversations", "sessions", "users"]) {
+    for (const table of ["admin_audit", "send_receipts", "message_deliveries", "messages", "conversation_members", "conversations", "sessions", "users"]) {
       await connection.query(`DROP TABLE IF EXISTS ${table}`);
     }
     await connection.query("SET FOREIGN_KEY_CHECKS=1");
@@ -196,4 +196,49 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
       expect(await count("conversations")).toBe(before);
     } finally { await connection.query("DROP TRIGGER locat_test_fail_membership"); }
   });
+  it("protects admin routes, audits account controls, and encrypts recoverable metadata", async () => {
+    await expect(bob.admin.stats()).rejects.toThrow("Administrator");
+    await db.update(schema.users).set({ isAdmin: true }).where(eq(schema.users.id, aliceId));
+    const rows = await alice.admin.users({ search: "bob", page: 0 });
+    expect(rows.items).toHaveLength(1);
+    expect(rows.items[0]).not.toHaveProperty("passwordHash");
+    expect(rows.items[0]).not.toHaveProperty("encryptedPrivateKey");
+    await expect(alice.admin.accountAction({ userId: bobId, action: "disable", password: "incorrect" })).rejects.toThrow("Incorrect");
+    await alice.admin.accountAction({ userId: bobId, action: "disable", password: "test-password-long" });
+    expect((await db.query.users.findFirst({ where: eq(schema.users.id, bobId) }))!.disabled).toBe(true);
+    expect(await db.select().from(schema.sessions).where(eq(schema.sessions.userId, bobId))).toHaveLength(0);
+    await alice.admin.accountAction({ userId: bobId, action: "enable", password: "test-password-long" });
+    await expect(alice.admin.accountAction({ userId: aliceId, action: "disable", password: "test-password-long" })).rejects.toThrow("own administrator");
+    expect((await alice.admin.stats()).accounts).toBe(3);
+    expect((await alice.admin.audit({ page: 0 })).items.map(row => row.action)).toContain("disable");
+    const backup = await alice.admin.backup({ password: "test-password-long", backupPassword: "long-backup-password" });
+    expect(backup).not.toContain("passwordHash");
+    const { createDecipheriv, scryptSync } = await import("node:crypto");
+    const encrypted = JSON.parse(backup);
+    const key = scryptSync("long-backup-password", Buffer.from(encrypted.salt,"base64"),32);
+    const decipher = createDecipheriv("aes-256-gcm",key,Buffer.from(encrypted.iv,"base64"));
+    decipher.setAAD(Buffer.from("Locat server metadata v1")); decipher.setAuthTag(Buffer.from(encrypted.tag,"base64"));
+    const metadata = JSON.parse(Buffer.concat([decipher.update(Buffer.from(encrypted.data,"base64")),decipher.final()]).toString());
+    expect(metadata.accounts).toHaveLength(3); expect(metadata).not.toHaveProperty("sessions"); expect(metadata).not.toHaveProperty("messages");
+    const { mkdtemp, writeFile, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const dir = await mkdtemp(join(tmpdir(),"locat-restore-"));
+    const path = join(dir,"backup.locat-server"); await writeFile(path,backup);
+    const restore = () => spawnSync(process.execPath,["scripts/restore-server.mjs",path], { env:{...process.env, DATABASE_URL:databaseUrl!,LOCAT_BACKUP_PASSWORD:"long-backup-password"},encoding:"utf8" });
+    try {
+      expect(restore().stderr).toContain("target database is not empty");
+      await connection.query("SET FOREIGN_KEY_CHECKS=0");
+      for(const table of ["admin_audit","message_deliveries","messages","send_receipts","sessions","conversation_members","conversations","users"]) await connection.query(`DELETE FROM ${table}`);
+      await connection.query("SET FOREIGN_KEY_CHECKS=1");
+      const result = restore(); expect(result.status, result.stderr).toBe(0);
+      expect(await count("users")).toBe(3);
+      expect(await count("conversations")).toBe(metadata.conversations.length);
+      expect(await count("sessions")).toBe(0);
+      const restored = await db.query.users.findFirst({ where:eq(schema.users.id,aliceId) });
+      expect(restored!.isAdmin).toBe(true);
+      expect((await alice.auth.login({ username:"alice", password:"test-password-long" })).user.id).toBe(aliceId);
+    } finally { await rm(dir,{ recursive:true,force:true }); }
+  }, 20000);
+
 });

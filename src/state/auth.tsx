@@ -23,6 +23,7 @@ export type SessionUser = {
   username: string;
   displayName: string;
   publicKey: string;
+  isAdmin?: boolean;
 };
 
 type AuthState =

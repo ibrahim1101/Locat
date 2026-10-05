@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/providers/trpc";
 import { useAuth, type SessionUser } from "@/state/auth";
@@ -470,6 +471,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         })}
       </div>
 
+      {user.isAdmin && <Link to="/admin" className="border-t px-4 py-3 text-sm text-primary">Server administration →</Link>}
       <p className="micro-label shrink-0 border-t px-4 py-3 pb-safe normal-case tracking-normal">
         Locat · {connection}
       </p>
