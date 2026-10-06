@@ -1,6 +1,6 @@
 # Locat 1.0 — single release development plan
 
-Approved 2026-10-06. All 40 items belong to one development cycle; phases are internal and do not create intermediate releases. Development branch: `feat/locat-1.0`, based on `fix/locat-install-mobile-foundation`. Preserve main and the deployed Pi while developing.
+Approved 2026-10-06. All 41 items belong to one development cycle; phases are internal and do not create intermediate releases. Development branch: `feat/locat-1.0`, based on `fix/locat-install-mobile-foundation`. Preserve main and the deployed Pi while developing.
 
 ## Initial source audit
 
@@ -30,11 +30,11 @@ Universal forensic deletion cannot be guaranteed for SSDs, snapshots, backups or
 
 - [ ] 01. Profile picture selection
 - [ ] 02. Read receipt on/off
-- [ ] 03. Delete for all
+- [x] 03. Delete for all
 - [ ] 04. Hidden messages
 - [ ] 05. Voice messages
-- [ ] 06. Bio/description
-- [ ] 07. Unique searchable user ID/code
+- [x] 06. Bio/description
+- [x] 07. Unique searchable user ID/code
 - [ ] 08. Passkey logins
 - [ ] 09. Voice/video calling
 - [ ] 10. Webhooks
@@ -44,7 +44,7 @@ Universal forensic deletion cannot be guaranteed for SSDs, snapshots, backups or
 - [ ] 14. Account closure
 - [ ] 15. Online/offline pinging
 - [ ] 16. Server online/offline notifications
-- [ ] 17. Edit sent messages
+- [x] 17. Edit sent messages
 - [ ] 18. Single/multi-view messages
 - [ ] 19. Basic picture editing
 - [ ] 20. Theme selection
@@ -68,6 +68,7 @@ Universal forensic deletion cannot be guaranteed for SSDs, snapshots, backups or
 - [ ] 38. Privacy controls
 - [ ] 39. Server presence logs
 - [ ] 40. Configurable video sharing
+- [ ] 41. Avatar-triggered profile panel with picture, nickname, username, LC code and bio
 
 ## Progress
 
@@ -95,3 +96,6 @@ Universal forensic deletion cannot be guaranteed for SSDs, snapshots, backups or
 - Edit/delete implementation increment (items 03 and 17): versioned encrypted controls use relay-authenticated sender/conversation scope, sender-only UI actions, durable outbox and atomic control projection before ACK. Latest event IDs order edits, deletion is absorbing, pending states handle controls before originals and prevent stale imports/replays on the same device. Legacy messages use scoped server IDs. Archive projections preserve edited/deleted flags. Updated clients are required; former members/external copies and older backups cannot be recalled. See docs/MESSAGE-CONTROLS.md for recovery limits and acceptance steps.
 - Verification: 37 tests passed against fresh MariaDB, including live relay controls after original queue purge and a forged author attempt, plus ordering, deletion replay/import and pending retirement. TypeScript/build/lint passed. Items 03/17 are implemented awaiting final workflow and physical-browser acceptance.
 - Progress markers requested by user: report X/40 fully accepted, identify item numbers, and keep implementation/verification distinct from acceptance. Current accepted count: 0/40. Items 03, 06, 07, 17 have implementation and automated checks; device acceptance remains pending.
+
+- User device acceptance: user reported all profile/code/edit/delete acceptance tests working. Items 03,06,07,17 accepted: 4/40, expanded to 4/41 after adding item 41. Earlier zero-acceptance entries are historical.
+- Item 41 UI increment: clickable, keyboard-accessible top-left avatar opens a dedicated profile dialog with nickname editing, fixed login username, server-scoped LC code/copy and bio. Profile editing removed from Settings; theme/install/notification/storage controls remain there. Picture selection (item 01 and part of 41) remains pending; do not mark 41 complete. TypeScript and production build pass.
