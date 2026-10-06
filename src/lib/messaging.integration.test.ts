@@ -42,7 +42,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     process.env.DATABASE_URL = databaseUrl;
     connection = await mysql.createConnection(databaseUrl!);
     await connection.query("SET FOREIGN_KEY_CHECKS=0");
-    for (const table of ["group_keys", "push_subscriptions", "admin_audit", "send_receipts", "message_deliveries", "messages", "conversation_members", "conversations", "sessions", "users"]) {
+    for (const table of ["user_blocks", "group_keys", "push_subscriptions", "admin_audit", "send_receipts", "message_deliveries", "messages", "conversation_members", "conversations", "sessions", "users"]) {
       await connection.query(`DROP TABLE IF EXISTS ${table}`);
     }
     await connection.query("SET FOREIGN_KEY_CHECKS=1");
@@ -83,6 +83,22 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     expect((await alice.auth.login({ username: "alice", password: "test-password-long" })).user.id).toBe(aliceId);
     await expect(alice.auth.login({ username: "alice", password: "wrong" })).rejects.toThrow("Invalid username");
     expect(await bob.conversations.createDirect({ userId: aliceId })).toEqual({ conversationId, created: false });
+  });
+
+  it("enforces block and unblock in both directions for direct messaging", async () => {
+    await expect(alice.users.block({ userId: aliceId })).rejects.toThrow("yourself");
+    expect(await alice.users.block({ userId: bobId })).toEqual({ blocked: true });
+    expect(await alice.users.block({ userId: bobId })).toEqual({ blocked: true });
+    expect((await alice.users.blocked()).map(row => row.id)).toContain(bobId);
+    expect(await alice.users.search({ q: "bob" })).toEqual([]);
+    expect(await bob.users.search({ q: "alice" })).toEqual([]);
+    await expect(alice.conversations.createDirect({ userId: bobId })).rejects.toThrow("blocked");
+    await expect(bob.conversations.createDirect({ userId: aliceId })).rejects.toThrow("blocked");
+    await expect(alice.messages.send({ conversationId, envelope, clientMessageId: crypto.randomUUID() })).rejects.toThrow("blocked");
+    await expect(bob.messages.send({ conversationId, envelope, clientMessageId: crypto.randomUUID() })).rejects.toThrow("blocked");
+    expect(await alice.users.unblock({ userId: bobId })).toEqual({ blocked: false });
+    expect(await alice.users.blocked()).toEqual([]);
+    expect(await alice.conversations.createDirect({ userId: bobId })).toEqual({ conversationId, created: false });
   });
 
   it("updates a public profile and finds it by exact account code", async () => {
