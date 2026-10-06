@@ -83,6 +83,16 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     expect(await bob.conversations.createDirect({ userId: aliceId })).toEqual({ conversationId, created: false });
   });
 
+  it("updates a public profile and finds it by exact account code", async () => {
+    expect(await alice.users.updateProfile({ displayName: "Alice Example", bio: "Private chat enthusiast" }))
+      .toEqual({ displayName: "Alice Example", bio: "Private chat enthusiast" });
+    const results = await bob.users.search({ q: `LC-${aliceId}` });
+    expect(results).toEqual([expect.objectContaining({
+      id: aliceId, displayName: "Alice Example", bio: "Private chat enthusiast",
+    })]);
+    expect(await bob.users.search({ q: "LC-0" })).toEqual([]);
+  });
+
   it("rejects cross-origin mutations and disabled accounts, and retires older sessions", async () => {
     const { createContext } = await import("../../api/context");
     const first = await alice.auth.login({ username: "alice", password: "test-password-long" });
