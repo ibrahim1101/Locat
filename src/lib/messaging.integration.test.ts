@@ -246,6 +246,27 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     await local.wipeAll(99);
   });
 
+  it("relays an encrypted read receipt with the authenticated reader identity", async () => {
+    const sendingKey = await deriveDirectKey(identities[0].privateKey, identities[1].publicKeyB64, aliceId, bobId);
+    const local = await import("./localdb");
+    await local.wipeAll(98);
+    const target = crypto.randomUUID();
+    await local.storeMessage(98, { mid: 900001, conversationId, senderId: 98,
+      senderName: "Alice", outgoing: true, payload: { type: "text", text: "read me", messageRef: target }, createdAt: 1 });
+    const control = { type: "control" as const, version: 1 as const, action: "read" as const, target };
+    const sent = await bob.messages.send({ conversationId, clientMessageId: crypto.randomUUID(),
+      envelope: await encryptPayload(receivingKey, control) });
+    const event = (await alice.messages.sync({ after: sent.messageId - 1 })).items.find(row => row.messageId === sent.messageId)!;
+    expect(event.senderId).toBe(bobId);
+    const decrypted = await decryptPayload(sendingKey, event.envelope);
+    if (decrypted.type !== "control" || decrypted.action !== "read") throw new Error("Expected read receipt");
+    await local.applyReadReceipt(98, event.conversationId, event.senderId, decrypted.target);
+    expect((await local.allMessages(98))[0].readBy).toEqual([bobId]);
+    await alice.messages.ack({ messageIds: [sent.messageId] });
+    await bob.messages.ack({ messageIds: [sent.messageId] });
+    await local.wipeAll(98);
+  });
+
   it("upgrades an original schema without losing accounts or messages", async () => {
     const sent = await alice.messages.send({ conversationId, envelope, clientMessageId: crypto.randomUUID() });
     const accountsBefore = await count("users");
