@@ -174,7 +174,11 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     await connection.query("CREATE INDEX legacy_sender_idx ON messages(sender_id)");
     await connection.query("ALTER TABLE messages DROP INDEX messages_sender_client_unique, DROP COLUMN client_message_id");
     await connection.query("DROP TABLE send_receipts");
+    await connection.query("ALTER TABLE users DROP COLUMN bio");
     setup(); setup();
+    const upgraded = await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) });
+    expect(upgraded!.bio).toBeNull();
+    await alice.users.updateProfile({ displayName: "Alice Example", bio: "Restored profile" });
     expect(await count("users")).toBe(accountsBefore);
     expect((await bob.messages.sync({ after: 0 })).items[0].messageId).toBe(sent.messageId);
   });
@@ -311,6 +315,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
       expect(await count("sessions")).toBe(0);
       const restored = await db.query.users.findFirst({ where:eq(schema.users.id,aliceId) });
       expect(restored!.isAdmin).toBe(true);
+      expect(restored!.bio).toBe("Restored profile");
       expect((await alice.auth.login({ username:"alice", password:"test-password-long" })).user.id).toBe(aliceId);
     } finally { await rm(dir,{ recursive:true,force:true }); }
   }, 20000);

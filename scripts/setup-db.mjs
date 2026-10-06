@@ -16,6 +16,8 @@ try {
   for (const statement of statements.filter((s) => s.startsWith("CREATE TABLE"))) {
     await connection.query(statement.replace("CREATE TABLE", "CREATE TABLE IF NOT EXISTS"));
   }
+  const [[bioColumn]] = await connection.query("SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'bio'");
+  if (Number(bioColumn.n) === 0) await connection.query("ALTER TABLE users ADD COLUMN bio VARCHAR(280) NULL");
   const [[column]] = await connection.query(
     "SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'messages' AND COLUMN_NAME = 'client_message_id'",
   );

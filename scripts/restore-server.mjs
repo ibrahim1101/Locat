@@ -52,6 +52,7 @@ const account = z.object({
   id,
   username: z.string().min(3).max(64),
   displayName: z.string().min(1).max(128),
+  bio: z.string().max(280).nullable().default(null),
   passwordHash: z
     .string()
     .regex(/^scrypt\$/)
@@ -122,11 +123,12 @@ try {
   }
   for (const row of data.accounts)
     await db.query(
-      "INSERT INTO users (id,username,display_name,password_hash,public_key,encrypted_private_key,key_salt,disabled,is_admin,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+      "INSERT INTO users (id,username,display_name,bio,password_hash,public_key,encrypted_private_key,key_salt,disabled,is_admin,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
       [
         row.id,
         row.username,
         row.displayName,
+        row.bio,
         row.passwordHash,
         row.publicKey,
         row.encryptedPrivateKey,
