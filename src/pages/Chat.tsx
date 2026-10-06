@@ -572,6 +572,9 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
     tempId: string
   ) {
     try {
+      // Bind the encrypted reference to the durable retry ID before sealing.
+      // Retrying never generates a second reference for the same message.
+      payload = { ...payload, messageRef: tempId };
       messagePayloadSchema.parse(payload);
       const existing = (await pendingMessages(user.id)).find(
         m => m.clientMessageId === tempId

@@ -5,7 +5,7 @@ import type { LocalMessage } from "./localdb";
 
 const account = { userId: 1, username: "alice", origin: "https://locat.test" };
 const messages: LocalMessage[] = [{ mid: 1, conversationId: 10, senderId: 1,
-  senderName: "Alice", outgoing: true, payload: { type: "text", text: "private history" }, createdAt: 1234 }];
+  senderName: "Alice", outgoing: true, payload: { type: "text", text: "private history", messageRef: "3a9436fd-e795-45ba-88ed-0d9f0f0f4985" }, createdAt: 1234 }];
 
 describe("encrypted history backups", () => {
   it("round-trips history without exposing plaintext", async () => {

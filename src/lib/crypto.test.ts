@@ -15,8 +15,10 @@ describe("Locat encryption", () => {
     expect(restored.extractable).toBe(false);
     const sending = await deriveDirectKey(restored, bob.publicKeyB64, 1, 2);
     const receiving = await deriveDirectKey(bob.privateKey, alice.publicKeyB64, 2, 1);
-    const envelope = await encryptPayload(sending, { type: "text", text: "hello Locat" });
-    expect(await decryptPayload(receiving, envelope)).toEqual({ type: "text", text: "hello Locat" });
+    const payload = { type: "text" as const, text: "hello Locat", messageRef: crypto.randomUUID() };
+    const envelope = await encryptPayload(sending, payload);
+    expect(envelope).not.toContain(payload.messageRef);
+    expect(await decryptPayload(receiving, envelope)).toEqual(payload);
     await expect(unwrapPrivateKeyBackup(backup.encryptedPrivateKey, backup.keySalt, "wrong-password")).rejects.toThrow();
   });
 
@@ -54,7 +56,8 @@ describe("Locat encryption", () => {
       { type: "image", mime: "image/svg+xml", name: "a", dataB64: "AA==" },
       { type: "image", mime: "image/png", name: "a", dataB64: "A" },
       { type: "text", text: "a".repeat(1_000_001) },
-      { type: "text", text: "hello", hiddenControl: "delete" }]) {
+      { type: "text", text: "hello", hiddenControl: "delete" },
+      { type: "text", text: "hello", messageRef: "not-a-uuid" }]) {
       await expect(decryptPayload(key, await seal(payload))).rejects.toThrow();
     }
     const image = { type: "image", mime: "image/png", name: "a", dataB64: "AA==" };

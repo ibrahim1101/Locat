@@ -12,8 +12,8 @@ export type EncryptedEnvelope = {
 
 /** Decrypted payload — only ever exists on devices. */
 export type MessagePayload =
-  | { type: "text"; text: string }
-  | { type: "image"; mime: string; name: string; dataB64: string };
+  | { type: "text"; text: string; messageRef?: string }
+  | { type: "image"; mime: string; name: string; dataB64: string; messageRef?: string };
 
 /** Event pushed from server to online clients over the subscription stream. */
 export type RelayEvent =
