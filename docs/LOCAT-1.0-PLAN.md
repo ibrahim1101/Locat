@@ -75,3 +75,6 @@ Universal forensic deletion cannot be guaranteed for SSDs, snapshots, backups or
 - 2026-10-06 baseline: `npm ci` succeeded; `npm test` passed 15 tests, with 12 database integration tests skipped because the integration database was not configured. `npm run check` and `npm run build` passed. Build warns about the main client chunk exceeding 500 kB. Database integration remains unverified.
 - User explicitly approved pushing the development plan and subsequent updates to this public development branch on 2026-10-06.
 - Next: define versioned encrypted message-control events and migration strategy before editing chat behavior; provision an isolated integration database for full permission/relay verification.
+
+- 2026-10-06 foundation increment: client decryption now rejects unsupported envelope versions, malformed envelopes/nonces and authenticated malformed plaintext before local persistence/relay ACK. Existing v1 text/image formats remain supported. Added regression cases for future versions, invalid nonces, wrong field types, unknown payload kinds and invalid image encoding. This is protocol hardening, not completion of a backlog feature.
+- Verification of this increment: `npm test` 17 passed, 12 database integration tests skipped (TEST_DATABASE_URL absent); `npm run check` and `npm run build` passed. Existing bundle-size warning persists.
