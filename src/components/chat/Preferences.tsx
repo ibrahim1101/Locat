@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 type InstallEvent = Event & { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> };
 export function Preferences() {
   const [theme, setTheme] = useState(() => localStorage.getItem('locat-theme') ?? 'dark');
+  const [readReceipts, setReadReceipts] = useState(() => localStorage.getItem('locat-read-receipts') !== 'off');
   const [install, setInstall] = useState<InstallEvent | null>(null);
   const [feedback, setFeedback] = useState('');
   useEffect(() => {
@@ -23,6 +24,12 @@ export function Preferences() {
       <select aria-label="Appearance" className="rounded-md border bg-background p-2" value={theme} onChange={(e) => setTheme(e.target.value)}>
         <option value="dark">Dark</option><option value="light">Light</option><option value="system">System</option>
       </select>
+    </label>
+    <label className="flex items-center justify-between gap-4 text-sm">Send read receipts
+      <input type="checkbox" checked={readReceipts} onChange={(event) => {
+        setReadReceipts(event.target.checked);
+        localStorage.setItem('locat-read-receipts', event.target.checked ? 'on' : 'off');
+      }} />
     </label>
     <Button variant="outline" className="w-full" onClick={() => {
       if (install) void install.prompt().then(() => install.userChoice).then(() => setInstall(null)).catch(() => setFeedback('Use your browser menu to install Locat.'));
