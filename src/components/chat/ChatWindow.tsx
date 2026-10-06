@@ -493,7 +493,7 @@ function MessageBubble({
             </span>
             {mine && !m.failed && (
               <span className="text-[10px] text-primary-foreground/70">
-                {m.pending ? "Sending…" : "Sent"}
+                {m.pending ? "Sending…" : (m.readBy?.length ? `Read${m.readBy.length > 1 ? ` by ${m.readBy.length}` : ""}` : "Sent")}
               </span>
             )}
             {m.failed && m.tempId && (
