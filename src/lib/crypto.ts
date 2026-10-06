@@ -186,12 +186,27 @@ export async function encryptPayload(key: CryptoKey, payload: MessagePayload): P
 
 export async function decryptPayload(key: CryptoKey, envelopeJson: string): Promise<MessagePayload> {
   const envelope: EncryptedEnvelope = JSON.parse(envelopeJson);
+  if (!envelope || envelope.v !== 1 || typeof envelope.iv !== "string" || typeof envelope.data !== "string") {
+    throw new Error("Unsupported or malformed message envelope");
+  }
+  if (b64decode(envelope.iv).byteLength !== 12) throw new Error("Invalid message nonce");
   const plain = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: b64decode(envelope.iv) as BufferSource },
     key,
     b64decode(envelope.data) as BufferSource,
   );
-  return JSON.parse(td.decode(plain));
+  const payload: unknown = JSON.parse(td.decode(plain));
+  if (!payload || typeof payload !== "object") throw new Error("Invalid message payload");
+  const fields = payload as Record<string, unknown>;
+  if (fields.type === "text" && typeof fields.text === "string") return payload as MessagePayload;
+  if (fields.type === "image" && typeof fields.mime === "string" &&
+      typeof fields.name === "string" && typeof fields.dataB64 === "string") {
+    // Validate media encoding before acknowledging delivery; rendering must not
+    // discover malformed bytes only after the relay has deleted its copy.
+    b64decode(fields.dataB64);
+    return payload as MessagePayload;
+  }
+  throw new Error("Unsupported or malformed message payload");
 }
 
 /** Short SHA-256 fingerprint of a public key — the "safety number" style check. */
