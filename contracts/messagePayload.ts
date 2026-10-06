@@ -21,6 +21,8 @@ export const messageControlSchema = z.discriminatedUnion("action", [
     target: z.union([z.string().uuid(), z.string().regex(/^legacy:[1-9][0-9]{0,15}$/)]), text: z.string().max(1_000_000) }).strict(),
   z.object({ type: z.literal("control"), version: z.literal(1), action: z.literal("delete"),
     target: z.union([z.string().uuid(), z.string().regex(/^legacy:[1-9][0-9]{0,15}$/)]) }).strict(),
+  z.object({ type: z.literal("control"), version: z.literal(1), action: z.literal("read"),
+    target: z.union([z.string().uuid(), z.string().regex(/^legacy:[1-9][0-9]{0,15}$/)]) }).strict(),
 ]);
 export type MessageControl = z.infer<typeof messageControlSchema>;
 export const relayPayloadSchema = z.union([messagePayloadSchema, messageControlSchema]);
