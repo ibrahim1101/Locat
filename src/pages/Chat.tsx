@@ -1,3 +1,4 @@
+import { userCode } from "@contracts/userCode";
 import { Link } from "react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/providers/trpc";
@@ -629,7 +630,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{user.displayName}</p>
           <p className="micro-label normal-case tracking-normal">
-            @{user.username}
+            @{user.username} · {userCode(user.id)}
           </p>
         </div>
         <button
