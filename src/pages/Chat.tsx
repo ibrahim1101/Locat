@@ -20,6 +20,7 @@ import {
 import {
   getMessages,
   applyMessageControl,
+  applyReadReceipt,
   messageReference,
   deleteLocalMessage,
   cachedConversations,
@@ -297,7 +298,10 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
               ? item.createdAt.getTime()
               : Date.now();
           if (payload.type === "control") {
-            await applyMessageControl(user.id, item.conversationId, item.senderId, payload, item.messageId, createdAt);
+            if (payload.action === "read")
+              await applyReadReceipt(user.id, item.conversationId, item.senderId, payload.target);
+            else
+              await applyMessageControl(user.id, item.conversationId, item.senderId, payload, item.messageId, createdAt);
             acked.push(item.messageId);
             failedDeliveries.current.delete(item.messageId);
             setArchiveRevision(n => n + 1);
@@ -331,6 +335,8 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
               item.messageId
             );
             void kvSet(user.id, "lastRead", lastReadRef.current);
+            if (!msg.outgoing && localStorage.getItem("locat-read-receipts") !== "off")
+              void sendReadReceipt(conv, persisted);
           } else if (!msg.outgoing) {
             setUnread(prev => {
               const next = new Map(prev);
@@ -350,6 +356,8 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       if (acked.length > 0 && alive.current)
         await ackMut.mutateAsync({ messageIds: acked });
     },
+    // sendReadReceipt is a hoisted operation using the latest outbox/transmit state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [keyFor, user.id, utils, ackMut]
   );
 
@@ -467,7 +475,15 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         next.delete(id);
         return next;
       });
+      if (localStorage.getItem("locat-read-receipts") !== "off") {
+        const conv = convsRef.current.find(c => c.id === id);
+        if (conv && !conv.archived && !conv.rotationRequired) {
+          for (const message of msgs.filter(m => m.senderId !== user.id && !m.deleted))
+            void sendReadReceipt(conv, message);
+        }
+      }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [user.id]
   );
 
@@ -502,7 +518,10 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         clientMessageId: item.clientMessageId,
       });
       if (item.control) {
-        await applyMessageControl(user.id, item.conversationId, item.senderId, item.control, messageId, createdAt.getTime(), item.clientMessageId);
+        if (item.control.action === "read")
+          await applyReadReceipt(user.id, item.conversationId, item.senderId, item.control.target, item.clientMessageId);
+        else
+          await applyMessageControl(user.id, item.conversationId, item.senderId, item.control, messageId, createdAt.getTime(), item.clientMessageId);
         if (alive.current) {
           setArchiveRevision(n => n + 1);
           setLatest(await latestMessagePerConversation(user.id));
@@ -605,6 +624,18 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       setArchiveError("Message change queued. It applies after server confirmation and reaches recipients when they reconnect.");
       await transmit(item);
     } catch { setArchiveError("Could not queue the message change. Try again."); }
+  }
+  async function sendReadReceipt(conv: ConversationSummary, target: LocalMessage) {
+    const ref = messageReference(target);
+    const marker = `read-receipt:${conv.id}:${target.senderId}:${ref}`;
+    if (await kvGet(user.id, marker)) return;
+    const control: MessageControl = { type: "control", version: 1, action: "read", target: ref };
+    const item: PendingMessage = { clientMessageId: crypto.randomUUID(), conversationId: conv.id,
+      senderId: user.id, senderName: user.displayName, payload: { type: "text", text: "" }, control,
+      createdAt: Date.now(), envelope: await encryptedFor(conv, control) };
+    await savePending(user.id, item);
+    await kvSet(user.id, marker, 1);
+    await transmit(item);
   }
   async function sendPayload(
     conv: ConversationSummary,
