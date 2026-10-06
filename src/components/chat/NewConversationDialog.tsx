@@ -71,6 +71,7 @@ export function NewConversationDialog({
         id: me.user.id,
         username: me.user.username,
         displayName: me.user.displayName,
+        bio: me.user.bio,
         publicKey: me.keys.publicKeyB64,
       };
       const all = [myPublic, ...selected];
@@ -187,6 +188,7 @@ export function NewConversationDialog({
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">{u.displayName}</span>
                 <span className="micro-label block normal-case tracking-normal">@{u.username} · {userCode(u.id)}</span>
+                {u.bio && <span className="block truncate text-xs text-secondary">{u.bio}</span>}
               </span>
             </button>
           ))}
