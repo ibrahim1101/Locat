@@ -122,6 +122,10 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   const [connection, setConnection] = useState("Connecting…");
   const sendMut = trpc.messages.send.useMutation();
   const ackMut = trpc.messages.ack.useMutation();
+  const blockedQ = trpc.users.blocked.useQuery();
+  const blockMut = trpc.users.block.useMutation();
+  const unblockMut = trpc.users.unblock.useMutation();
+  const blockedIds = useMemo(() => new Set(blockedQ.data?.map(row => row.id) ?? []), [blockedQ.data]);
 
   // ── per-conversation message keys (memory only, derived from device keys) ──
   const keyCache = useRef(
@@ -877,6 +881,16 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
             messages={messages}
             myId={user.id}
             online={online}
+            blocked={activeConv.type === "direct" && activeConv.members.some(m => m.id !== user.id && blockedIds.has(m.id))}
+            onToggleBlock={() => void (async () => {
+              const other = activeConv.members.find(m => m.id !== user.id);
+              if (!other) return;
+              const blocked = blockedIds.has(other.id);
+              if (!blocked && !window.confirm(`Block ${other.displayName}? Neither account will be able to send direct messages until you unblock them.`)) return;
+              if (blocked) await unblockMut.mutateAsync({ userId: other.id });
+              else await blockMut.mutateAsync({ userId: other.id });
+              await blockedQ.refetch();
+            })().catch(error => setArchiveError(error instanceof Error ? error.message : "Could not update blocked contacts."))}
             onBack={() => setActiveId(null)}
             onSendText={text =>
               void sendPayload(
