@@ -1,4 +1,5 @@
 import { parseUserCode } from "@contracts/userCode";
+import { avatarSchema } from "@contracts/avatar";
 import { z } from "zod";
 import { like, eq, ne, and, or, inArray } from "drizzle-orm";
 import { createRouter, authedQuery } from "./middleware";
@@ -12,10 +13,15 @@ const publicUserCols = {
   username: users.username,
   displayName: users.displayName,
   bio: users.bio,
+  avatar: users.avatar,
   publicKey: users.publicKey,
 };
 
 export const usersRouter = createRouter({
+  setAvatar: authedQuery.input(z.object({ avatar: avatarSchema.nullable() })).mutation(async ({ ctx, input }) => {
+    await getDb().update(users).set({ avatar: input.avatar }).where(eq(users.id, ctx.user!.id));
+    return { saved: true };
+  }),
   /** Update profile fields that are safe to publish in the user directory. */
   updateProfile: authedQuery
     .input(z.object({

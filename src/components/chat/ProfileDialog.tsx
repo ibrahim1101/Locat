@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { prepareProfilePicture } from "@/lib/profilePicture";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,13 @@ export function ProfileDialog({ user, open, onOpenChange }: {
   const [displayName, setDisplayName] = useState(user.displayName);
   const [bio, setBio] = useState(user.bio ?? "");
   const [feedback, setFeedback] = useState("");
+  const [avatar, setAvatar] = useState(user.avatar ?? null);
+  const [preparing, setPreparing] = useState(false);
+  const pictureInput = useRef<HTMLInputElement>(null);
+  const savePicture = trpc.users.setAvatar.useMutation({
+    onSuccess: async () => { await queryClient.invalidateQueries(); },
+    onError: error => setFeedback(error.message),
+  });
   const update = trpc.users.updateProfile.useMutation({
     onSuccess: async () => {
       await queryClient.invalidateQueries();
@@ -21,18 +29,32 @@ export function ProfileDialog({ user, open, onOpenChange }: {
     },
     onError: error => setFeedback(error.message),
   });
-  return <Dialog open={open} onOpenChange={next => { if (!update.isPending) onOpenChange(next); }}>
+  const busy = preparing || savePicture.isPending || update.isPending;
+  return <Dialog open={open} onOpenChange={next => { if (!busy) onOpenChange(next); }}>
     <DialogContent className="surface-2 max-h-[90dvh] overflow-y-auto sm:max-w-md">
       <DialogHeader><DialogTitle>My profile</DialogTitle>
         <DialogDescription>Your name and bio are visible to people on this Locat server.</DialogDescription>
       </DialogHeader>
       <div className="flex items-center gap-4 rounded-xl border p-4">
-        <Avatar name={displayName || user.displayName} id={user.id} size={56} />
+        <Avatar avatar={avatar} name={displayName || user.displayName} id={user.id} size={56} />
         <div className="min-w-0"><p className="truncate font-semibold">{displayName || user.displayName}</p>
           <p className="text-sm text-secondary">@{user.username}</p></div>
       </div>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" disabled={busy} onClick={() => pictureInput.current?.click()}>Choose picture</Button>
+        <Button disabled={busy || avatar === (user.avatar ?? null)} onClick={() => savePicture.mutate({ avatar }, { onSuccess: () => window.location.reload() })}>Save picture</Button>
+        <Button variant="outline" disabled={busy || !avatar} onClick={() => setAvatar(null)}>Remove picture</Button>
+      </div>
+      <input ref={pictureInput} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" className="hidden" onChange={event => {
+        const file = event.target.files?.[0]; event.target.value = "";
+        if (!file) return;
+        setPreparing(true); setFeedback("");
+        void prepareProfilePicture(file).then(setAvatar).catch(error => setFeedback(error instanceof Error ? error.message : "Could not prepare picture."))
+          .finally(() => setPreparing(false));
+      }} />
+      <p className="text-xs text-secondary">Pictures are cropped to a square. Only a small thumbnail is uploaded, visible to other users on this server. After removing, tap Save picture.</p>
       <div className="space-y-2"><Label htmlFor="profile-name">Display name / nickname</Label>
-        <Input id="profile-name" value={displayName} maxLength={64} disabled={update.isPending} onChange={e => setDisplayName(e.target.value)} />
+        <Input id="profile-name" value={displayName} maxLength={64} disabled={busy} onChange={e => setDisplayName(e.target.value)} />
       </div>
       <div className="space-y-2"><Label htmlFor="profile-username">Unique username</Label>
         <Input id="profile-username" value={user.username} readOnly />
@@ -46,11 +68,14 @@ export function ProfileDialog({ user, open, onOpenChange }: {
         <p className="text-xs text-secondary">Share this code to help people find you on this server.</p>
       </div>
       <div className="space-y-2"><Label htmlFor="profile-bio">Bio</Label>
-        <textarea id="profile-bio" value={bio} maxLength={280} disabled={update.isPending} onChange={e => setBio(e.target.value)}
+        <textarea id="profile-bio" value={bio} maxLength={280} disabled={busy} onChange={e => setBio(e.target.value)}
           className="min-h-24 w-full resize-y rounded-md border bg-background p-3 text-sm" placeholder="A little about you" />
         <p className="text-xs text-secondary">{bio.length}/280</p>
       </div>
-      <Button disabled={update.isPending || !displayName.trim()} onClick={() => update.mutate({ displayName: displayName.trim(), bio })}>
+      <Button disabled={busy || !displayName.trim()} onClick={() => void (async () => {
+        if (avatar !== (user.avatar ?? null)) await savePicture.mutateAsync({ avatar });
+        await update.mutateAsync({ displayName: displayName.trim(), bio });
+      })().catch(() => {})}>
         {update.isPending ? "Saving…" : "Save profile"}</Button>
       {feedback && <p role="status" className="text-sm">{feedback}</p>}
     </DialogContent>

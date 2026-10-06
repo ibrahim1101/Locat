@@ -35,6 +35,7 @@ export type PublicUser = {
   username: string;
   displayName: string;
   bio: string | null;
+  avatar?: string | null;
   publicKey: string;
 };
 

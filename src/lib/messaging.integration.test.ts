@@ -8,6 +8,7 @@ import type { appRouter as Router } from "../../api/router";
 import type { getDb as GetDb } from "../../api/queries/connection";
 import type * as Schema from "../../db/schema";
 
+const testAvatar = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAIAAgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDi6KKK+ZP3E//Z';
 const databaseUrl = process.env.TEST_DATABASE_URL;
 describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
   let connection: Connection;
@@ -92,6 +93,18 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
       id: aliceId, displayName: "Alice Example", bio: "Private chat enthusiast",
     })]);
     expect(await bob.users.search({ q: "LC-0" })).toEqual([]);
+  });
+
+  it("stores only the authenticated account avatar and publishes/removes it", async () => {
+    await expect(alice.users.setAvatar({ avatar: "data:image/svg+xml;base64,PHN2Zz4=" })).rejects.toThrow();
+    await expect(router.createCaller({ req: new Request("http://localhost"), resHeaders: new Headers() }).users.setAvatar({ avatar: testAvatar })).rejects.toThrow();
+    await alice.users.setAvatar({ avatar: testAvatar });
+    expect((await bob.users.search({ q: `LC-${aliceId}` }))[0].avatar).toBe(testAvatar);
+    expect((await alice.conversations.list())[0].members.find(m => m.id === aliceId)?.avatar).toBe(testAvatar);
+    expect((await db.query.users.findFirst({ where: eq(schema.users.id, bobId) }))!.avatar).toBeNull();
+    await alice.users.setAvatar({ avatar: null });
+    expect((await bob.users.search({ q: `LC-${aliceId}` }))[0].avatar).toBeNull();
+    await alice.users.setAvatar({ avatar: testAvatar });
   });
 
   it("rejects cross-origin mutations and disabled accounts, and retires older sessions", async () => {
@@ -204,10 +217,12 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     await connection.query("CREATE INDEX legacy_sender_idx ON messages(sender_id)");
     await connection.query("ALTER TABLE messages DROP INDEX messages_sender_client_unique, DROP COLUMN client_message_id");
     await connection.query("DROP TABLE send_receipts");
-    await connection.query("ALTER TABLE users DROP COLUMN bio");
+    await connection.query("ALTER TABLE users DROP COLUMN bio, DROP COLUMN avatar");
     setup(); setup();
     const upgraded = await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) });
     expect(upgraded!.bio).toBeNull();
+    expect(upgraded!.avatar).toBeNull();
+    await alice.users.setAvatar({ avatar: testAvatar });
     await alice.users.updateProfile({ displayName: "Alice Example", bio: "Restored profile" });
     expect(await count("users")).toBe(accountsBefore);
     expect((await bob.messages.sync({ after: 0 })).items[0].messageId).toBe(sent.messageId);
@@ -346,6 +361,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
       const restored = await db.query.users.findFirst({ where:eq(schema.users.id,aliceId) });
       expect(restored!.isAdmin).toBe(true);
       expect(restored!.bio).toBe("Restored profile");
+      expect(restored!.avatar).toBe(testAvatar);
       expect((await alice.auth.login({ username:"alice", password:"test-password-long" })).user.id).toBe(aliceId);
     } finally { await rm(dir,{ recursive:true,force:true }); }
   }, 20000);

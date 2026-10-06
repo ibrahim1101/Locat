@@ -671,7 +671,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       <div className="flex h-16 shrink-0 items-center gap-3 border-b px-4 pt-safe">
         <button type="button" onClick={() => setProfileOpen(true)} aria-label="Open my profile"
           title="My profile" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:ring-2 hover:ring-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-          <Avatar name={user.displayName} id={user.id} size={36} />
+          <Avatar avatar={user.avatar} name={user.displayName} id={user.id} size={36} />
         </button>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{user.displayName}</p>
@@ -763,6 +763,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
             >
               {c.type === "direct" ? (
                 <Avatar
+                  avatar={c.members.find(m => m.id !== user.id)?.avatar}
                   name={title}
                   id={otherId ?? 0}
                   size={42}

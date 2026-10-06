@@ -164,6 +164,7 @@ function publicProfile(user: typeof users.$inferSelect) {
     username: user.username,
     displayName: user.displayName,
     bio: user.bio,
+    avatar: user.avatar,
     publicKey: user.publicKey,
     isAdmin: user.isAdmin,
   };

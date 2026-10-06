@@ -184,7 +184,7 @@ export function NewConversationDialog({
               onClick={() => (tab === "direct" ? void startDirect(u) : setSelected((s) => [...s, u]))}
               className="flex min-h-11 w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent"
             >
-              <Avatar name={u.displayName} id={u.id} size={36} />
+              <Avatar avatar={u.avatar} name={u.displayName} id={u.id} size={36} />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">{u.displayName}</span>
                 <span className="micro-label block normal-case tracking-normal">@{u.username} · {userCode(u.id)}</span>

@@ -1,3 +1,5 @@
+import { avatarSchema } from "@contracts/avatar";
+import { useMemo } from "react";
 import { avatarHue, initials } from "@/lib/format";
 
 export function Avatar({
@@ -5,13 +7,16 @@ export function Avatar({
   id,
   size = 40,
   online,
+  avatar,
 }: {
   name: string;
   id: number;
   size?: number;
   online?: boolean;
+  avatar?: string | null;
 }) {
   const hue = avatarHue(id);
+  const picture = useMemo(() => avatar && avatarSchema.safeParse(avatar).success ? avatar : null, [avatar]);
   return (
     <span className="relative inline-block shrink-0" style={{ width: size, height: size }}>
       <span
@@ -22,7 +27,7 @@ export function Avatar({
           fontSize: size * 0.34,
         }}
       >
-        {initials(name)}
+        {picture ? <img src={picture} alt="" className="h-full w-full rounded-full object-cover" /> : initials(name)}
       </span>
       {online !== undefined && (
         <span
@@ -41,7 +46,7 @@ export function AvatarStack({
   members,
   size = 40,
 }: {
-  members: { id: number; displayName: string }[];
+  members: { id: number; displayName: string; avatar?: string | null }[];
   size?: number;
 }) {
   const shown = members.slice(0, 3);
@@ -53,7 +58,7 @@ export function AvatarStack({
           className="absolute rounded-full ring-2 ring-background"
           style={{ left: i * 12, zIndex: shown.length - i }}
         >
-          <Avatar name={m.displayName} id={m.id} size={size} />
+          <Avatar avatar={m.avatar} name={m.displayName} id={m.id} size={size} />
         </span>
       ))}
     </span>

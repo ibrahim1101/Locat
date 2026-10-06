@@ -24,6 +24,7 @@ export type SessionUser = {
   username: string;
   displayName: string;
   bio: string | null;
+  avatar?: string | null;
   publicKey: string;
   isAdmin?: boolean;
 };

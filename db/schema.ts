@@ -21,6 +21,7 @@ export const users = mysqlTable("users", {
   username: varchar("username", { length: 64 }).notNull().unique(),
   displayName: varchar("display_name", { length: 128 }).notNull(),
   bio: varchar("bio", { length: 280 }),
+  avatar: text("avatar"),
   isAdmin: boolean("is_admin").notNull().default(false),
   disabled: boolean("disabled").notNull().default(false),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),

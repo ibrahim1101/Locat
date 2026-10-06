@@ -129,6 +129,7 @@ export function ChatWindow({
         </button>
         {conversation.type === "direct" ? (
           <Avatar
+            avatar={conversation.members.find(m => m.id !== myId)?.avatar}
             name={title}
             id={otherId ?? 0}
             size={38}

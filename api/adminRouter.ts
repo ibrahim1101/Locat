@@ -214,7 +214,7 @@ export const adminRouter = createRouter({
       const metadata = await getDb().transaction(async tx => {
         const [accountSize] = await tx
           .select({
-            bytes: sql<number>`COALESCE(SUM(OCTET_LENGTH(${users.publicKey}) + OCTET_LENGTH(${users.encryptedPrivateKey}) + 1024),0)`,
+            bytes: sql<number>`COALESCE(SUM(COALESCE(OCTET_LENGTH(${users.avatar}),0) + OCTET_LENGTH(${users.publicKey}) + OCTET_LENGTH(${users.encryptedPrivateKey}) + 1024),0)`,
           })
           .from(users);
         const [memberSize] = await tx
