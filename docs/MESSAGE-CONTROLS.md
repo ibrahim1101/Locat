@@ -23,3 +23,11 @@ Opening a conversation queues one encrypted v1 `read` control for each unread in
 Acceptance test: with receipts enabled, open a direct chat on the recipient and confirm the sender changes from Sent to Read, including after an offline/reconnect cycle. Disable receipts on the recipient, receive and open a new message, and verify the sender stays Sent. In a three-member group, two readers should increase the count without duplicate increments after reopening the chat.
 
 Acceptance test: two accounts exchange text and image messages; sender edits text and deletes both types. Put the recipient offline, queue another edit/delete, reconnect and verify the projection. Refresh/restart sender and recipient, verify changes persist and no control appears as a chat bubble. A third group member must not be able to edit another author's content. Native phone layout/browser prompts and full device acceptance are pending.
+
+## Implemented contact blocking
+
+Blocking is an authenticated server-side relationship. If either participant has blocked the other, both are hidden from each other's directory search and the relay rejects new direct-conversation creation and new direct-message submissions in both directions. Group membership and group traffic are deliberately unaffected; blocking one member must not silently change a shared group. The direct-chat header lets the blocker reverse their own block and disables that device's composer while blocked.
+
+Blocking is not message deletion. Existing device-local chat history remains available, and content already delivered or accepted by the relay before the block may still arrive. The UI does not disclose a block created by the other account; an attempted send fails generically at the server. Metadata backups made with `backup:server` include block relationships because `user_blocks` is server metadata.
+
+Acceptance test: with two devices, block the second account from the direct-chat header. Confirm neither account can find the other in directory search, start a new direct chat, or submit a new direct message. Confirm old local history remains readable and a shared group still works. Unblock from the first device, then confirm directory lookup and direct sending work again after reconnecting.
