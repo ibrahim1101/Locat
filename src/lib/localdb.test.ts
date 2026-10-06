@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { openDB } from "idb";
 import { beforeEach, describe, expect, it } from "vitest";
-import { applyMessageControl, messageReference, allMessages, cacheConversations, cachedConversations, savePending, pendingMessages, completePending, deleteLocalMessage, importMessages, kvGet, kvSet, migrateLegacyHistory, storeMessage, wipeAll } from "./localdb";
+import { applyMessageControl, applyReadReceipt, messageReference, allMessages, cacheConversations, cachedConversations, savePending, pendingMessages, completePending, deleteLocalMessage, importMessages, kvGet, kvSet, migrateLegacyHistory, storeMessage, wipeAll } from "./localdb";
 import type { LocalMessage } from "./localdb";
 
 const message: LocalMessage = { mid: 7, conversationId: 10, senderId: 1,
@@ -78,6 +78,15 @@ describe("archived memberships",()=>{
 
 
 describe("encrypted message controls", () => {
+  it("projects authenticated member read receipts only onto my matching message", async () => {
+    await storeMessage(1, message);
+    const target = messageReference(message);
+    await applyReadReceipt(1, 10, 2, target);
+    await applyReadReceipt(1, 10, 2, target);
+    expect((await allMessages(1))[0].readBy).toEqual([2]);
+    await applyReadReceipt(1, 10, 3, "legacy:999");
+    expect((await allMessages(1))[0].readBy).toEqual([2]);
+  });
   it("requires original authorship and conversation scope", async () => {
     await storeMessage(1, message);
     const target = messageReference(message);
