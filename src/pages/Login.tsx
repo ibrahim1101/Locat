@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { registrationPasswordError, PASSWORD_MAX_CODE_UNITS } from "@contracts/password";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,6 +64,7 @@ function AuthForm({
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,6 +76,9 @@ function AuthForm({
       if (mode === "login") {
         await onLogin(username.trim(), password);
       } else {
+        const policyError = registrationPasswordError(password, username);
+        if (policyError) throw new Error(policyError);
+        if (confirmation !== password) throw new Error("Passwords do not match.");
         await onRegister(username.trim(), displayName.trim() || username.trim(), password);
       }
     } catch (err) {
@@ -147,9 +152,25 @@ function AuthForm({
               onChange={(e) => setPassword(e.target.value)}
               className="h-11 border-input bg-background"
               required
-              minLength={8}
+              maxLength={PASSWORD_MAX_CODE_UNITS}
+              aria-describedby={mode === "register" ? "password-help" : undefined}
             />
+            {mode === "register" && (
+              <p id="password-help" className="text-xs text-secondary">
+                Use at least 15 characters, such as several unrelated words. Avoid your username,
+                common passwords and repeats. Spaces and password managers are welcome.
+              </p>
+            )}
           </div>
+
+          {mode === "register" && (
+            <div className="space-y-2">
+              <Label htmlFor="password-confirm">Confirm password</Label>
+              <Input id="password-confirm" type="password" autoComplete="new-password"
+                value={confirmation} onChange={e => setConfirmation(e.target.value)} required
+                maxLength={PASSWORD_MAX_CODE_UNITS} className="h-11 border-input bg-background" />
+            </div>
+          )}
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
