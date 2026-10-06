@@ -1,3 +1,4 @@
+import { userCode } from "@contracts/userCode";
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -140,7 +141,7 @@ export function NewConversationDialog({
         )}
 
         <Input
-          placeholder="Search people by name…"
+          placeholder="Name, username or LC-code…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           className="h-11 border-input bg-background"
@@ -185,7 +186,7 @@ export function NewConversationDialog({
               <Avatar name={u.displayName} id={u.id} size={36} />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">{u.displayName}</span>
-                <span className="micro-label block normal-case tracking-normal">@{u.username}</span>
+                <span className="micro-label block normal-case tracking-normal">@{u.username} · {userCode(u.id)}</span>
               </span>
             </button>
           ))}
