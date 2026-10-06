@@ -33,6 +33,30 @@ describe("Locat encryption", () => {
     await expect(decryptPayload(received, JSON.stringify(altered))).rejects.toThrow();
   });
 
+  it("rejects future envelope versions instead of acknowledging unreadable data", async () => {
+    const key = await generateGroupKey();
+    const envelope = JSON.parse(await encryptPayload(key, { type: "text", text: "hello" }));
+    await expect(decryptPayload(key, JSON.stringify({ ...envelope, v: 2 }))).rejects.toThrow("Unsupported");
+    await expect(decryptPayload(key, "null")).rejects.toThrow("malformed");
+    await expect(decryptPayload(key, JSON.stringify({ ...envelope, iv: "AA==" }))).rejects.toThrow("nonce");
+  });
+
+  it("rejects authenticated but malformed payloads before durable delivery ACK", async () => {
+    const key = await generateGroupKey();
+    const seal = async (payload: unknown) => {
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const data = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key,
+        new TextEncoder().encode(JSON.stringify(payload)));
+      return JSON.stringify({ v: 1, iv: Buffer.from(iv).toString("base64"), data: Buffer.from(data).toString("base64") });
+    };
+    for (const payload of [null, { type: "text", text: 42 }, { type: "delete", target: 1 },
+      { type: "image", mime: "image/png", name: "a", dataB64: "!invalid!" }]) {
+      await expect(decryptPayload(key, await seal(payload))).rejects.toThrow();
+    }
+    const image = { type: "image", mime: "image/png", name: "a", dataB64: "AA==" };
+    expect(await decryptPayload(key, await seal(image))).toEqual(image);
+  });
+
   it("verifies password hashes and generates unique session tokens", async () => {
     const hash = await hashPassword("test-password");
     expect(await verifyPassword("test-password", hash)).toBe(true);
