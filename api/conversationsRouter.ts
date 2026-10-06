@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq, and, inArray, sql, asc } from "drizzle-orm";
+import { eq, and, inArray, sql, asc, or } from "drizzle-orm";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import {
@@ -10,6 +10,7 @@ import {
   groupKeys,
   messageDeliveries,
   messages,
+  userBlocks,
 } from "@db/schema";
 import { emitToUsers } from "./hub";
 import { limit } from "./rateLimit";
@@ -107,6 +108,11 @@ export const conversationsRouter = createRouter({
       });
       if (!other)
         throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+      const [blocked] = await db.select({ id: userBlocks.id }).from(userBlocks).where(or(
+        and(eq(userBlocks.blockerId, me), eq(userBlocks.blockedId, input.userId)),
+        and(eq(userBlocks.blockerId, input.userId), eq(userBlocks.blockedId, me)),
+      )).limit(1);
+      if (blocked) throw new TRPCError({ code: "FORBIDDEN", message: "Direct contact is blocked" });
 
       return db.transaction(async tx => {
         // Lock the same user row for both directions of this pair, so simultaneous
