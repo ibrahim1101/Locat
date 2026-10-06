@@ -23,6 +23,7 @@ export type SessionUser = {
   id: number;
   username: string;
   displayName: string;
+  bio: string | null;
   publicKey: string;
   isAdmin?: boolean;
 };
