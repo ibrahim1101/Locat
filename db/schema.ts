@@ -49,6 +49,18 @@ export const sessions = mysqlTable(
   (t) => [index("sessions_user_idx").on(t.userId)],
 );
 
+export const userBlocks = mysqlTable("user_blocks", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  blockerId: bigint("blocker_id", { mode: "number", unsigned: true }).notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  blockedId: bigint("blocked_id", { mode: "number", unsigned: true }).notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("user_blocks_pair_unique").on(t.blockerId, t.blockedId),
+  index("user_blocks_blocked_idx").on(t.blockedId),
+]);
+
 // ─── Conversations ───────────────────────────────────────────────────────────
 export const conversations = mysqlTable("conversations", {
   id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
