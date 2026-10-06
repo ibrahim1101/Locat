@@ -3,6 +3,7 @@
 // only relays. Clearing site data wipes the local archive (by design).
 import { openDB, type IDBPDatabase } from "idb";
 import type { ConversationSummary, MessagePayload } from "@contracts/types";
+import type { MessageControl } from "@contracts/messagePayload";
 
 export type LocalMessage = {
   lid?: number; // local autoincrement id
@@ -13,6 +14,8 @@ export type LocalMessage = {
   outgoing: boolean;
   payload: MessagePayload;
   createdAt: number; // epoch ms
+  deleted?: boolean;
+  editedAt?: number;
 };
 
 type KvValue = string | number | Record<string, unknown>;
@@ -95,16 +98,50 @@ export async function loadIdentity(
 
 // ─── messages ────────────────────────────────────────────────────────────────
 
+export function messageReference(message: LocalMessage): string {
+  return message.payload.messageRef ?? `legacy:${message.mid}`;
+}
+type ControlState = { control: MessageControl; mid: number; at: number };
+const controlKey = (conversationId: number, senderId: number, target: string) =>
+  `control:${conversationId}:${senderId}:${target}`;
+function projectControl(message: LocalMessage, state?: ControlState): LocalMessage {
+  if (!state || message.deleted) return message;
+  if (state.control.action === "delete") return { ...message, deleted: true,
+    payload: { type: "text", text: "Message deleted", messageRef: message.payload.messageRef } };
+  if (message.payload.type !== "text") return message;
+  return { ...message, payload: { ...message.payload, text: state.control.text }, editedAt: state.at };
+}
+/** Relay-authenticated sender scopes authorization; group-key possession is insufficient.
+ * Persist one latest state per target before ACK, including out-of-order controls.
+ */
+export async function applyMessageControl(userId: number, conversationId: number, senderId: number,
+  control: MessageControl, mid: number, at: number, pendingId?: string): Promise<void> {
+  const tx = (await db(userId)).transaction(["messages", "kv", "outbox"], "readwrite");
+  const key = controlKey(conversationId, senderId, control.target);
+  const previous: ControlState | undefined = await tx.objectStore("kv").get(key);
+  if (!previous || (previous.control.action !== "delete" && (control.action === "delete" || mid > previous.mid))) {
+    const state = { control, mid, at };
+    await tx.objectStore("kv").put(state, key);
+    const rows: LocalMessage[] = await tx.objectStore("messages").index("byConv").getAll(conversationId);
+    for (const row of rows) if (row.senderId === senderId && messageReference(row) === control.target)
+      await tx.objectStore("messages").put(projectControl(row, state));
+  }
+  if (pendingId) await tx.objectStore("outbox").delete(pendingId);
+  await tx.done;
+}
+
 /** Insert if the server message id is new. Returns true when inserted. */
 export async function storeMessage(userId: number, msg: LocalMessage): Promise<boolean> {
   const d = await db(userId);
-  const tx = d.transaction("messages", "readwrite");
-  const existing = await tx.store.index("byMid").getKey(msg.mid);
+  const tx = d.transaction(["messages", "kv"], "readwrite");
+  const messages = tx.objectStore("messages");
+  const existing = await messages.index("byMid").getKey(msg.mid);
   if (existing !== undefined) {
     await tx.done;
     return false;
   }
-  await tx.store.add(msg);
+  const state = await tx.objectStore("kv").get(controlKey(msg.conversationId, msg.senderId, messageReference(msg)));
+  await messages.add(projectControl(msg, state));
   await tx.done;
   return true;
 }
@@ -163,11 +200,13 @@ export async function allMessages(userId: number): Promise<LocalMessage[]> {
 
 /** Atomic merge: duplicates are skipped; existing history is never overwritten. */
 export async function importMessages(userId: number, messages: LocalMessage[]): Promise<number> {
-  const tx = (await db(userId)).transaction("messages", "readwrite");
+  const tx = (await db(userId)).transaction(["messages", "kv"], "readwrite");
+  const messagesStore = tx.objectStore("messages");
   let count = 0;
   for (const message of messages) {
-    if (await tx.store.index("byMid").getKey(message.mid) !== undefined) continue;
-    await tx.store.add(message);
+    if (await messagesStore.index("byMid").getKey(message.mid) !== undefined) continue;
+    const state = await tx.objectStore("kv").get(controlKey(message.conversationId, message.senderId, messageReference(message)));
+    await messagesStore.add(projectControl(message, state));
     count++;
   }
   await tx.done;
@@ -176,6 +215,7 @@ export async function importMessages(userId: number, messages: LocalMessage[]): 
 
 
 export type PendingMessage = {
+  control?: MessageControl;
   clientMessageId: string;
   conversationId: number;
   senderId: number;
@@ -192,9 +232,12 @@ export async function pendingMessages(userId: number): Promise<PendingMessage[]>
   return rows.sort((a, b) => a.createdAt - b.createdAt);
 }
 export async function completePending(userId: number, clientMessageId: string, message: LocalMessage): Promise<void> {
-  const tx = (await db(userId)).transaction(["messages", "outbox"], "readwrite");
+  const tx = (await db(userId)).transaction(["messages", "outbox", "kv"], "readwrite");
   const messages = tx.objectStore("messages");
-  if (await messages.index("byMid").getKey(message.mid) === undefined) await messages.add(message);
+  if (await messages.index("byMid").getKey(message.mid) === undefined) {
+    const state = await tx.objectStore("kv").get(controlKey(message.conversationId, message.senderId, messageReference(message)));
+    await messages.add(projectControl(message, state));
+  }
   await tx.objectStore("outbox").delete(clientMessageId);
   await tx.done;
 }

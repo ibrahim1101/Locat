@@ -4,7 +4,7 @@
 //   - private keys wrapped with a password-derived key (backup blob)
 //   - AES-GCM envelopes it cannot open
 import type { EncryptedEnvelope, MessagePayload } from "@contracts/types";
-import { messagePayloadSchema } from "@contracts/messagePayload";
+import { relayPayloadSchema, type MessageControl } from "@contracts/messagePayload";
 
 const te = new TextEncoder();
 const td = new TextDecoder();
@@ -178,15 +178,15 @@ export async function unwrapGroupKey(
 
 // ─── Message envelopes ───────────────────────────────────────────────────────
 
-export async function encryptPayload(key: CryptoKey, payload: MessagePayload): Promise<string> {
-  const validated = messagePayloadSchema.parse(payload);
+export async function encryptPayload(key: CryptoKey, payload: MessagePayload | MessageControl): Promise<string> {
+  const validated = relayPayloadSchema.parse(payload);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const data = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, te.encode(JSON.stringify(validated)));
   const envelope: EncryptedEnvelope = { v: 1, iv: b64encode(iv), data: b64encode(data) };
   return JSON.stringify(envelope);
 }
 
-export async function decryptPayload(key: CryptoKey, envelopeJson: string): Promise<MessagePayload> {
+export async function decryptPayload(key: CryptoKey, envelopeJson: string): Promise<MessagePayload | MessageControl> {
   const envelope: EncryptedEnvelope = JSON.parse(envelopeJson);
   if (!envelope || envelope.v !== 1 || typeof envelope.iv !== "string" || typeof envelope.data !== "string") {
     throw new Error("Unsupported or malformed message envelope");
@@ -198,7 +198,7 @@ export async function decryptPayload(key: CryptoKey, envelopeJson: string): Prom
     b64decode(envelope.data) as BufferSource,
   );
   const payload: unknown = JSON.parse(td.decode(plain));
-  const validated = messagePayloadSchema.safeParse(payload);
+  const validated = relayPayloadSchema.safeParse(payload);
   if (!validated.success) throw new Error("Unsupported or malformed message payload");
   return validated.data;
 }

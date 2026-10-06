@@ -56,6 +56,8 @@ export function ChatWindow({
   onShowSecurity,
   onShowGroup,
   onDelete,
+  onEdit,
+  onDeleteForAll,
 }: {
   conversation: ConversationSummary;
   messages: UiMessage[];
@@ -68,6 +70,8 @@ export function ChatWindow({
   onShowSecurity: () => void;
   onShowGroup: () => void;
   onDelete: (mid: number) => void;
+  onEdit: (message: LocalMessage, text: string) => void;
+  onDeleteForAll: (message: LocalMessage) => void;
 }) {
   const [draft, setDraft] = useState("");
   const [search, setSearch] = useState("");
@@ -234,6 +238,9 @@ export function ChatWindow({
                     showSender={showSender}
                     onRetry={onRetry}
                     onDelete={onDelete}
+                    canControl={!conversation.archived && !conversation.rotationRequired}
+                    onEdit={onEdit}
+                    onDeleteForAll={onDeleteForAll}
                     onReply={text => {
                       setReply(text);
                       textareaRef.current?.focus();
@@ -336,16 +343,22 @@ export function ChatWindow({
 }
 
 function MessageBubble({
+  canControl,
   m,
   showSender,
   onRetry,
   onDelete,
+  onEdit,
+  onDeleteForAll,
   onReply,
 }: {
+  canControl: boolean;
   m: UiMessage;
   showSender: boolean;
   onRetry: (tempId: string) => void;
   onDelete: (mid: number) => void;
+  onEdit: (message: LocalMessage, text: string) => void;
+  onDeleteForAll: (message: LocalMessage) => void;
   onReply: (text: string) => void;
 }) {
   const [menu, setMenu] = useState(false);
@@ -410,6 +423,17 @@ function MessageBubble({
                 </button>
               </>
             )}
+            {canControl && mine && !m.tempId && !m.deleted && <>
+              {m.payload.type === "text" && <button className="p-2" onClick={() => {
+                const text = window.prompt("Edit message", m.payload.type === "text" ? m.payload.text : "");
+                if (text !== null && text.trim()) { onEdit(m, text); setMenu(false); }
+              }}>Edit message</button>}
+              <button className="p-2 text-destructive" onClick={() => {
+                if (window.confirm("Delete for all current conversation members? Previously saved copies and screenshots cannot be withdrawn.")) {
+                  onDeleteForAll(m); setMenu(false);
+                }
+              }}>Delete for all</button>
+            </>}
             {!m.tempId && (
               <button
                 className="p-2 text-destructive"
@@ -460,6 +484,7 @@ function MessageBubble({
           <div
             className={`mt-1 flex items-center gap-2 ${mine ? "justify-end" : "justify-start"}`}
           >
+            {m.editedAt && !m.deleted && <span className="text-[10px] opacity-70">edited</span>}
             <span
               className={`micro-label ${mine ? "text-primary-foreground/70" : ""}`}
             >

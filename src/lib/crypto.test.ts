@@ -71,3 +71,13 @@ describe("Locat encryption", () => {
     expect(newSessionToken()).not.toBe(newSessionToken());
   });
 });
+
+
+it("encrypts versioned controls without exposing targets or replacement text", async () => {
+  const key = await generateGroupKey();
+  const control = { type: "control" as const, version: 1 as const, action: "edit" as const, target: "legacy:123", text: "private replacement" };
+  const sealed = await encryptPayload(key, control);
+  expect(sealed).not.toContain(control.target);
+  expect(sealed).not.toContain(control.text);
+  expect(await decryptPayload(key, sealed)).toEqual(control);
+});

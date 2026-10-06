@@ -1,3 +1,4 @@
+import { relayPayloadSchema, type MessageControl } from "@contracts/messagePayload";
 import { userCode } from "@contracts/userCode";
 import { Link } from "react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -18,6 +19,8 @@ import {
 } from "@/lib/crypto";
 import {
   getMessages,
+  applyMessageControl,
+  messageReference,
   deleteLocalMessage,
   cachedConversations,
   cacheConversations,
@@ -214,6 +217,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         (await kvGet<Record<string, number>>(user.id, "lastRead")) ?? {};
       const latestMap = await latestMessagePerConversation(user.id);
       for (const pending of await pendingMessages(user.id)) {
+        if (pending.control) continue;
         if (
           (latestMap.get(pending.conversationId)?.createdAt ?? 0) <=
           pending.createdAt
@@ -283,13 +287,22 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
               ? (JSON.parse(item.envelope).groupEpoch ?? 1)
               : undefined;
           const key = await keyFor(conv, epoch);
-          const payload = messagePayloadSchema.parse(
+          const payload = relayPayloadSchema.parse(
             await decryptPayload(key, item.envelope)
           );
           const createdAt =
             item.createdAt instanceof Date
               ? item.createdAt.getTime()
               : Date.now();
+          if (payload.type === "control") {
+            await applyMessageControl(user.id, item.conversationId, item.senderId, payload, item.messageId, createdAt);
+            acked.push(item.messageId);
+            failedDeliveries.current.delete(item.messageId);
+            setArchiveRevision(n => n + 1);
+            setLatest(await latestMessagePerConversation(user.id));
+            if (activeIdRef.current === item.conversationId) setMessages(await getMessages(user.id, item.conversationId));
+            continue;
+          }
           const msg: LocalMessage = {
             mid: item.messageId,
             conversationId: item.conversationId,
@@ -304,11 +317,12 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
           failedDeliveries.current.delete(item.messageId);
           if (!inserted) continue;
 
-          setLatest(prev => new Map(prev).set(item.conversationId, msg));
+          const persisted = (await getMessages(user.id, item.conversationId)).find(m => m.mid === msg.mid)!;
+          setLatest(prev => new Map(prev).set(item.conversationId, persisted));
           if (activeIdRef.current === item.conversationId) {
             // outgoing echoes already render optimistically — don't duplicate
             setMessages(prev =>
-              prev.some(m => m.mid === msg.mid) ? prev : [...prev, msg]
+              prev.some(m => m.mid === msg.mid) ? prev : [...prev, persisted]
             );
             lastReadRef.current[item.conversationId] = Math.max(
               lastReadRef.current[item.conversationId] ?? 0,
@@ -441,7 +455,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       if (activeIdRef.current !== id) return;
       setMessages([
         ...msgs,
-        ...pending.filter(m => m.conversationId === id).map(pendingUi),
+        ...pending.filter(m => m.conversationId === id && !m.control).map(pendingUi),
       ]);
       const maxMid = msgs.reduce((m, x) => Math.max(m, x.mid), 0);
       lastReadRef.current[id] = Math.max(lastReadRef.current[id] ?? 0, maxMid);
@@ -485,6 +499,15 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         envelope: item.envelope,
         clientMessageId: item.clientMessageId,
       });
+      if (item.control) {
+        await applyMessageControl(user.id, item.conversationId, item.senderId, item.control, messageId, createdAt.getTime(), item.clientMessageId);
+        if (alive.current) {
+          setArchiveRevision(n => n + 1);
+          setLatest(await latestMessagePerConversation(user.id));
+          if (activeIdRef.current === item.conversationId) setMessages(await getMessages(user.id, item.conversationId));
+        }
+        return;
+      }
       const stored: LocalMessage = {
         mid: messageId,
         conversationId: item.conversationId,
@@ -495,6 +518,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         createdAt: createdAt.getTime(),
       };
       await completePending(user.id, item.clientMessageId, stored);
+      const projected = (await getMessages(user.id, item.conversationId)).find(m => m.mid === messageId)!;
       if (!alive.current) return;
       if (activeIdRef.current === item.conversationId)
         setMessages(prev =>
@@ -502,10 +526,10 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
             ...prev.filter(
               m => m.tempId !== item.clientMessageId && m.mid !== messageId
             ),
-            stored,
+            projected,
           ].sort((a, b) => a.createdAt - b.createdAt)
         );
-      setLatest(prev => new Map(prev).set(item.conversationId, stored));
+      setLatest(prev => new Map(prev).set(item.conversationId, projected));
     } catch (error) {
       try {
       if (
@@ -518,7 +542,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         if (fresh?.type === "group" && !fresh.rotationRequired) {
           await savePending(user.id, {
             ...item,
-            envelope: await encryptedFor(fresh, item.payload),
+            envelope: await encryptedFor(fresh, item.control ?? item.payload),
           });
         }
       }
@@ -556,7 +580,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   }, [localReady]);
   async function encryptedFor(
     conv: ConversationSummary,
-    payload: MessagePayload
+    payload: MessagePayload | MessageControl
   ) {
     const envelope = await encryptPayload(await keyFor(conv), payload);
     return conv.type === "group"
@@ -565,6 +589,20 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
           groupEpoch: conv.groupEpoch ?? 1,
         })
       : envelope;
+  }
+  async function sendControl(conv: ConversationSummary, target: LocalMessage, action: "edit" | "delete", text?: string) {
+    if (target.senderId !== user.id || target.deleted || conv.archived || conv.rotationRequired) return;
+    const control: MessageControl = action === "delete"
+      ? { type: "control", version: 1, action, target: messageReference(target) }
+      : { type: "control", version: 1, action, target: messageReference(target), text: text ?? "" };
+    try {
+      const item: PendingMessage = { clientMessageId: crypto.randomUUID(), conversationId: conv.id,
+        senderId: user.id, senderName: user.displayName, payload: { type: "text", text: "" }, control,
+        createdAt: Date.now(), envelope: await encryptedFor(conv, control) };
+      await savePending(user.id, item);
+      setArchiveError("Message change queued. It applies after server confirmation and reaches recipients when they reconnect.");
+      await transmit(item);
+    } catch { setArchiveError("Could not queue the message change. Try again."); }
   }
   async function sendPayload(
     conv: ConversationSummary,
@@ -828,6 +866,8 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
             }}
             onShowGroup={() => setGroupOpen(true)}
             onShowSecurity={() => setSecurityOpen(true)}
+            onEdit={(message, text) => void sendControl(activeConv, message, "edit", text)}
+            onDeleteForAll={message => void sendControl(activeConv, message, "delete")}
             onDelete={mid => {
               void deleteLocalMessage(user.id, mid)
                 .then(() => {

@@ -1,3 +1,4 @@
+import "fake-indexeddb/auto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import mysql, { type Connection, type RowDataPacket } from "mysql2/promise";
 import { spawnSync } from "node:child_process";
@@ -166,6 +167,35 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     await bob.messages.ack({ messageIds: ids.slice(500) });
     expect(await count("messages")).toBe(0);
   }, 20000);
+
+  it("relays encrypted controls after original delivery is purged and preserves sender authority", async () => {
+    const sendingKey = await deriveDirectKey(identities[0].privateKey, identities[1].publicKeyB64, aliceId, bobId);
+    const local = await import("./localdb");
+    const { encryptPayload, decryptPayload } = await import("./crypto");
+    await local.wipeAll(99);
+    const target = crypto.randomUUID();
+    const source = await alice.messages.send({ conversationId, clientMessageId: crypto.randomUUID(),
+      envelope: await encryptPayload(sendingKey, { type: "text", text: "before", messageRef: target }) });
+    await local.storeMessage(99, { mid: source.messageId, conversationId, senderId: aliceId,
+      senderName: "Alice", outgoing: false, payload: { type: "text", text: "before", messageRef: target }, createdAt: source.createdAt.getTime() });
+    await alice.messages.ack({ messageIds: [source.messageId] });
+    await bob.messages.ack({ messageIds: [source.messageId] });
+    for (const [caller, key, action, text] of [[bob, receivingKey, "edit", "forged"], [alice, sendingKey, "edit", "after"], [alice, sendingKey, "delete", ""]] as const) {
+      const control = action === "edit" ? { type: "control" as const, version: 1 as const, action, target, text }
+        : { type: "control" as const, version: 1 as const, action, target };
+      const sent = await caller.messages.send({ conversationId, clientMessageId: crypto.randomUUID(), envelope: await encryptPayload(key, control) });
+      const event = (await bob.messages.sync({ after: sent.messageId - 1 })).items.find(row => row.messageId === sent.messageId)!;
+      const decrypted = await decryptPayload(receivingKey, event.envelope);
+      if (decrypted.type !== "control") throw new Error("Expected control");
+      await local.applyMessageControl(99, event.conversationId, event.senderId, decrypted, event.messageId, event.createdAt.getTime());
+      const projected = (await local.allMessages(99))[0];
+      expect(projected.payload).toMatchObject({ text: text === "forged" ? "before" : action === "delete" ? "Message deleted" : "after" });
+      await alice.messages.ack({ messageIds: [sent.messageId] });
+      await bob.messages.ack({ messageIds: [sent.messageId] });
+    }
+    expect((await local.allMessages(99))[0].deleted).toBe(true);
+    await local.wipeAll(99);
+  });
 
   it("upgrades an original schema without losing accounts or messages", async () => {
     const sent = await alice.messages.send({ conversationId, envelope, clientMessageId: crypto.randomUUID() });

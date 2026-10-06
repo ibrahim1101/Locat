@@ -10,6 +10,7 @@ const messageSchema = z.object({
   mid: z.number().int().positive(), conversationId: z.number().int().positive(),
   senderId: z.number().int().positive(), senderName: z.string().max(128),
   outgoing: z.boolean(), payload: messagePayloadSchema,
+  deleted: z.boolean().optional(), editedAt: z.number().int().nonnegative().optional(),
   createdAt: z.number().int().nonnegative().max(8_640_000_000_000_000),
 });
 const accountSchema = z.object({ userId: z.number().int().positive(), username: z.string(), origin: z.string() });
