@@ -16,6 +16,7 @@ export type LocalMessage = {
   createdAt: number; // epoch ms
   deleted?: boolean;
   editedAt?: number;
+  readBy?: number[];
 };
 
 type KvValue = string | number | Record<string, unknown>;
@@ -108,6 +109,7 @@ function projectControl(message: LocalMessage, state?: ControlState): LocalMessa
   if (!state || message.deleted) return message;
   if (state.control.action === "delete") return { ...message, deleted: true,
     payload: { type: "text", text: "Message deleted", messageRef: message.payload.messageRef } };
+  if (state.control.action !== "edit") return message;
   if (message.payload.type !== "text") return message;
   return { ...message, payload: { ...message.payload, text: state.control.text }, editedAt: state.at };
 }
@@ -125,6 +127,20 @@ export async function applyMessageControl(userId: number, conversationId: number
     const rows: LocalMessage[] = await tx.objectStore("messages").index("byConv").getAll(conversationId);
     for (const row of rows) if (row.senderId === senderId && messageReference(row) === control.target)
       await tx.objectStore("messages").put(projectControl(row, state));
+  }
+  if (pendingId) await tx.objectStore("outbox").delete(pendingId);
+  await tx.done;
+}
+
+/** Record a relay-authenticated member's encrypted read receipt. */
+export async function applyReadReceipt(userId: number, conversationId: number, readerId: number,
+  target: string, pendingId?: string): Promise<void> {
+  const tx = (await db(userId)).transaction(["messages", "outbox"], "readwrite");
+  const rows: LocalMessage[] = await tx.objectStore("messages").index("byConv").getAll(conversationId);
+  for (const row of rows) {
+    if (messageReference(row) !== target || row.senderId !== userId) continue;
+    const readBy = [...new Set([...(row.readBy ?? []), readerId])];
+    await tx.objectStore("messages").put({ ...row, readBy });
   }
   if (pendingId) await tx.objectStore("outbox").delete(pendingId);
   await tx.done;
