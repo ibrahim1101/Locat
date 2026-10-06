@@ -50,7 +50,11 @@ describe("Locat encryption", () => {
       return JSON.stringify({ v: 1, iv: Buffer.from(iv).toString("base64"), data: Buffer.from(data).toString("base64") });
     };
     for (const payload of [null, { type: "text", text: 42 }, { type: "delete", target: 1 },
-      { type: "image", mime: "image/png", name: "a", dataB64: "!invalid!" }]) {
+      { type: "image", mime: "image/png", name: "a", dataB64: "!invalid!" },
+      { type: "image", mime: "image/svg+xml", name: "a", dataB64: "AA==" },
+      { type: "image", mime: "image/png", name: "a", dataB64: "A" },
+      { type: "text", text: "a".repeat(1_000_001) },
+      { type: "text", text: "hello", hiddenControl: "delete" }]) {
       await expect(decryptPayload(key, await seal(payload))).rejects.toThrow();
     }
     const image = { type: "image", mime: "image/png", name: "a", dataB64: "AA==" };

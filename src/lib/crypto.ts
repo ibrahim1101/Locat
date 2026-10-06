@@ -4,6 +4,7 @@
 //   - private keys wrapped with a password-derived key (backup blob)
 //   - AES-GCM envelopes it cannot open
 import type { EncryptedEnvelope, MessagePayload } from "@contracts/types";
+import { messagePayloadSchema } from "@contracts/messagePayload";
 
 const te = new TextEncoder();
 const td = new TextDecoder();
@@ -178,8 +179,9 @@ export async function unwrapGroupKey(
 // ─── Message envelopes ───────────────────────────────────────────────────────
 
 export async function encryptPayload(key: CryptoKey, payload: MessagePayload): Promise<string> {
+  const validated = messagePayloadSchema.parse(payload);
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const data = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, te.encode(JSON.stringify(payload)));
+  const data = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, te.encode(JSON.stringify(validated)));
   const envelope: EncryptedEnvelope = { v: 1, iv: b64encode(iv), data: b64encode(data) };
   return JSON.stringify(envelope);
 }
@@ -196,17 +198,9 @@ export async function decryptPayload(key: CryptoKey, envelopeJson: string): Prom
     b64decode(envelope.data) as BufferSource,
   );
   const payload: unknown = JSON.parse(td.decode(plain));
-  if (!payload || typeof payload !== "object") throw new Error("Invalid message payload");
-  const fields = payload as Record<string, unknown>;
-  if (fields.type === "text" && typeof fields.text === "string") return payload as MessagePayload;
-  if (fields.type === "image" && typeof fields.mime === "string" &&
-      typeof fields.name === "string" && typeof fields.dataB64 === "string") {
-    // Validate media encoding before acknowledging delivery; rendering must not
-    // discover malformed bytes only after the relay has deleted its copy.
-    b64decode(fields.dataB64);
-    return payload as MessagePayload;
-  }
-  throw new Error("Unsupported or malformed message payload");
+  const validated = messagePayloadSchema.safeParse(payload);
+  if (!validated.success) throw new Error("Unsupported or malformed message payload");
+  return validated.data;
 }
 
 /** Short SHA-256 fingerprint of a public key — the "safety number" style check. */
