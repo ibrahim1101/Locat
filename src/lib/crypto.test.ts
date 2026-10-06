@@ -81,3 +81,12 @@ it("encrypts versioned controls without exposing targets or replacement text", a
   expect(sealed).not.toContain(control.text);
   expect(await decryptPayload(key, sealed)).toEqual(control);
 });
+
+it("encrypts read receipts as validated control events", async () => {
+  const key = await generateGroupKey();
+  const receipt = { type: "control" as const, version: 1 as const, action: "read" as const,
+    target: crypto.randomUUID() };
+  const sealed = await encryptPayload(key, receipt);
+  expect(sealed).not.toContain(receipt.target);
+  expect(await decryptPayload(key, sealed)).toEqual(receipt);
+});
