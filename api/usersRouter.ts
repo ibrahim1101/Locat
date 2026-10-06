@@ -12,6 +12,7 @@ const publicUserCols = {
   id: users.id,
   username: users.username,
   displayName: users.displayName,
+  lcCode: users.lcCode,
   bio: users.bio,
   avatar: users.avatar,
   publicKey: users.publicKey,
@@ -52,7 +53,7 @@ export const usersRouter = createRouter({
           and(
             ne(users.id, ctx.user!.id),
             eq(users.disabled, false),
-            codeId !== null ? eq(users.id, codeId) : or(like(users.username, q), like(users.displayName, q)),
+            codeId !== null ? eq(users.lcCode, codeId) : or(like(users.username, q), like(users.displayName, q)),
           ),
         )
         .limit(12);

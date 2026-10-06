@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
@@ -47,17 +48,28 @@ export const authRouter = createRouter({
       }
 
       const passwordHash = await hashPassword(input.password);
-      const [{ id }] = await db
-        .insert(users)
-        .values({
-          username: input.username.toLowerCase(),
-          displayName: input.displayName,
-          passwordHash,
-          publicKey: input.keys.publicKey,
-          encryptedPrivateKey: input.keys.encryptedPrivateKey,
-          keySalt: input.keys.keySalt,
-        })
-        .$returningId();
+      let id = 0;
+      for (let attempt = 0; attempt < 10; attempt++) {
+        try {
+          const [created] = await db
+            .insert(users)
+            .values({
+              lcCode: Array.from({ length: 16 }, (_, i) => randomInt(i === 0 ? 1 : 0, 10)).join(""),
+              username: input.username.toLowerCase(),
+              displayName: input.displayName,
+              passwordHash,
+              publicKey: input.keys.publicKey,
+              encryptedPrivateKey: input.keys.encryptedPrivateKey,
+              keySalt: input.keys.keySalt,
+            })
+            .$returningId();
+          id = created.id;
+          break;
+        } catch (error) {
+          const cause = (error as { cause?: { code?: string; sqlMessage?: string } }).cause;
+          if (cause?.code !== "ER_DUP_ENTRY" || !cause.sqlMessage?.includes("users_lc_code_unique") || attempt === 9) throw error;
+        }
+      }
 
       const token = newSessionToken();
       const expiresAt = new Date(
@@ -163,6 +175,7 @@ function publicProfile(user: typeof users.$inferSelect) {
     id: user.id,
     username: user.username,
     displayName: user.displayName,
+    lcCode: user.lcCode!,
     bio: user.bio,
     avatar: user.avatar,
     publicKey: user.publicKey,

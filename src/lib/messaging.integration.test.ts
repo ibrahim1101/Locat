@@ -88,22 +88,40 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
   it("updates a public profile and finds it by exact account code", async () => {
     expect(await alice.users.updateProfile({ displayName: "Alice Example", bio: "Private chat enthusiast" }))
       .toEqual({ displayName: "Alice Example", bio: "Private chat enthusiast" });
-    const results = await bob.users.search({ q: `LC-${aliceId}` });
+    const results = await bob.users.search({ q: `LC-${(await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) }))!.lcCode}` });
     expect(results).toEqual([expect.objectContaining({
       id: aliceId, displayName: "Alice Example", bio: "Private chat enthusiast",
     })]);
     expect(await bob.users.search({ q: "LC-0" })).toEqual([]);
   });
 
+  it("assigns unique fixed numeric codes, backfills legacy accounts, and preserves them", async () => {
+    let account = (await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) }))!;
+    const original = account.lcCode;
+    expect(original).toMatch(/^[1-9][0-9]{15}$/);
+    const all = await db.select({ code: schema.users.lcCode }).from(schema.users);
+    expect(new Set(all.map(row => row.code)).size).toBe(all.length);
+    await alice.users.updateProfile({ displayName: "Alice Example", bio: "Private chat enthusiast" });
+    setup(); setup();
+    expect((await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) }))!.lcCode).toBe(original);
+    await expect(connection.query("UPDATE users SET lc_code=? WHERE id=?", [original, bobId])).rejects.toThrow();
+    await connection.query("UPDATE users SET lc_code=NULL WHERE id=?", [aliceId]);
+    setup();
+    account = (await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) }))!;
+    expect(account.lcCode).toMatch(/^[1-9][0-9]{15}$/);
+    setup();
+    expect((await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) }))!.lcCode).toBe(account.lcCode);
+  });
+
   it("stores only the authenticated account avatar and publishes/removes it", async () => {
     await expect(alice.users.setAvatar({ avatar: "data:image/svg+xml;base64,PHN2Zz4=" })).rejects.toThrow();
     await expect(router.createCaller({ req: new Request("http://localhost"), resHeaders: new Headers() }).users.setAvatar({ avatar: testAvatar })).rejects.toThrow();
     await alice.users.setAvatar({ avatar: testAvatar });
-    expect((await bob.users.search({ q: `LC-${aliceId}` }))[0].avatar).toBe(testAvatar);
+    expect((await bob.users.search({ q: `LC-${(await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) }))!.lcCode}` }))[0].avatar).toBe(testAvatar);
     expect((await alice.conversations.list())[0].members.find(m => m.id === aliceId)?.avatar).toBe(testAvatar);
     expect((await db.query.users.findFirst({ where: eq(schema.users.id, bobId) }))!.avatar).toBeNull();
     await alice.users.setAvatar({ avatar: null });
-    expect((await bob.users.search({ q: `LC-${aliceId}` }))[0].avatar).toBeNull();
+    expect((await bob.users.search({ q: `LC-${(await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) }))!.lcCode}` }))[0].avatar).toBeNull();
     await alice.users.setAvatar({ avatar: testAvatar });
   });
 
@@ -362,6 +380,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
       expect(restored!.isAdmin).toBe(true);
       expect(restored!.bio).toBe("Restored profile");
       expect(restored!.avatar).toBe(testAvatar);
+      expect(restored!.lcCode).toBe(metadata.accounts.find((row: { id: number }) => row.id === aliceId).lcCode);
       expect((await alice.auth.login({ username:"alice", password:"test-password-long" })).user.id).toBe(aliceId);
     } finally { await rm(dir,{ recursive:true,force:true }); }
   }, 20000);

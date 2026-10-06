@@ -34,6 +34,7 @@ export type PublicUser = {
   id: number;
   username: string;
   displayName: string;
+  lcCode: string | null;
   bio: string | null;
   avatar?: string | null;
   publicKey: string;

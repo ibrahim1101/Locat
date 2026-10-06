@@ -1,11 +1,12 @@
 import { expect, it } from "vitest";
 import { parseUserCode, userCode } from "@contracts/userCode";
-
-it("round-trips server-scoped account codes", () => {
-  for (const id of [1, 42, Number.MAX_SAFE_INTEGER]) expect(parseUserCode(userCode(id))).toBe(id);
-  expect(parseUserCode(" lc-42 ")).toBe(42);
+it("preserves long numeric codes as strings", () => {
+  const code = "9876543210123456";
+  expect(parseUserCode(userCode(code))).toBe(code);
+  expect(parseUserCode(code)).toBe(code);
+  expect(parseUserCode(` lc-${code} `)).toBe(code);
 });
-it("rejects ambiguous and unsafe codes", () => {
-  for (const query of ["42", "LC-0", "LC-01", "LC--1", "LC-1.5", "LC-9007199254740992", "LC-4%", "LC-4_", "LC-"]) expect(parseUserCode(query)).toBeNull();
-  expect(() => userCode(-1)).toThrow();
+it("rejects short, sequential and malformed codes", () => {
+  for (const query of ["1", "LC-42", "LC-0123456789012345", "LC--1", "LC-1.5", "LC-4%", "LC-4_", "LC-"]) expect(parseUserCode(query)).toBeNull();
+  expect(() => userCode("1")).toThrow();
 });

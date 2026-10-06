@@ -20,6 +20,7 @@ export const users = mysqlTable("users", {
   id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
   username: varchar("username", { length: 64 }).notNull().unique(),
   displayName: varchar("display_name", { length: 128 }).notNull(),
+  lcCode: varchar("lc_code", { length: 16 }).unique("users_lc_code_unique"),
   bio: varchar("bio", { length: 280 }),
   avatar: text("avatar"),
   isAdmin: boolean("is_admin").notNull().default(false),

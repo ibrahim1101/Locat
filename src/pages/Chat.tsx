@@ -676,7 +676,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{user.displayName}</p>
           <p className="micro-label normal-case tracking-normal">
-            @{user.username} · {userCode(user.id)}
+            @{user.username} · {userCode(user.lcCode)}
           </p>
         </div>
         <button

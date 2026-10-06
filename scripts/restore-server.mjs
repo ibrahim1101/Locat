@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import "dotenv/config";
 import { readFile, stat } from "node:fs/promises";
 import { scrypt, createDecipheriv } from "node:crypto";
@@ -52,6 +53,7 @@ const account = z.object({
   id,
   username: z.string().min(3).max(64),
   displayName: z.string().min(1).max(128),
+  lcCode: z.string().regex(/^[1-9][0-9]{15}$/).optional(),
   bio: z.string().max(280).nullable().default(null),
   avatar: z.string().max(40_000).regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/).nullable().default(null),
   passwordHash: z
@@ -124,11 +126,12 @@ try {
   }
   for (const row of data.accounts)
     await db.query(
-      "INSERT INTO users (id,username,display_name,bio,avatar,password_hash,public_key,encrypted_private_key,key_salt,disabled,is_admin,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+      "INSERT INTO users (id,username,display_name,lc_code,bio,avatar,password_hash,public_key,encrypted_private_key,key_salt,disabled,is_admin,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
       [
         row.id,
         row.username,
         row.displayName,
+        row.lcCode ?? Array.from({ length: 16 }, (_, i) => randomInt(i === 0 ? 1 : 0, 10)).join(""),
         row.bio,
         row.avatar,
         row.passwordHash,

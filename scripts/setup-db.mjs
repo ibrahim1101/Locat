@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import "dotenv/config";
 import mysql from "mysql2/promise";
 import { readFile } from "node:fs/promises";
@@ -15,6 +16,18 @@ try {
   const statements = sql.split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
   for (const statement of statements.filter((s) => s.startsWith("CREATE TABLE"))) {
     await connection.query(statement.replace("CREATE TABLE", "CREATE TABLE IF NOT EXISTS"));
+  }
+  const [[lcColumn]] = await connection.query("SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'lc_code'");
+  if (Number(lcColumn.n) === 0) await connection.query("ALTER TABLE users ADD COLUMN lc_code VARCHAR(16) NULL");
+  const [[lcIndex]] = await connection.query("SELECT COUNT(*) AS n FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND INDEX_NAME = 'users_lc_code_unique'");
+  if (Number(lcIndex.n) === 0) await connection.query("CREATE UNIQUE INDEX users_lc_code_unique ON users(lc_code)");
+  const [uncoded] = await connection.query("SELECT id FROM users WHERE lc_code IS NULL");
+  for (const row of uncoded) {
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const code = Array.from({ length: 16 }, (_, i) => randomInt(i === 0 ? 1 : 0, 10)).join("");
+      try { await connection.query("UPDATE users SET lc_code=? WHERE id=? AND lc_code IS NULL", [code, row.id]); break; }
+      catch (error) { if (error.code !== "ER_DUP_ENTRY" || attempt === 9) throw error; }
+    }
   }
   const [[bioColumn]] = await connection.query("SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'bio'");
   if (Number(bioColumn.n) === 0) await connection.query("ALTER TABLE users ADD COLUMN bio VARCHAR(280) NULL");

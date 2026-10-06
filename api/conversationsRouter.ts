@@ -40,6 +40,7 @@ export const conversationsRouter = createRouter({
           id: users.id,
           username: users.username,
           displayName: users.displayName,
+          lcCode: users.lcCode!,
           bio: users.bio,
           avatar: users.avatar,
           publicKey: users.publicKey,

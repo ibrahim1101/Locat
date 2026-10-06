@@ -61,8 +61,8 @@ export function ProfileDialog({ user, open, onOpenChange }: {
         <p className="text-xs text-secondary">Your login username is fixed. Change your nickname above.</p>
       </div>
       <div className="space-y-2"><Label htmlFor="profile-code">LC code</Label>
-        <div className="flex gap-2"><Input id="profile-code" value={userCode(user.id)} readOnly />
-          <Button variant="outline" onClick={() => void navigator.clipboard.writeText(userCode(user.id))
+        <div className="flex gap-2"><Input id="profile-code" value={userCode(user.lcCode)} readOnly />
+          <Button variant="outline" disabled={!user.lcCode} onClick={() => void navigator.clipboard.writeText(userCode(user.lcCode))
             .then(() => setFeedback("LC code copied."))
             .catch(() => setFeedback("Copy is unavailable. Select and copy the code above."))}>Copy</Button></div>
         <p className="text-xs text-secondary">Share this code to help people find you on this server.</p>

@@ -46,7 +46,7 @@ if (process.env.DATABASE_URL) {
     await connection.query({ sql: "SELECT 1", timeout: 5000 });
     report(true, "Database connection");
     for (const [label, sql] of [
-      ["Account/admin schema", "SELECT id, disabled, is_admin, bio, avatar FROM users LIMIT 0"],
+      ["Account/admin schema", "SELECT id, disabled, is_admin, bio, avatar, lc_code FROM users LIMIT 0"],
       ["Delivery schema", "SELECT client_message_id FROM messages LIMIT 0"],
       ["Retry receipts", "SELECT id FROM send_receipts LIMIT 0"],
       ["Group version schema", "SELECT group_epoch, rotation_required FROM conversations LIMIT 0"],

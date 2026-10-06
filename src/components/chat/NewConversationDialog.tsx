@@ -72,6 +72,7 @@ export function NewConversationDialog({
         username: me.user.username,
         displayName: me.user.displayName,
         bio: me.user.bio,
+        lcCode: me.user.lcCode,
         publicKey: me.keys.publicKeyB64,
       };
       const all = [myPublic, ...selected];
@@ -187,7 +188,7 @@ export function NewConversationDialog({
               <Avatar avatar={u.avatar} name={u.displayName} id={u.id} size={36} />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">{u.displayName}</span>
-                <span className="micro-label block normal-case tracking-normal">@{u.username} · {userCode(u.id)}</span>
+                <span className="micro-label block normal-case tracking-normal">@{u.username} · {userCode(u.lcCode!)}</span>
                 {u.bio && <span className="block truncate text-xs text-secondary">{u.bio}</span>}
               </span>
             </button>

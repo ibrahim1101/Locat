@@ -28,7 +28,7 @@ Universal forensic deletion cannot be guaranteed for SSDs, snapshots, backups or
 
 ## Backlog
 
-- [ ] 01. Profile picture selection
+- [x] 01. Profile picture selection
 - [ ] 02. Read receipt on/off
 - [x] 03. Delete for all
 - [ ] 04. Hidden messages
@@ -68,7 +68,7 @@ Universal forensic deletion cannot be guaranteed for SSDs, snapshots, backups or
 - [ ] 38. Privacy controls
 - [ ] 39. Server presence logs
 - [ ] 40. Configurable video sharing
-- [ ] 41. Avatar-triggered profile panel with picture, nickname, username, LC code and bio
+- [x] 41. Avatar-triggered profile panel with picture, nickname, username, LC code and bio
 
 ## Progress
 
@@ -102,3 +102,7 @@ Universal forensic deletion cannot be guaranteed for SSDs, snapshots, backups or
 
 - Items 01/41 picture increment: authenticated thumbnail selection/removal in the avatar-triggered profile panel. Browser crops and re-encodes to 128px JPEG, rejects input above 10 MB, discards original metadata and uploads only a bounded 30 KB thumbnail. Thumbnails are public profile data on the server, not message-encrypted content. Directory, auth, conversation members and avatar stacks expose/render the thumbnail; unsafe URI formats are rejected. Additive schema upgrade, formal migration, readiness/doctor and metadata backup restore include pictures. Old backups default to no picture.
 - Automated validation: 38 tests passed against fresh MariaDB, including unauthenticated rejection, account isolation, directory/conversation visibility, removal and backup/restore. TypeScript/lint/build passed. Items 01/41 are implemented pending GitHub workflow and device acceptance. Completed/device-tested count remains 4/41.
+
+- User confirmed profile pictures and the dedicated profile panel work: items 01/41 accepted, bringing completed/device-tested progress to 6/41.
+- LC refinement: randomly allocated fixed 16-digit strings replace sequential account-ID codes. Unique database index enforces uniqueness within this server; registration retries code collisions. Additive installation assigns codes to existing accounts once and preserves them on subsequent upgrades. Codes cannot be changed through profile settings. Metadata backups preserve them; legacy backups receive codes. Exact numeric/prefixed lookup is supported. Existing users should reconnect and share their new code. Codes are public identifiers, not secrets.
+- LC validation: 39 tests passed against fresh MariaDB; typecheck, lint and production build passed. GitHub workflow pending. Progress remains 6/41; this refines item 07.

@@ -23,6 +23,7 @@ export type SessionUser = {
   id: number;
   username: string;
   displayName: string;
+  lcCode: string;
   bio: string | null;
   avatar?: string | null;
   publicKey: string;
