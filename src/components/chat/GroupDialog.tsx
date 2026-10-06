@@ -139,7 +139,10 @@ export function GroupDialog({
                       setSearch("");
                     }}
                   >
-                    Add {row.displayName} (@{row.username})
+                    <span className="min-w-0 text-left">
+                      <span className="block">Add {row.displayName} (@{row.username})</span>
+                      {row.bio && <span className="block truncate text-xs text-secondary">{row.bio}</span>}
+                    </span>
                   </Button>
                 ))}
             </div>
