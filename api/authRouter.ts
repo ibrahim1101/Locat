@@ -1,4 +1,5 @@
 import { randomInt } from "node:crypto";
+import { registrationPasswordError, PASSWORD_MAX_CODE_UNITS } from "@contracts/password";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
@@ -30,11 +31,13 @@ export const authRouter = createRouter({
       z.object({
         username: usernameSchema,
         displayName: z.string().min(1).max(64),
-        password: z.string().min(8, "Password must be at least 8 characters").max(1024),
+        password: z.string().max(PASSWORD_MAX_CODE_UNITS),
         keys: keyBundleSchema,
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const passwordError = registrationPasswordError(input.password, input.username);
+      if (passwordError) throw new TRPCError({ code: "BAD_REQUEST", message: passwordError });
       limit("auth-global", 120, 60000);
       limit(`auth-account:${input.username.toLowerCase()}`, 15, 15 * 60000);
       const db = getDb();
