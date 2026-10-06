@@ -77,3 +77,9 @@ TEST_DATABASE_URL=mysql://user:password@127.0.0.1:3306/locat_test npm test
 ```
 
 **Integration tests drop tables. Use a disposable database ending in `_test`, never the real database.** Native configuration starts with `.env.example`; Docker uses different variables explained in the guide.
+
+## License
+
+Locat is free and open-source software licensed under the **GNU General Public License v3.0 (GPL-3.0-only)**, matching nScout's GPLv3 license. See [LICENSE](LICENSE) for the full terms.
+
+Copyright © 2026 Shaik Ibrahim. Third-party dependencies retain their own licenses.
