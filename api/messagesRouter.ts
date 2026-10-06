@@ -4,7 +4,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { limit } from "./rateLimit";
 import { observable } from "@trpc/server/observable";
-import { eq, and, asc, gt, lt, inArray, sql } from "drizzle-orm";
+import { eq, and, asc, gt, lt, inArray, sql, or } from "drizzle-orm";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import {
@@ -15,6 +15,7 @@ import {
   users,
   sendReceipts,
   sessions,
+  userBlocks,
 } from "@db/schema";
 import { subscribe as hubSubscribe, emitToUsers, onlineUserIds } from "./hub";
 import type { RelayEvent } from "@contracts/types";
@@ -57,6 +58,17 @@ export const messagesRouter = createRouter({
       const db = getDb();
       const me = ctx.user!.id;
       await requireMembership(input.conversationId, me);
+      const [directPeer] = await db.select({ id: conversationMembers.userId }).from(conversationMembers)
+        .innerJoin(conversations, eq(conversationMembers.conversationId, conversations.id))
+        .where(and(eq(conversationMembers.conversationId, input.conversationId), eq(conversations.type, "direct"),
+          sql`${conversationMembers.userId} <> ${me}`)).limit(1);
+      if (directPeer) {
+        const [blocked] = await db.select({ id: userBlocks.id }).from(userBlocks).where(or(
+          and(eq(userBlocks.blockerId, me), eq(userBlocks.blockedId, directPeer.id)),
+          and(eq(userBlocks.blockerId, directPeer.id), eq(userBlocks.blockedId, me)),
+        )).limit(1);
+        if (blocked) throw new TRPCError({ code: "FORBIDDEN", message: "Direct contact is blocked" });
+      }
 
       const envelopeHash = createHash("sha256").update(input.envelope).digest("hex");
       await db.delete(sendReceipts).where(lt(sendReceipts.createdAt, new Date(Date.now() - 7 * 86400000)));
