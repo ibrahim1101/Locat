@@ -1,3 +1,4 @@
+import { parseUserCode } from "@contracts/userCode";
 import { z } from "zod";
 import { like, eq, ne, and, or, inArray } from "drizzle-orm";
 import { createRouter, authedQuery } from "./middleware";
@@ -19,6 +20,8 @@ export const usersRouter = createRouter({
     .input(z.object({ q: z.string().min(1).max(64) }))
     .query(async ({ ctx, input }) => {
       const db = getDb();
+      const codeId = parseUserCode(input.q);
+      if (/^LC-/i.test(input.q.trim()) && codeId === null) return [];
       const q = `%${input.q.replace(/[%_]/g, "")}%`;
       return db
         .select(publicUserCols)
@@ -27,7 +30,7 @@ export const usersRouter = createRouter({
           and(
             ne(users.id, ctx.user!.id),
             eq(users.disabled, false),
-            or(like(users.username, q), like(users.displayName, q)),
+            codeId !== null ? eq(users.id, codeId) : or(like(users.username, q), like(users.displayName, q)),
           ),
         )
         .limit(12);
