@@ -1,168 +1,79 @@
-# Locat — local-first encrypted messenger
+# Locat — self-hosted encrypted messaging
 
-A self-hosted chat app where **your devices are the database** and the server is a
-dumb relay. Built to run on a Raspberry Pi.
+Locat lets you run a private messaging server on a Raspberry Pi, Linux computer or Docker host. Friends connect using your server's HTTPS address. Content is encrypted on the device before sending; chat history stays on each device. The server stores accounts, public keys, memberships and other metadata, plus encrypted messages waiting for delivery.
 
-## How it works
+**Start here: [complete beginner installation guide](docs/INSTALLATION.md).** It explains where commands go, what each person installs, how to verify setup and how to fix common problems.
 
-| | Device (browser) | Server (your Pi) |
+## Choose your installation
+
+| Goal | Instructions |
+|---|---|
+| Raspberry Pi | [OS preparation and automatic installer](docs/INSTALLATION.md#2-raspberry-pi-install-the-server) |
+| Ubuntu/Debian without a Pi | [Database, Node and startup service](docs/INSTALLATION.md#3-ubuntudebian-without-a-pi-or-docker) |
+| Docker on Linux/Windows/macOS | [Docker, Compose, credentials and storage](docs/INSTALLATION.md#4-docker-app-and-database-together) |
+| Private HTTPS | [Tailscale installation and Serve](docs/INSTALLATION.md#5-host-make-a-private-https-address-with-tailscale) |
+| Invite friends remotely | [Sharing and accepting access step by step](docs/INSTALLATION.md#6-host-and-friend-share-access-from-another-house) |
+| Phone shortcut/notifications | [Android and iPhone](docs/INSTALLATION.md#7-install-the-phone-shortcut-and-optional-notifications) |
+| Backups and updates | [Preserving accounts and local history](docs/INSTALLATION.md#8-backups-updates-and-stopping-the-server) |
+| Problems | [Troubleshooting](docs/INSTALLATION.md#9-if-something-does-not-work) |
+
+Only the host installs Locat's server/database. Friends install Tailscale for private access, accept a machine-share invitation, then open the full HTTPS URL and create their own Locat account. Tailscale and Locat accounts are separate; never share the host's credentials.
+
+## Development status
+
+Locat 1.0 is being developed on `feat/locat-1.0`; it is not a finished release. The guide explicitly selects this branch for people intentionally testing development, rather than silently replacing existing deployments.
+
+Features include direct/group messaging, account-local history, encrypted history archives, profile avatars/nickname/bio, fixed four-digit LC numbers unique within the server, edit/delete controls, encrypted read receipts, blocking, administrator tools and optional generic Web Push. Newer features still require device acceptance; see [the verification record](docs/LOCAT-1.0-PLAN.md).
+
+Friend requests, expanded privacy, stronger registration password rules, a complete UI redesign and an Android APK are planned. Do not expect Add friend/Accept/Decline or an APK download in the current build.
+
+## Storage and encryption
+
+| Data | Device | Server |
 |---|---|---|
-| Private keys | Generated here, never leave (IndexedDB; restored keys are non-extractable) | Only a password-encrypted backup blob it cannot open |
-| Chat history & media | Stored decrypted in IndexedDB | **Nothing permanent** — transient encrypted queue, deleted on delivery |
-| Messages | Encrypted with AES-GCM before sending | Sees only opaque `{iv, data}` envelopes |
-| Identity | ECDH P-256 key pair per account | Public-key directory + auth |
+| Private identity key | Used locally | Password-encrypted backup |
+| History/media | Account-scoped IndexedDB | Transient ciphertext, removed after all recipient ACKs |
+| Accounts/public profiles | Cached | Persistent MariaDB metadata |
+| Encryption | ECDH P-256, HKDF, AES-GCM | Opaque encrypted envelopes |
+| Groups | Wrapped versioned group keys | Memberships and wrapped keys |
 
-- **1:1 chats** — pairwise key from `ECDH(myPrivate, theirPublic)` + HKDF. Both sides
-  derive the same key independently.
-- **Group chats** — a random AES group key, wrapped individually for each member with
-  an ECDH-derived key at creation time.
-- **Offline delivery** — envelopes wait in the queue (encrypted), are pushed instantly
-  to online devices (SSE), and each row is **deleted the moment a recipient acks it**.
-- **Identity restore** — log in on a new device with your password; the encrypted
-  key backup is unwrapped locally. History remains on the original device. Queue
-  acknowledgements are per account, so reliable delivery to every device is not
-  implemented yet.
-- **Verify contacts** — the shield icon shows key fingerprints ("safety numbers") to
-  compare out-of-band.
+Verify fingerprints through another trusted channel. Public keys are pinned on first use; changed keys require review. Group changes rotate keys; leaving can pause sending until the owner rotates the key. Delivery ACKs and opt-in encrypted read receipts are separate.
 
-## Install on Raspberry Pi (64-bit OS Lite supported)
+## Limits to understand
 
-```bash
-sudo apt update
-sudo apt install -y git
-git clone https://github.com/ibrahim1101/Locat.git
-cd Locat
-sudo bash scripts/install-pi.sh
-```
+- Local history is not encrypted at rest. Clearing site data can erase it; export encrypted archives regularly. Signing in on a new device restores identity, not old history.
+- One active login per account; reliable independent per-device delivery is not implemented.
+- No Signal-style double ratchet/forward secrecy. Operators see metadata and control delivered web code.
+- Edit/delete need updated clients and cannot recall external copies, former members' history or old backups. Blocking retains history and cannot recall already accepted traffic.
+- HTTPS and an online host are required for messaging. Private endpoints require connected Tailscale clients. Notifications depend on browser/OS support and are best effort.
+- Pi and friend Tailscale access have user-reported acceptance. Expanded generic Linux and Windows/macOS Docker recipes still need fresh-host testing.
 
-The installer handles Node, MariaDB, database credentials, schema setup, builds,
-service installation, and safe application updates. For an existing installation,
-copy your old `.env` to `/opt/locat/.env` first so your database is preserved.
+## More documentation
 
-**Next, configure HTTPS** using [the Raspberry Pi guide](docs/RASPBERRY_PI.md).
-The server listens on loopback by default; use Tailscale Serve for private access
-or Caddy with a domain for public access. Phone browsers require HTTPS to encrypt
-messages. Share the resulting HTTPS URL with people who should use Locat.
+- [Pi preservation and public HTTPS](docs/RASPBERRY_PI.md)
+- [Cross-platform hosting](docs/CROSS_PLATFORM.md)
+- [Administration and recovery](docs/SERVER_ADMIN.md)
+- [Notifications](docs/NOTIFICATIONS.md)
+- [Groups](docs/GROUPS.md)
+- [Message controls](docs/MESSAGE-CONTROLS.md)
+- [Roadmap](docs/LOCAT-1.0-PLAN.md)
 
-## Development / manual deployment
+## Developer checks
 
-Use Node 22.12+ (or Node 24+) and a MySQL/MariaDB database:
+Use Node 22.12+ or a supported Node 24+ version:
 
 ```bash
 npm ci
-cp .env.example .env
-# Edit DATABASE_URL in .env to use your database and credentials.
-npm run db:setup
-npm run dev
+npm run check
+npm run lint
+npm test
+npm run build
 ```
 
-For production: `npm run build && npm start`, with an HTTPS reverse proxy pointing
-to the configured HOST/PORT. `npm run db:setup` is an additive, repeatable bootstrap
-for new and original Locat databases; it does not drop or truncate tables.
-
-## History and delivery
-
-- Account-specific IndexedDB archives prevent history/unread state mixing when
-  switching accounts on a shared browser. This is not encryption at rest.
-- The gear button opens **History & backups**: export/import password-encrypted
-  history files and request persistent browser storage. Backups are limited to
-  50 MB and bound to the same account and server origin. Identity keys are restored
-  separately by signing in. Keep regular backups before changing phones.
-- Sending commits the envelope, recipient deliveries, and retry receipt together.
-  Retrying the same send uses the same message ID, including after acknowledgement
-  has removed the transient envelope. Metadata-only retry receipts last seven days
-  and are cleaned up on subsequent sends; they contain no message plaintext.
-- Offline sync uses cursor pages and a response-size budget. An unreadable envelope
-  does not block fetching later pages. Reconnecting or foregrounding resumes sync.
-
-## Honest limitations (v1)
-
-- No forward secrecy / double-ratchet (Signal protocol) — keys are long-lived per
-  account. Rotating your identity is supported (new-device screen → "fresh identity").
-- Group membership is fixed at creation; adding/removing members requires key
-  rotation, which is not implemented yet.
-- Delivery acknowledgements are trusted (a malicious client could skip acking and
-  leave envelopes in the queue). An admin can purge with a cron `DELETE` if desired.
-- Media: images only, downscaled to 1600px before encryption (~4MB cap).
-- The relay operator can see metadata (who talks to whom, when, message sizes) —
-  the design encrypts content in the browser. A malicious host could still change
-  the JavaScript or substitute directory keys; verify fingerprints independently.
-
-## Installation troubleshooting
-
-- Use 64-bit Raspberry Pi OS Lite and Node 22.12 or newer. The CLI-only OS is fine:
-  access Locat from a browser on your phone.
-- Copy `.env.example` to `.env` and set the real database credentials. No APP_ID or
-  APP_SECRET is needed; authentication uses database-backed opaque sessions.
-- Run `npm run db:setup` before starting. Use the additive bootstrap for existing
-  databases; do not apply the initial migration over tables created by db:push.
-- URL-encode special characters in the password in DATABASE_URL.
-- Check `curl http://localhost:3000/api/health`, then `journalctl -u locat -n 100`.
-  `/api/ready` separately checks database connectivity and schema readiness.
-- An HTTP Pi LAN address cannot use browser encryption. Use HTTPS on the phone.
-- If upgrading from an earlier deployment, keep your existing database URL. Do not
-  create an empty replacement database or clear browser storage just for a rename.
-  Legacy crypto salts are retained, and legacy history is copied only for verified
-  memberships into account-specific storage; the original archive is left intact.
-
-## Mobile behavior and next work
-
-Locat is currently a responsive browser app. It is not yet an installable offline
-PWA or a native app. Receiving messages requires the page to be open; there are no
-background push notifications. Clearing site data removes local history. IndexedDB
-is local storage, not an encrypted-at-rest archive.
-
-Before a wider release: implement device-specific acknowledgements, bounded queue
-retention, authentication rate limits, pinned contact keys/key-change handling,
-group-key rotation, offline installation, and push notifications. See
-[the current review](docs/REVIEW.md) for limits and next work.
-
-## Tests
-
-`npm test`, `npm run check`, `npm run lint`, and `npm run build` run local checks.
-Database integration tests are opt-in locally and run in CI with MariaDB 10.11:
+MariaDB integration is opt-in locally and provisioned in CI:
 
 ```bash
 TEST_DATABASE_URL=mysql://user:password@127.0.0.1:3306/locat_test npm test
 ```
 
-**The integration suite drops tables in the specified database.** Use a disposable
-schema whose name ends with `_test`, never your real Locat database.
-
-
-## Mobile and administration update
-
-Locat now includes a standalone web-app manifest, build-versioned static offline cache, account-local conversation metadata, and a durable encrypted outbox. Open it online once before testing offline history. Android uses the browser's Install app menu; iPhone uses Safari → Share → Add to Home Screen. Close all Locat windows after an update so the waiting service worker can activate.
-
-Settings includes light/dark/system themes, installation instructions, and encrypted history backup/restore. Conversation search, saved-message search, copy/reply/local-delete actions, and a full-screen image viewer are available. Replies currently use a quoted-text format compatible with existing clients.
-
-Contact public keys are pinned on first use; changed keys block encryption/decryption until accepted in Encryption details. Verify fingerprints over another trusted channel. Accounts allow one active login until per-device delivery is implemented. A retry older than seven days stops automatically rather than risk duplicate sending.
-
-- [Server account administration and backups](docs/SERVER_ADMIN.md)
-- [Windows/macOS/Linux hosting](docs/CROSS_PLATFORM.md)
-
-Still planned: per-device queues, encrypted voice/files, structured reactions, advanced media controls, native packages, and calling infrastructure. Push delivery and the new group UI require physical-device QA.
-
-
-### Browser administration
-
-Locat now has an administrator dashboard at `/admin`: account controls, session revocation, server statistics, encrypted metadata downloads, cleanup, and action history. Grant an existing account with `npm run admin -- grant-admin USERNAME` on the server. Admin roles are never granted through registration or the browser. See [server administration](docs/SERVER_ADMIN.md) for Pi commands and backup recovery.
-
-### Background notifications
-
-Optional Web Push alerts are available in Settings once the server's VAPID keys are configured. Alerts contain no message previews or contact names and are bound to the active login. See [notification setup](docs/NOTIFICATIONS.md). Real phone/browser delivery still needs testing after configuration.
-
-### Secure group management
-
-Group details now supports owner-controlled name/member changes, fresh key versions, ownership transfer, and leaving. Removing a member rotates the encryption key; leaving pauses sending until the owner rotates it. Historical wrapped keys let remaining members unlock older queued messages. Departed conversations stay locally archived. See [group behavior and upgrade notes](docs/GROUPS.md).
-
-### Installation diagnostics
-
-From the deployed directory containing `.env`, run `npm run doctor` for read-only installation checks. On Raspberry Pi:
-
-```bash
-cd /opt/locat
-sudo -u locat npm run doctor
-```
-
-The output includes suggested fixes without printing credentials. Native deployments on Windows, Linux and macOS can start with `npm start`.
+**Integration tests drop tables. Use a disposable database ending in `_test`, never the real database.** Native configuration starts with `.env.example`; Docker uses different variables explained in the guide.
