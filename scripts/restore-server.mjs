@@ -53,7 +53,7 @@ const account = z.object({
   id,
   username: z.string().min(3).max(64),
   displayName: z.string().min(1).max(128),
-  lcCode: z.string().regex(/^[1-9][0-9]{7}(?:[0-9]{8})?$/).optional(),
+  lcCode: z.string().regex(/^[1-9][0-9]{3}(?:[0-9]{4}(?:[0-9]{8})?)?$/).optional(),
   bio: z.string().max(280).nullable().default(null),
   avatar: z.string().max(40_000).regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/).nullable().default(null),
   passwordHash: z
@@ -124,6 +124,19 @@ try {
         "Restore refused: target database is not empty. Use a fresh installation and stop the application first."
       );
   }
+  if (data.accounts.length > 9000) throw new Error("Four-digit LC numbers support at most 9000 accounts.");
+  const preservedCodes = data.accounts.filter(row => row.lcCode?.length === 4).map(row => row.lcCode);
+  const usedCodes = new Set(preservedCodes);
+  if (usedCodes.size !== preservedCodes.length) throw new Error("Backup contains duplicate LC numbers.");
+  for (const row of data.accounts) {
+    if (row.lcCode?.length !== 4) {
+      const start = randomInt(0, 9000);
+      for (let attempt = 0; attempt < 9000; attempt++) {
+        const code = String(1000 + (start + attempt) % 9000);
+        if (!usedCodes.has(code)) { row.lcCode = code; usedCodes.add(code); break; }
+      }
+    }
+  }
   for (const row of data.accounts)
     await db.query(
       "INSERT INTO users (id,username,display_name,lc_code,bio,avatar,password_hash,public_key,encrypted_private_key,key_salt,disabled,is_admin,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -131,7 +144,7 @@ try {
         row.id,
         row.username,
         row.displayName,
-        (row.lcCode?.length === 8 ? row.lcCode : null) ?? Array.from({ length: 8 }, (_, i) => randomInt(i === 0 ? 1 : 0, 10)).join(""),
+        row.lcCode,
         row.bio,
         row.avatar,
         row.passwordHash,

@@ -108,3 +108,5 @@ Universal forensic deletion cannot be guaranteed for SSDs, snapshots, backups or
 - LC validation: 39 tests passed against fresh MariaDB; typecheck, lint and production build passed. GitHub workflow pending. Progress remains 6/41; this refines item 07.
 
 - User confirmed friend installation and all functions work remotely via Tailscale. Requested shorter LC codes: fixed eight-digit random codes now replace the 16-digit format. Upgrade regenerates long codes once, preserves eight-digit codes thereafter, and keeps the unique index. Older metadata backups with long codes receive new short codes when restored. Progress remains 6/41.
+
+- Final user preference: fixed four-digit LC numbers (1000–9999), unique within this server and noneditable. Capacity is 9000 accounts; allocation scans unused numbers and handles collision races instead of relying on a small random retry limit. Installer converts longer numbers once, preserving existing four-digit numbers; restore reserves preserved numbers before assigning older accounts.

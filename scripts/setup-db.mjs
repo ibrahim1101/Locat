@@ -21,13 +21,21 @@ try {
   if (Number(lcColumn.n) === 0) await connection.query("ALTER TABLE users ADD COLUMN lc_code VARCHAR(16) NULL");
   const [[lcIndex]] = await connection.query("SELECT COUNT(*) AS n FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND INDEX_NAME = 'users_lc_code_unique'");
   if (Number(lcIndex.n) === 0) await connection.query("CREATE UNIQUE INDEX users_lc_code_unique ON users(lc_code)");
-  const [uncoded] = await connection.query("SELECT id FROM users WHERE lc_code IS NULL OR CHAR_LENGTH(lc_code) <> 8");
-  for (const row of uncoded) {
-    for (let attempt = 0; attempt < 10; attempt++) {
-      const code = Array.from({ length: 8 }, (_, i) => randomInt(i === 0 ? 1 : 0, 10)).join("");
-      try { await connection.query("UPDATE users SET lc_code=? WHERE id=? AND (lc_code IS NULL OR CHAR_LENGTH(lc_code) <> 8)", [code, row.id]); break; }
-      catch (error) { if (error.code !== "ER_DUP_ENTRY" || attempt === 9) throw error; }
+  const [accounts] = await connection.query("SELECT id,lc_code FROM users");
+  if (accounts.length > 9000) throw new Error("Four-digit LC numbers support at most 9000 accounts.");
+  const usedCodes = new Set(accounts.map(row => row.lc_code).filter(code => /^[1-9][0-9]{3}$/.test(code ?? "")));
+  for (const row of accounts.filter(row => !/^[1-9][0-9]{3}$/.test(row.lc_code ?? ""))) {
+    const start = randomInt(0, 9000);
+    let assigned = false;
+    for (let attempt = 0; attempt < 9000; attempt++) {
+      const code = String(1000 + (start + attempt) % 9000);
+      if (usedCodes.has(code)) continue;
+      try {
+        await connection.query("UPDATE users SET lc_code=? WHERE id=?", [code, row.id]);
+        usedCodes.add(code); assigned = true; break;
+      } catch (error) { if (error.code !== "ER_DUP_ENTRY") throw error; }
     }
+    if (!assigned) throw new Error("No free four-digit LC numbers remain.");
   }
   const [[bioColumn]] = await connection.query("SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'bio'");
   if (Number(bioColumn.n) === 0) await connection.query("ALTER TABLE users ADD COLUMN bio VARCHAR(280) NULL");

@@ -49,12 +49,16 @@ export const authRouter = createRouter({
 
       const passwordHash = await hashPassword(input.password);
       let id = 0;
-      for (let attempt = 0; attempt < 10; attempt++) {
+      const usedCodes = new Set((await db.select({ code: users.lcCode }).from(users)).map(row => row.code));
+      const start = randomInt(0, 9000);
+      for (let attempt = 0; attempt < 9000; attempt++) {
+        const lcCode = String(1000 + (start + attempt) % 9000);
+        if (usedCodes.has(lcCode)) continue;
         try {
           const [created] = await db
             .insert(users)
             .values({
-              lcCode: Array.from({ length: 8 }, (_, i) => randomInt(i === 0 ? 1 : 0, 10)).join(""),
+              lcCode,
               username: input.username.toLowerCase(),
               displayName: input.displayName,
               passwordHash,
@@ -67,9 +71,11 @@ export const authRouter = createRouter({
           break;
         } catch (error) {
           const cause = (error as { cause?: { code?: string; sqlMessage?: string } }).cause;
-          if (cause?.code !== "ER_DUP_ENTRY" || !cause.sqlMessage?.includes("users_lc_code_unique") || attempt === 9) throw error;
+          if (cause?.code !== "ER_DUP_ENTRY" || !cause.sqlMessage?.includes("users_lc_code_unique")) throw error;
         }
       }
+
+      if (!id) throw new TRPCError({ code: "CONFLICT", message: "This server has no free LC numbers. Contact the administrator." });
 
       const token = newSessionToken();
       const expiresAt = new Date(

@@ -98,7 +98,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
   it("assigns unique fixed numeric codes, backfills legacy accounts, and preserves them", async () => {
     let account = (await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) }))!;
     const original = account.lcCode;
-    expect(original).toMatch(/^[1-9][0-9]{7}$/);
+    expect(original).toMatch(/^[1-9][0-9]{3}$/);
     const all = await db.select({ code: schema.users.lcCode }).from(schema.users);
     expect(new Set(all.map(row => row.code)).size).toBe(all.length);
     await alice.users.updateProfile({ displayName: "Alice Example", bio: "Private chat enthusiast" });
@@ -108,10 +108,28 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     await connection.query("UPDATE users SET lc_code=? WHERE id=?", ["9876543210123456", aliceId]);
     setup();
     account = (await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) }))!;
-    expect(account.lcCode).toMatch(/^[1-9][0-9]{7}$/);
+    expect(account.lcCode).toMatch(/^[1-9][0-9]{3}$/);
     setup();
     expect((await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) }))!.lcCode).toBe(account.lcCode);
   });
+
+  it("refuses registration clearly when all four-digit numbers are allocated", async () => {
+    const accounts = await db.select({ code: schema.users.lcCode }).from(schema.users);
+    const used = new Set(accounts.map(row => row.code));
+    const rows = Array.from({ length: 9000 }, (_, i) => String(1000 + i))
+      .filter(code => !used.has(code))
+      .map(code => [`capacity_${code}`, "Capacity fixture", code, "unused", "unused", "unused", "unused"]);
+    try {
+      await connection.query("INSERT INTO users (username,display_name,lc_code,password_hash,public_key,encrypted_private_key,key_salt) VALUES ?", [rows]);
+      const caller = router.createCaller({ req: new Request("http://localhost"), resHeaders: new Headers() });
+      await expect(caller.auth.register({ username: "capacity_new", displayName: "New account", password: "test-password-long",
+        keys: { publicKey: "unused", encryptedPrivateKey: "unused", keySalt: "unused" } }))
+        .rejects.toThrow("no free LC numbers");
+      expect(await count("users")).toBe(9000);
+    } finally {
+      await connection.query("DELETE FROM users WHERE username LIKE 'capacity\\_%'");
+    }
+  }, 20000);
 
   it("stores only the authenticated account avatar and publishes/removes it", async () => {
     await expect(alice.users.setAvatar({ avatar: "data:image/svg+xml;base64,PHN2Zz4=" })).rejects.toThrow();
