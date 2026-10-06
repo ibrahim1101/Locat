@@ -19,6 +19,7 @@ import {
   Reply,
   Download,
   Users,
+  Ban,
 } from "lucide-react";
 
 export type UiMessage = LocalMessage & {
@@ -58,6 +59,8 @@ export function ChatWindow({
   onDelete,
   onEdit,
   onDeleteForAll,
+  blocked,
+  onToggleBlock,
 }: {
   conversation: ConversationSummary;
   messages: UiMessage[];
@@ -72,6 +75,8 @@ export function ChatWindow({
   onDelete: (mid: number) => void;
   onEdit: (message: LocalMessage, text: string) => void;
   onDeleteForAll: (message: LocalMessage) => void;
+  blocked: boolean;
+  onToggleBlock: () => void;
 }) {
   const [draft, setDraft] = useState("");
   const [search, setSearch] = useState("");
@@ -156,6 +161,13 @@ export function ChatWindow({
             className="flex h-11 w-11 items-center justify-center rounded-md hover:bg-accent"
           >
             <Users className="h-5 w-5" />
+          </button>
+        )}
+        {conversation.type === "direct" && (
+          <button type="button" onClick={onToggleBlock}
+            className={`flex h-11 w-11 items-center justify-center rounded-md hover:bg-accent ${blocked ? "text-destructive" : "text-secondary"}`}
+            aria-label={blocked ? "Unblock contact" : "Block contact"} title={blocked ? "Unblock contact" : "Block contact"}>
+            <Ban className="h-5 w-5" />
           </button>
         )}
         <button
@@ -296,6 +308,7 @@ export function ChatWindow({
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
+                disabled={blocked}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border text-secondary transition-colors hover:bg-accent hover:text-foreground"
                 aria-label="Send image"
               >
@@ -304,6 +317,7 @@ export function ChatWindow({
               <textarea
                 ref={textareaRef}
                 aria-label="Message"
+                disabled={blocked}
                 maxLength={10000}
                 value={draft}
                 onChange={e => {
@@ -322,14 +336,14 @@ export function ChatWindow({
                     submit();
                   }
                 }}
-                placeholder="Message…"
+                placeholder={blocked ? "Direct contact is blocked" : "Message…"}
                 rows={1}
                 className="max-h-36 min-h-11 flex-1 resize-none rounded-md border border-input bg-background px-3 py-2.5 text-sm outline-none placeholder:text-secondary focus-visible:ring-1 focus-visible:ring-ring"
               />
               <button
                 type="button"
                 onClick={submit}
-                disabled={!draft.trim()}
+                disabled={blocked || !draft.trim()}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.94] disabled:opacity-30"
                 aria-label="Send"
               >
