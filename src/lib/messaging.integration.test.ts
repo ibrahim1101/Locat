@@ -85,6 +85,22 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     expect(await bob.conversations.createDirect({ userId: aliceId })).toEqual({ conversationId, created: false });
   });
 
+  it("enforces registration policy without rejecting existing short passwords", async () => {
+    const caller = router.createCaller({ req: new Request("http://localhost"), resHeaders: new Headers() });
+    const keys = { publicKey: identities[0].publicKeyB64, encryptedPrivateKey: "test", keySalt: "test" };
+    for (const password of ["short", "Password123456789!", "weakuser-long-secret"])
+      await expect(caller.auth.register({ username: "weakuser", displayName: "New", password, keys })).rejects.toThrow();
+    expect(await db.query.users.findFirst({ where: eq(schema.users.username, "weakuser") })).toBeUndefined();
+    const { hashPassword } = await import("../../api/crypto");
+    const original = (await db.query.users.findFirst({ where: eq(schema.users.id, bobId) }))!.passwordHash;
+    try {
+      await db.update(schema.users).set({ passwordHash: await hashPassword("oldpass8") }).where(eq(schema.users.id, bobId));
+      expect((await caller.auth.login({ username: "bob", password: "oldpass8" })).user.id).toBe(bobId);
+    } finally {
+      await db.update(schema.users).set({ passwordHash: original }).where(eq(schema.users.id, bobId));
+    }
+  });
+
   it("enforces block and unblock in both directions for direct messaging", async () => {
     await expect(alice.users.block({ userId: aliceId })).rejects.toThrow("yourself");
     expect(await alice.users.block({ userId: bobId })).toEqual({ blocked: true });
