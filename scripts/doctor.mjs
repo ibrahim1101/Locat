@@ -51,6 +51,7 @@ if (process.env.DATABASE_URL) {
       ["Retry receipts", "SELECT id FROM send_receipts LIMIT 0"],
       ["Group version schema", "SELECT group_epoch, rotation_required FROM conversations LIMIT 0"],
       ["Group keys", "SELECT id FROM group_keys LIMIT 0"],
+      ["Blocked contacts", "SELECT id FROM user_blocks LIMIT 0"],
       ["Push subscriptions", "SELECT id FROM push_subscriptions LIMIT 0"],
     ]) {
       try { await connection.query({ sql, timeout: 5000 }); report(true, label); }
