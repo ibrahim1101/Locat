@@ -98,17 +98,17 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
   it("assigns unique fixed numeric codes, backfills legacy accounts, and preserves them", async () => {
     let account = (await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) }))!;
     const original = account.lcCode;
-    expect(original).toMatch(/^[1-9][0-9]{15}$/);
+    expect(original).toMatch(/^[1-9][0-9]{7}$/);
     const all = await db.select({ code: schema.users.lcCode }).from(schema.users);
     expect(new Set(all.map(row => row.code)).size).toBe(all.length);
     await alice.users.updateProfile({ displayName: "Alice Example", bio: "Private chat enthusiast" });
     setup(); setup();
     expect((await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) }))!.lcCode).toBe(original);
     await expect(connection.query("UPDATE users SET lc_code=? WHERE id=?", [original, bobId])).rejects.toThrow();
-    await connection.query("UPDATE users SET lc_code=NULL WHERE id=?", [aliceId]);
+    await connection.query("UPDATE users SET lc_code=? WHERE id=?", ["9876543210123456", aliceId]);
     setup();
     account = (await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) }))!;
-    expect(account.lcCode).toMatch(/^[1-9][0-9]{15}$/);
+    expect(account.lcCode).toMatch(/^[1-9][0-9]{7}$/);
     setup();
     expect((await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) }))!.lcCode).toBe(account.lcCode);
   });

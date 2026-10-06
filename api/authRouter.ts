@@ -54,7 +54,7 @@ export const authRouter = createRouter({
           const [created] = await db
             .insert(users)
             .values({
-              lcCode: Array.from({ length: 16 }, (_, i) => randomInt(i === 0 ? 1 : 0, 10)).join(""),
+              lcCode: Array.from({ length: 8 }, (_, i) => randomInt(i === 0 ? 1 : 0, 10)).join(""),
               username: input.username.toLowerCase(),
               displayName: input.displayName,
               passwordHash,

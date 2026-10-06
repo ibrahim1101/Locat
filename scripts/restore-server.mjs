@@ -53,7 +53,7 @@ const account = z.object({
   id,
   username: z.string().min(3).max(64),
   displayName: z.string().min(1).max(128),
-  lcCode: z.string().regex(/^[1-9][0-9]{15}$/).optional(),
+  lcCode: z.string().regex(/^[1-9][0-9]{7}(?:[0-9]{8})?$/).optional(),
   bio: z.string().max(280).nullable().default(null),
   avatar: z.string().max(40_000).regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/).nullable().default(null),
   passwordHash: z
@@ -131,7 +131,7 @@ try {
         row.id,
         row.username,
         row.displayName,
-        row.lcCode ?? Array.from({ length: 16 }, (_, i) => randomInt(i === 0 ? 1 : 0, 10)).join(""),
+        (row.lcCode?.length === 8 ? row.lcCode : null) ?? Array.from({ length: 8 }, (_, i) => randomInt(i === 0 ? 1 : 0, 10)).join(""),
         row.bio,
         row.avatar,
         row.passwordHash,
