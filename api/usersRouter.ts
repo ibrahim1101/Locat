@@ -11,10 +11,26 @@ const publicUserCols = {
   id: users.id,
   username: users.username,
   displayName: users.displayName,
+  bio: users.bio,
   publicKey: users.publicKey,
 };
 
 export const usersRouter = createRouter({
+  /** Update profile fields that are safe to publish in the user directory. */
+  updateProfile: authedQuery
+    .input(z.object({
+      displayName: z.string().trim().min(1).max(64),
+      bio: z.string().trim().max(280),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      await db.update(users).set({
+        displayName: input.displayName,
+        bio: input.bio || null,
+      }).where(eq(users.id, ctx.user!.id));
+      return { ...input, bio: input.bio || null };
+    }),
+
   /** Search the user directory by username or display name. */
   search: authedQuery
     .input(z.object({ q: z.string().min(1).max(64) }))
