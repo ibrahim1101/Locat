@@ -1,3 +1,4 @@
+import { isNativeShell } from "@/lib/native";
 import { relayPayloadSchema, type MessageControl } from "@contracts/messagePayload";
 import { userCode } from "@contracts/userCode";
 import { Link } from "react-router";
@@ -395,7 +396,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   }, []);
   const reconnectRef = useRef<() => void>(() => {});
   trpc.messages.subscribe.useSubscription(undefined, {
-    enabled: localReady,
+    enabled: localReady && !isNativeShell(),
     onData: (event: RelayEvent) => {
       if (event.type === "presence") {
         setOnline(new Set(event.online));
