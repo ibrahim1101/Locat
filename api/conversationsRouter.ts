@@ -11,6 +11,7 @@ import {
   messageDeliveries,
   messages,
   userBlocks,
+  contactRelationships,
 } from "@db/schema";
 import { emitToUsers } from "./hub";
 import { limit } from "./rateLimit";
@@ -113,6 +114,12 @@ export const conversationsRouter = createRouter({
         and(eq(userBlocks.blockerId, input.userId), eq(userBlocks.blockedId, me)),
       )).limit(1);
       if (blocked) throw new TRPCError({ code: "FORBIDDEN", message: "Direct contact is blocked" });
+      const low = Math.min(me, input.userId), high = Math.max(me, input.userId);
+      const [contact] = await db.select({ id: contactRelationships.id }).from(contactRelationships).where(and(
+        eq(contactRelationships.userLowId, low), eq(contactRelationships.userHighId, high),
+        eq(contactRelationships.status, "accepted"),
+      )).limit(1);
+      if (!contact) throw new TRPCError({ code: "FORBIDDEN", message: "Accept a contact request before starting a direct chat" });
 
       return db.transaction(async tx => {
         // Lock the same user row for both directions of this pair, so simultaneous
