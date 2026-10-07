@@ -7,7 +7,7 @@ import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { users, userBlocks, contactRelationships } from "@db/schema";
 import { keyFingerprint } from "./crypto";
-import { onlineUserIds } from "./hub";
+import { broadcastPresence, visibleOnlineUserIds } from "./hub";
 import { limit } from "./rateLimit";
 
 const publicUserCols = {
@@ -19,6 +19,7 @@ const publicUserCols = {
   avatar: users.avatar,
   publicKey: users.publicKey,
   usernameVisibility: users.usernameVisibility,
+  profileVisibility: users.profileVisibility,
 };
 
 async function acceptedIds(viewerId: number) {
@@ -29,12 +30,17 @@ async function acceptedIds(viewerId: number) {
   return new Set(rows.map(row => row.userLowId === viewerId ? row.userHighId : row.userLowId));
 }
 
-function privateUsers<T extends { id: number; username: string; usernameVisibility: "everyone" | "contacts" | "nobody" }>(
+function privateUsers<T extends { id: number; username: string; bio: string | null; avatar: string | null;
+  usernameVisibility: "everyone" | "contacts" | "nobody"; profileVisibility: "everyone" | "contacts" | "nobody" }>(
   rows: T[], viewerId: number, contacts: Set<number>,
 ) {
-  return rows.map(({ usernameVisibility, ...row }) => ({ ...row,
-    username: row.id === viewerId || usernameVisibility === "everyone" ||
-      (usernameVisibility === "contacts" && contacts.has(row.id)) ? row.username : null }));
+  return rows.map(({ usernameVisibility, profileVisibility, ...row }) => {
+    const isContact = contacts.has(row.id), mine = row.id === viewerId;
+    const showUsername = mine || usernameVisibility === "everyone" || (usernameVisibility === "contacts" && isContact);
+    const showProfile = mine || profileVisibility === "everyone" || (profileVisibility === "contacts" && isContact);
+    return { ...row, username: showUsername ? row.username : null,
+      bio: showProfile ? row.bio : null, avatar: showProfile ? row.avatar : null };
+  });
 }
 
 export const usersRouter = createRouter({
@@ -123,10 +129,9 @@ export const usersRouter = createRouter({
     return { removed: result[0].affectedRows > 0 };
   }),
   blocked: authedQuery.query(async ({ ctx }) => {
-    const rows = await getDb().select({ id: users.id, username: users.username, displayName: users.displayName,
-      avatar: users.avatar, usernameVisibility: users.usernameVisibility }).from(userBlocks).innerJoin(users, eq(userBlocks.blockedId, users.id))
+    const rows = await getDb().select(publicUserCols).from(userBlocks).innerJoin(users, eq(userBlocks.blockedId, users.id))
       .where(eq(userBlocks.blockerId, ctx.user!.id));
-    return privateUsers(rows, ctx.user!.id, new Set());
+    return privateUsers(rows, ctx.user!.id, new Set()).map(({ id, username, displayName, avatar }) => ({ id, username, displayName, avatar }));
   }),
   block: authedQuery.input(z.object({ userId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     if (input.userId === ctx.user!.id) throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot block yourself" });
@@ -153,6 +158,8 @@ export const usersRouter = createRouter({
       displayName: z.string().trim().min(1).max(64),
       bio: z.string().trim().max(280),
       usernameVisibility: z.enum(["everyone", "contacts", "nobody"]).optional(),
+      profileVisibility: z.enum(["everyone", "contacts", "nobody"]).optional(),
+      presenceVisibility: z.enum(["everyone", "contacts", "nobody"]).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
@@ -160,7 +167,10 @@ export const usersRouter = createRouter({
         displayName: input.displayName,
         bio: input.bio || null,
         usernameVisibility: input.usernameVisibility,
+        profileVisibility: input.profileVisibility,
+        presenceVisibility: input.presenceVisibility,
       }).where(eq(users.id, ctx.user!.id));
+      if (input.presenceVisibility) await broadcastPresence();
       return { ...input, bio: input.bio || null };
     }),
 
@@ -212,5 +222,7 @@ export const usersRouter = createRouter({
     }),
 
   /** Currently online user ids (has an open realtime connection). */
-  presence: authedQuery.query(() => ({ online: onlineUserIds() })),
+  presence: authedQuery.query(async ({ ctx }) => {
+    return { online: await visibleOnlineUserIds(ctx.user!.id) };
+  }),
 });
