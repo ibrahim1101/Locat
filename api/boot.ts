@@ -24,6 +24,7 @@ app.get("/api/ready", async (c) => {
     await getDb().execute(sql`SELECT client_message_id FROM messages LIMIT 0`);
     await getDb().execute(sql`SELECT id FROM send_receipts LIMIT 0`);
     await getDb().execute(sql`SELECT id FROM user_blocks LIMIT 0`);
+    await getDb().execute(sql`SELECT id FROM contact_relationships LIMIT 0`);
     await getDb().execute(sql`SELECT group_epoch, rotation_required FROM conversations LIMIT 0`);
     await getDb().execute(sql`SELECT id FROM group_keys LIMIT 0`);
     await getDb().execute(sql`SELECT id FROM push_subscriptions LIMIT 0`);
