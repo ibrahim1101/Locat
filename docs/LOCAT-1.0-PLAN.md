@@ -243,3 +243,25 @@ Design constraints:
 - Static location sharing uses the browser Geolocation API only after an explicit user action and permission. Encrypt latitude/longitude (and optional accuracy/label) inside the message payload. Do not continuously track location for the static-location feature. Live location, if added later, requires a separate expiry/update protocol and privacy review.
 - Installed-PWA share-target integration is progressive enhancement only; browser/platform support is not universal. The normal in-chat attachment picker remains the compatibility path.
 - Acceptance must cover denied permissions, malformed/hostile files, unsupported MIME types, oversized attachments, offline/reconnect, receiver download/playback, delete/hide behavior, group delivery, and Firefox-mobile compatibility.
+
+## Messaging control-state increment — 2026-10-08
+
+- Item 24 partial implementation: one tested state model now governs text, image,
+  general-file and voice controls. Normal chats allow attachments and typing while
+  keeping empty text unsendable. Blocking keeps controls visible but consistently
+  disabled with an actionable explanation. Hidden-message, archived/former-member
+  and pending-group-key-rotation states replace the composer with the relevant
+  recovery guidance. Accessible descriptions and tooltips expose the same reason;
+  server authorization and encryption remain authoritative.
+- `docs/CONTROL-STATES.md` records the exact matrix and physical acceptance steps.
+  Item 24 is implemented and automatically verified, but is not counted complete
+  until narrow/desktop, keyboard, screen-reader, two-account block/unblock, former
+  member and group-key-rotation checks pass on physical devices. Device-confirmed
+  progress remains 6/44.
+- Fresh disposable MariaDB validation passed all 73 tests. `npm run check`,
+  `npm run lint` (0 errors, 11 existing Fast Refresh warnings), production build,
+  JavaScript syntax and whitespace checks passed. Locat checks run 37680983046 and
+  Android APK run 37680983120 both passed at checkpoint
+  b07be63259f185f71933e2e0e91e3c8870159c14. The Android checkpoint also removes
+  a stale AndroidX import after the selected-folder writer moved to framework SAF
+  APIs; the workflow produced its checksum and debug APK artifact.
