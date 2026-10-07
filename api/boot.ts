@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { cors } from "hono/cors";
 import type { HttpBindings } from "@hono/node-server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./router";
@@ -9,6 +10,12 @@ import { getDb } from "./queries/connection";
 import { sql } from "drizzle-orm";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
+app.use("/api/*", cors({
+  origin: origin => origin === "https://localhost" ? origin : "",
+  allowHeaders: ["Content-Type", "Authorization"],
+  allowMethods: ["GET", "POST", "OPTIONS"],
+  credentials: true,
+}));
 app.use("*", async (c, next) => {
   await next();
   c.header("X-Content-Type-Options", "nosniff");
