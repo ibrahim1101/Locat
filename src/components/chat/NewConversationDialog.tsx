@@ -67,7 +67,7 @@ export function NewConversationDialog({ open, onOpenChange, onCreated }: {
     return <div key={user.id} className="flex min-h-14 items-center gap-3 rounded-lg border bg-background px-3 py-2">
       <Avatar avatar={user.avatar} name={user.displayName} id={user.id} size={36} />
       <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{user.displayName}</span>
-        <span className="micro-label block normal-case tracking-normal">@{user.username} · {userCode(user.lcCode!)}</span></span>
+        <span className="micro-label block normal-case tracking-normal">{user.username ? `@${user.username} · ` : ""}{userCode(user.lcCode!)}</span></span>
       <span className="flex shrink-0 gap-2">{actions}</span>
     </div>;
   }
