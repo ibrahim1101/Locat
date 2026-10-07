@@ -17,6 +17,8 @@ export function ProfileDialog({ user, open, onOpenChange }: {
   const [feedback, setFeedback] = useState("");
   const [avatar, setAvatar] = useState(user.avatar ?? null);
   const [usernameVisibility, setUsernameVisibility] = useState(user.usernameVisibility ?? "everyone");
+  const [profileVisibility, setProfileVisibility] = useState(user.profileVisibility ?? "everyone");
+  const [presenceVisibility, setPresenceVisibility] = useState(user.presenceVisibility ?? "contacts");
   const [preparing, setPreparing] = useState(false);
   const pictureInput = useRef<HTMLInputElement>(null);
   const savePicture = trpc.users.setAvatar.useMutation({
@@ -71,6 +73,21 @@ export function ProfileDialog({ user, open, onOpenChange }: {
         </select>
         <p className="text-xs text-secondary">Your nickname and LC code stay visible so people can send requests. Administrators can still see account usernames for safety and support.</p>
       </div>
+      <div className="space-y-2"><Label htmlFor="profile-details-visibility">Who can see my picture and bio?</Label>
+        <select id="profile-details-visibility" value={profileVisibility} disabled={busy}
+          onChange={event => setProfileVisibility(event.target.value as typeof profileVisibility)}
+          className="h-11 w-full rounded-md border bg-background px-3 text-sm">
+          <option value="everyone">Everyone on this server</option><option value="contacts">Accepted contacts</option><option value="nobody">Nobody</option>
+        </select>
+      </div>
+      <div className="space-y-2"><Label htmlFor="profile-presence-visibility">Who can see when I am online?</Label>
+        <select id="profile-presence-visibility" value={presenceVisibility} disabled={busy}
+          onChange={event => setPresenceVisibility(event.target.value as typeof presenceVisibility)}
+          className="h-11 w-full rounded-md border bg-background px-3 text-sm">
+          <option value="everyone">Everyone on this server</option><option value="contacts">Accepted contacts</option><option value="nobody">Nobody</option>
+        </select>
+        <p className="text-xs text-secondary">Online status is approximate and only shared while this device is connected.</p>
+      </div>
       <div className="space-y-2"><Label htmlFor="profile-code">LC code</Label>
         <div className="flex gap-2"><Input id="profile-code" value={userCode(user.lcCode)} readOnly />
           <Button variant="outline" disabled={!user.lcCode} onClick={() => void navigator.clipboard.writeText(userCode(user.lcCode))
@@ -85,7 +102,7 @@ export function ProfileDialog({ user, open, onOpenChange }: {
       </div>
       <Button disabled={busy || !displayName.trim()} onClick={() => void (async () => {
         if (avatar !== (user.avatar ?? null)) await savePicture.mutateAsync({ avatar });
-        await update.mutateAsync({ displayName: displayName.trim(), bio, usernameVisibility });
+        await update.mutateAsync({ displayName: displayName.trim(), bio, usernameVisibility, profileVisibility, presenceVisibility });
       })().catch(() => {})}>
         {update.isPending ? "Saving…" : "Save profile"}</Button>
       {feedback && <p role="status" className="text-sm">{feedback}</p>}
