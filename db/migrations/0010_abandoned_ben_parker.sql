@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `username_visibility` enum('everyone','contacts','nobody') DEFAULT 'everyone' NOT NULL;
