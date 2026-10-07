@@ -56,6 +56,7 @@ const account = z.object({
   lcCode: z.string().regex(/^[1-9][0-9]{3}(?:[0-9]{4}(?:[0-9]{8})?)?$/).optional(),
   bio: z.string().max(280).nullable().default(null),
   avatar: z.string().max(40_000).regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/).nullable().default(null),
+  usernameVisibility: z.enum(["everyone", "contacts", "nobody"]).default("everyone"),
   passwordHash: z
     .string()
     .regex(/^scrypt\$/)
@@ -149,7 +150,7 @@ try {
   }
   for (const row of data.accounts)
     await db.query(
-      "INSERT INTO users (id,username,display_name,lc_code,bio,avatar,password_hash,public_key,encrypted_private_key,key_salt,disabled,is_admin,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+      "INSERT INTO users (id,username,display_name,lc_code,bio,avatar,username_visibility,password_hash,public_key,encrypted_private_key,key_salt,disabled,is_admin,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
       [
         row.id,
         row.username,
@@ -157,6 +158,7 @@ try {
         row.lcCode,
         row.bio,
         row.avatar,
+        row.usernameVisibility,
         row.passwordHash,
         row.publicKey,
         row.encryptedPrivateKey,
