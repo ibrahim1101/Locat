@@ -1,5 +1,5 @@
 /** Registration-only policy. Never transform the password used for key wrapping. */
-export const PASSWORD_MIN_CHARACTERS = 15;
+export const PASSWORD_MIN_CHARACTERS = 8;
 export const PASSWORD_MAX_CODE_UNITS = 1024;
 
 // Small bundled starter list, not an exhaustive breached-password database.
@@ -22,7 +22,7 @@ function isPredictablePattern(value: string): boolean {
 export function registrationPasswordError(password: string, username: string): string | null {
   if (password.length > PASSWORD_MAX_CODE_UNITS) return "Password is too long (maximum 1024 UTF-16 code units).";
   if (Array.from(password).length < PASSWORD_MIN_CHARACTERS)
-    return "Use at least 15 characters. A long unique passphrase works well.";
+    return "Use at least 8 characters. A unique passphrase works well.";
   const folded = password.toLowerCase();
   const compact = folded.replace(/[\s_.!@#$%&*+\-\d]/g, "");
   const pattern = folded.replace(/[\s_.!@#$%&*+-]/g, "");

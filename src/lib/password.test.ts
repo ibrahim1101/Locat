@@ -3,8 +3,8 @@ import { registrationPasswordError } from "@contracts/password";
 
 describe("new account password policy", () => {
   it("counts Unicode code points rather than UTF-16 units", () => {
-    expect(registrationPasswordError("😀".repeat(7) + "x", "alice")).toMatch(/15 characters/);
-    expect(registrationPasswordError("😀🌙🐈🌿🎵🚀🍋🎨🌊🦊⭐🪴🎮☀🍀", "alice")).toBeNull();
+    expect(registrationPasswordError("😀".repeat(3) + "x", "alice")).toMatch(/8 characters/);
+    expect(registrationPasswordError("😀🌙🐈🌿🎵🚀🍋🎨", "alice")).toBeNull();
   });
   it("accepts long passphrases without mandatory symbol rules", () => {
     expect(registrationPasswordError("velvet orchard moonlight canoe", "alice")).toBeNull();

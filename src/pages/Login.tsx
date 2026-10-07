@@ -157,7 +157,7 @@ function AuthForm({
             />
             {mode === "register" && (
               <p id="password-help" className="text-xs text-secondary">
-                Use at least 15 characters, such as several unrelated words. Avoid your username,
+                Use at least 8 characters. Avoid your username,
                 common passwords and repeats. Spaces and password managers are welcome.
               </p>
             )}
