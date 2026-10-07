@@ -92,9 +92,17 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
   });
 
   it("backfills an accepted contact for an existing direct chat", async () => {
-    await db.delete(schema.contactRelationships);
+    await connection.query("DROP TABLE contact_relationships");
     setup();
     expect((await alice.users.contacts()).map(row => row.id)).toContain(bobId);
+    await alice.users.removeContact({ userId: bobId });
+    setup();
+    setup();
+    expect(await alice.users.contacts()).toHaveLength(0);
+    expect(await count("conversations")).toBe(1);
+    await alice.users.requestContact({ userId: bobId });
+    const [request] = await bob.users.contactRequests();
+    await bob.users.respondContact({ requestId: request.id, accept: true });
   });
 
   it("handles retries, crossed requests, decline, cancel and contact removal", async () => {
@@ -501,6 +509,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     await expect(alice.admin.accountAction({ userId: aliceId, action: "disable", password: "test-password-long" })).rejects.toThrow("own administrator");
     expect((await alice.admin.stats()).accounts).toBe(3);
     expect((await alice.admin.audit({ page: 0 })).items.map(row => row.action)).toContain("disable");
+    await alice.users.block({ userId: outsiderId });
     const backup = await alice.admin.backup({ password: "test-password-long", backupPassword: "long-backup-password" });
     expect(backup).not.toContain("passwordHash");
     const { createDecipheriv, scryptSync } = await import("node:crypto");
@@ -526,6 +535,11 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
       expect(await count("conversations")).toBe(metadata.conversations.length);
       expect(await count("group_keys")).toBe(metadata.groupKeys.length);
       expect(await count("contact_relationships")).toBe(metadata.contacts.length);
+      expect(await count("user_blocks")).toBe(metadata.blocks.length);
+      expect(metadata.blocks).toHaveLength(1);
+      setup();
+      expect((await alice.users.contacts()).map(row => row.id)).not.toContain(outsiderId);
+      await expect(alice.conversations.createDirect({ userId: outsiderId })).rejects.toThrow();
       expect(await count("sessions")).toBe(0);
       const restored = await db.query.users.findFirst({ where:eq(schema.users.id,aliceId) });
       expect(restored!.isAdmin).toBe(true);
