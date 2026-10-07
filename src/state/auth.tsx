@@ -18,6 +18,7 @@ import {
 } from "@/lib/crypto";
 import { stopDeviceNotifications } from "@/lib/notifications";
 import { loadIdentity, saveIdentity } from "@/lib/localdb";
+import { setNativeSessionToken } from "@/lib/native";
 
 export type SessionUser = {
   id: number;
@@ -130,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (username: string, password: string) => {
       const res = await loginMut.mutateAsync({ username, password });
+      setNativeSessionToken(res.token);
       const user = res.user as SessionUser;
       // new device: unwrap the password-protected backup from the server
       const privateKey = await unwrapPrivateKeyBackup(
@@ -157,6 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           keySalt: backup.keySalt,
         },
       });
+      setNativeSessionToken(res.token);
       await finishWithKeys(res.user as SessionUser, keys);
     },
     [registerMut, finishWithKeys],
@@ -205,6 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await logoutMut.mutateAsync();
+    setNativeSessionToken(null);
     await stopDeviceNotifications().catch(() => {});
     localStorage.removeItem("locat-offline-account");
     setState({ status: "signedOut" });
