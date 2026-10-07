@@ -2,7 +2,7 @@ import { useState } from "react";
 import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/state/auth";
 import { Button } from "@/components/ui/button";
-import { stopDeviceNotifications, setNotificationAccount } from "@/lib/notifications";
+import { stopDeviceNotifications, setNotificationAccount, notificationUnavailableReason, readyNotificationWorker } from "@/lib/notifications";
 
 export function Notifications() {
   const { state } = useAuth();
@@ -12,11 +12,13 @@ export function Notifications() {
     test = trpc.push.test.useMutation();
   const [feedback, setFeedback] = useState(""),
     [busy, setBusy] = useState(false);
-  const supported =
-    window.isSecureContext &&
-    "serviceWorker" in navigator &&
-    "PushManager" in window &&
-    "Notification" in window;
+  const unavailableReason = notificationUnavailableReason({
+    secure: window.isSecureContext,
+    serviceWorker: "serviceWorker" in navigator,
+    pushManager: "PushManager" in window,
+    notification: "Notification" in window,
+    permission: "Notification" in window ? Notification.permission : undefined,
+  });
   async function perform(task: () => Promise<void>) {
     setBusy(true);
     setFeedback("");
@@ -40,10 +42,9 @@ export function Notifications() {
         message previews. Your browser's push provider handles delivery. On
         iPhone, install Locat on the Home Screen first.
       </p>
-      {!supported ? (
+      {unavailableReason ? (
         <p className="text-xs text-secondary">
-          Push notifications are unavailable in this browser or installation
-          mode.
+          {unavailableReason}
         </p>
       ) : !config.data?.publicKey ? (
         <p className="text-xs text-secondary">
@@ -62,7 +63,7 @@ export function Notifications() {
                   throw new Error(
                     "Notification permission was not granted. You can change it in browser settings."
                   );
-                const registration = await navigator.serviceWorker.ready;
+                const registration = await readyNotificationWorker(navigator.serviceWorker);
                 const bytes = Uint8Array.from(
                   atob(
                     config.data.publicKey.replace(/-/g, "+").replace(/_/g, "/")
