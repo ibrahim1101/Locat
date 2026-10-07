@@ -19,4 +19,9 @@ describe("new account password policy", () => {
     expect(password).toBe("  Velvet Orchard Moonlight  ");
     expect(registrationPasswordError("x".repeat(1025), "alice")).toMatch(/too long/);
   });
+  it("rejects repeated short motifs and ascending or descending runs", () => {
+    for (const password of ["abcabcabcabcabc", "123123123123123", "abcdabcdabcdabcd", "234567890123456", "987654321098765", "abcdefghijklmnop", "qwertyuiopqwertyuiop", "123-123-123-123-123!"])
+      expect(registrationPasswordError(password, "alice"), password).not.toBeNull();
+    expect(registrationPasswordError("orchard-5937-velvet-2048", "alice")).toBeNull();
+  });
 });
