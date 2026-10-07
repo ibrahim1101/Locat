@@ -718,8 +718,8 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
           type="button"
           onClick={() => setNewConvOpen(true)}
           className="flex h-11 w-11 items-center justify-center rounded-md text-secondary hover:bg-accent hover:text-foreground"
-          aria-label="New conversation"
-          title="New conversation"
+          aria-label="People, requests and new conversation"
+          title="People and requests"
         >
           <MessageSquarePlus className="h-5 w-5" />
         </button>
