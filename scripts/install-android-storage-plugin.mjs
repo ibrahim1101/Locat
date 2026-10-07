@@ -13,6 +13,11 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.provider.DocumentsContract;
+import android.util.Base64;
+
+import androidx.documentfile.provider.DocumentFile;
+
+import java.io.OutputStream;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -31,6 +36,42 @@ public class LocatStoragePlugin extends Plugin {
             | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
             | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
         startActivityForResult(call, intent, "directoryPicked");
+    }
+
+    @PluginMethod
+    public void writeFile(PluginCall call) {
+        String treeUri = call.getString("treeUri");
+        String name = call.getString("name");
+        String dataB64 = call.getString("dataB64");
+        String mime = call.getString("mime", "application/octet-stream");
+        if (treeUri == null || name == null || dataB64 == null) {
+            call.reject("Missing storage destination or file data.");
+            return;
+        }
+        try {
+            DocumentFile tree = DocumentFile.fromTreeUri(getContext(), Uri.parse(treeUri));
+            if (tree == null || !tree.canWrite()) {
+                call.reject("The selected Android folder is no longer writable.");
+                return;
+            }
+            String safeName = name.replace("/", "_").replace("\\\\", "_");
+            DocumentFile target = tree.createFile(mime, safeName);
+            if (target == null) {
+                call.reject("Android could not create the file.");
+                return;
+            }
+            byte[] bytes = Base64.decode(dataB64, Base64.DEFAULT);
+            try (OutputStream stream = getContext().getContentResolver().openOutputStream(target.getUri(), "w")) {
+                if (stream == null) throw new IllegalStateException("Could not open output stream.");
+                stream.write(bytes);
+            }
+            JSObject ret = new JSObject();
+            ret.put("uri", target.getUri().toString());
+            ret.put("name", target.getName());
+            call.resolve(ret);
+        } catch (Exception error) {
+            call.reject("Could not save the file to the selected Android folder.", error);
+        }
     }
 
     @ActivityCallback
