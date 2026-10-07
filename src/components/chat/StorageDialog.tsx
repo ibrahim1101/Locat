@@ -1,4 +1,5 @@
 import { Notifications } from "./Notifications";
+import { downloadBlob } from "@/lib/download";
 import { Preferences } from "./Preferences";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -62,11 +63,7 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
       <div className="flex gap-2">
         <Button className="flex-1" disabled={busy || password.length < 8} onClick={() => void perform(async () => {
           const text = await encodeArchive(account, await allMessages(user.id), password);
-          const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
-          const link = document.createElement("a");
-          link.href = url; link.download = `Locat-${user.username}-${new Date().toISOString().slice(0, 10)}.locat`;
-          document.body.append(link); link.click(); link.remove();
-          window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+          downloadBlob(new Blob([text], { type: "application/json" }), `Locat-${user.username}-${new Date().toISOString().slice(0, 10)}.locat`);
           setFeedback("Encrypted backup downloaded. Store it somewhere safe.");
         })}>{busy ? "Working…" : "Export backup"}</Button>
         <Button className="flex-1" variant="outline" disabled={busy || password.length < 8}

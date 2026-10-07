@@ -38,6 +38,7 @@ export type PublicUser = {
   lcCode: string | null;
   bio: string | null;
   avatar?: string | null;
+  allowAvatarDownload?: boolean;
   publicKey: string;
 };
 

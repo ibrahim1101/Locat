@@ -17,6 +17,7 @@ const publicUserCols = {
   lcCode: users.lcCode,
   bio: users.bio,
   avatar: users.avatar,
+  allowAvatarDownload: users.allowAvatarDownload,
   publicKey: users.publicKey,
   usernameVisibility: users.usernameVisibility,
   profileVisibility: users.profileVisibility,
@@ -44,6 +45,31 @@ function privateUsers<T extends { id: number; username: string; bio: string | nu
 }
 
 export const usersRouter = createRouter({
+  profile: authedQuery.input(z.object({ userId: z.number().int().positive() })).query(async ({ ctx, input }) => {
+    const db = getDb(), me = ctx.user!.id;
+    const [blocked] = await db.select({ id: userBlocks.id }).from(userBlocks).where(or(
+      and(eq(userBlocks.blockerId, me), eq(userBlocks.blockedId, input.userId)),
+      and(eq(userBlocks.blockerId, input.userId), eq(userBlocks.blockedId, me)),
+    )).limit(1);
+    const [person] = await db.select(publicUserCols).from(users)
+      .where(and(eq(users.id, input.userId), eq(users.disabled, false))).limit(1);
+    if (blocked || !person) throw new TRPCError({ code: "NOT_FOUND", message: "Profile unavailable" });
+    return privateUsers([person], me, await acceptedIds(me))[0];
+  }),
+  downloadAvatar: authedQuery.input(z.object({ userId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    const db = getDb(), me = ctx.user!.id;
+    const [blocked] = await db.select({ id: userBlocks.id }).from(userBlocks).where(or(
+      and(eq(userBlocks.blockerId, me), eq(userBlocks.blockedId, input.userId)),
+      and(eq(userBlocks.blockerId, input.userId), eq(userBlocks.blockedId, me)),
+    )).limit(1);
+    const [person] = await db.select(publicUserCols).from(users)
+      .where(and(eq(users.id, input.userId), eq(users.disabled, false))).limit(1);
+    if (blocked || !person) throw new TRPCError({ code: "NOT_FOUND", message: "Profile unavailable" });
+    const profile = privateUsers([person], me, await acceptedIds(me))[0];
+    if (!profile.avatar || (me !== person.id && !person.allowAvatarDownload))
+      throw new TRPCError({ code: "FORBIDDEN", message: "Picture download is not allowed" });
+    return { avatar: avatarSchema.parse(profile.avatar), filename: `locat-${person.lcCode}-profile.jpg` };
+  }),
   contacts: authedQuery.query(async ({ ctx }) => {
     const me = ctx.user!.id;
     const rows = await getDb().select().from(contactRelationships).where(and(
@@ -160,6 +186,7 @@ export const usersRouter = createRouter({
       usernameVisibility: z.enum(["everyone", "contacts", "nobody"]).optional(),
       profileVisibility: z.enum(["everyone", "contacts", "nobody"]).optional(),
       presenceVisibility: z.enum(["everyone", "contacts", "nobody"]).optional(),
+      allowAvatarDownload: z.boolean().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
@@ -169,6 +196,7 @@ export const usersRouter = createRouter({
         usernameVisibility: input.usernameVisibility,
         profileVisibility: input.profileVisibility,
         presenceVisibility: input.presenceVisibility,
+        allowAvatarDownload: input.allowAvatarDownload,
       }).where(eq(users.id, ctx.user!.id));
       if (input.presenceVisibility) await broadcastPresence();
       return { ...input, bio: input.bio || null };

@@ -4,6 +4,7 @@
 //   - private keys wrapped with a password-derived key (backup blob)
 //   - AES-GCM envelopes it cannot open
 import type { EncryptedEnvelope, MessagePayload } from "@contracts/types";
+import { decodeBrowserImage } from "./browserImage";
 import { relayPayloadSchema, type MessageControl } from "@contracts/messagePayload";
 
 const te = new TextEncoder();
@@ -217,20 +218,25 @@ export async function keyFingerprintB64(publicKeyB64: string): Promise<string> {
 
 export async function imageToPayload(file: File): Promise<MessagePayload> {
   const MAX_EDGE = 1600;
-  const bitmap = await createImageBitmap(file).catch(() => null);
-  if (!bitmap || (bitmap.width <= MAX_EDGE && bitmap.height <= MAX_EDGE && file.size <= 900_000)) {
+  const bitmap = await decodeBrowserImage(file);
+  try {
+  if (bitmap.width <= MAX_EDGE && bitmap.height <= MAX_EDGE && file.size <= 900_000) {
     const buf = await file.arrayBuffer();
     return { type: "image", mime: file.type || "image/jpeg", name: file.name, dataB64: b64encode(buf) };
   }
-  const scale = MAX_EDGE / Math.max(bitmap.width, bitmap.height);
+  const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
   const w = Math.round(bitmap.width * scale);
   const h = Math.round(bitmap.height * scale);
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, w, h);
-  const blob = await new Promise<Blob>((res) => canvas.toBlob((b) => res(b!), "image/jpeg", 0.85));
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Image editing is unavailable in this browser.");
+  context.fillStyle = "#ffffff"; context.fillRect(0, 0, w, h);
+  context.drawImage(bitmap.image, 0, 0, w, h);
+  const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error("Could not prepare this image.")), "image/jpeg", 0.85));
   return { type: "image", mime: "image/jpeg", name: file.name, dataB64: b64encode(await blob.arrayBuffer()) };
+  } finally { bitmap.close(); }
 }
 
 export function imageUrl(payload: MessagePayload): string | null {

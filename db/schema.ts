@@ -23,6 +23,7 @@ export const users = mysqlTable("users", {
   lcCode: varchar("lc_code", { length: 16 }).unique("users_lc_code_unique"),
   bio: varchar("bio", { length: 280 }),
   avatar: text("avatar"),
+  allowAvatarDownload: boolean("allow_avatar_download").notNull().default(false),
   usernameVisibility: mysqlEnum("username_visibility", ["everyone", "contacts", "nobody"]).notNull().default("everyone"),
   profileVisibility: mysqlEnum("profile_visibility", ["everyone", "contacts", "nobody"]).notNull().default("everyone"),
   presenceVisibility: mysqlEnum("presence_visibility", ["everyone", "contacts", "nobody"]).notNull().default("contacts"),

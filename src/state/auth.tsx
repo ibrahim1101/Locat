@@ -29,6 +29,7 @@ export type SessionUser = {
   usernameVisibility: "everyone" | "contacts" | "nobody";
   profileVisibility: "everyone" | "contacts" | "nobody";
   presenceVisibility: "everyone" | "contacts" | "nobody";
+  allowAvatarDownload: boolean;
   publicKey: string;
   isAdmin?: boolean;
 };

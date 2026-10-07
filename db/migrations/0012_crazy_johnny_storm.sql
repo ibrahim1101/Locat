@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `allow_avatar_download` boolean DEFAULT false NOT NULL;

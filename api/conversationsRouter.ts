@@ -45,6 +45,7 @@ export const conversationsRouter = createRouter({
           lcCode: users.lcCode!,
           bio: users.bio,
           avatar: users.avatar,
+          allowAvatarDownload: users.allowAvatarDownload,
           publicKey: users.publicKey,
           usernameVisibility: users.usernameVisibility,
           profileVisibility: users.profileVisibility,

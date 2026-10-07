@@ -262,6 +262,31 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     await alice.users.setAvatar({ avatar: testAvatar });
   });
 
+  it("shows current profiles and enforces avatar download consent, visibility and blocks", async () => {
+    const input = { displayName: "Alice Example", bio: "Private chat enthusiast" };
+    expect((await bob.users.profile({ userId: aliceId })).avatar).toBe(testAvatar);
+    expect((await bob.users.profile({ userId: aliceId })).allowAvatarDownload).toBe(false);
+    await expect(bob.users.downloadAvatar({ userId: aliceId })).rejects.toThrow("not allowed");
+    await alice.users.updateProfile({ ...input, allowAvatarDownload: true });
+    expect((await bob.users.downloadAvatar({ userId: aliceId })).avatar).toBe(testAvatar);
+    await alice.users.updateProfile({ ...input, allowAvatarDownload: false });
+    await expect(bob.users.downloadAvatar({ userId: aliceId })).rejects.toThrow("not allowed");
+    await alice.users.updateProfile({ ...input, allowAvatarDownload: true, profileVisibility: "contacts" });
+    expect((await outsider.users.profile({ userId: aliceId })).avatar).toBeNull();
+    await expect(outsider.users.downloadAvatar({ userId: aliceId })).rejects.toThrow("not allowed");
+    await alice.users.updateProfile({ ...input, profileVisibility: "nobody" });
+    await expect(bob.users.downloadAvatar({ userId: aliceId })).rejects.toThrow("not allowed");
+    expect((await alice.users.downloadAvatar({ userId: aliceId })).avatar).toBe(testAvatar);
+    await alice.users.updateProfile({ ...input, profileVisibility: "everyone" });
+    await bob.users.block({ userId: aliceId });
+    await expect(bob.users.profile({ userId: aliceId })).rejects.toThrow("unavailable");
+    await expect(alice.users.downloadAvatar({ userId: bobId })).rejects.toThrow("unavailable");
+    await bob.users.unblock({ userId: aliceId });
+    await bob.users.requestContact({ userId: aliceId });
+    await alice.users.requestContact({ userId: bobId });
+    await alice.users.updateProfile({ ...input, allowAvatarDownload: false });
+  });
+
   it("rejects cross-origin mutations and disabled accounts, and retires older sessions", async () => {
     const { createContext } = await import("../../api/context");
     const first = await alice.auth.login({ username: "alice", password: "test-password-long" });
@@ -393,13 +418,13 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     await connection.query("CREATE INDEX legacy_sender_idx ON messages(sender_id)");
     await connection.query("ALTER TABLE messages DROP INDEX messages_sender_client_unique, DROP COLUMN client_message_id");
     await connection.query("DROP TABLE send_receipts");
-    await connection.query("ALTER TABLE users DROP COLUMN bio, DROP COLUMN avatar");
+    await connection.query("ALTER TABLE users DROP COLUMN bio, DROP COLUMN avatar, DROP COLUMN allow_avatar_download");
     setup(); setup();
     const upgraded = await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) });
     expect(upgraded!.bio).toBeNull();
     expect(upgraded!.avatar).toBeNull();
     await alice.users.setAvatar({ avatar: testAvatar });
-    await alice.users.updateProfile({ displayName: "Alice Example", bio: "Restored profile" });
+    await alice.users.updateProfile({ displayName: "Alice Example", bio: "Restored profile", allowAvatarDownload: true });
     expect(await count("users")).toBe(accountsBefore);
     expect((await bob.messages.sync({ after: 0 })).items[0].messageId).toBe(sent.messageId);
   });
@@ -545,6 +570,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
       expect(restored!.isAdmin).toBe(true);
       expect(restored!.bio).toBe("Restored profile");
       expect(restored!.avatar).toBe(testAvatar);
+      expect(restored!.allowAvatarDownload).toBe(true);
       expect(restored!.lcCode).toBe(metadata.accounts.find((row: { id: number }) => row.id === aliceId).lcCode);
       expect((await alice.auth.login({ username:"alice", password:"test-password-long" })).user.id).toBe(aliceId);
     } finally { await rm(dir,{ recursive:true,force:true }); }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { downloadBlob } from "@/lib/download";
 import { Link } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/state/auth";
@@ -85,16 +86,7 @@ function Dashboard() {
     try {
       if (action.kind === "backup") {
         const data = await backup.mutateAsync({ password, backupPassword });
-        const url = URL.createObjectURL(
-          new Blob([data], { type: "application/json" })
-        );
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `Locat-server-${new Date().toISOString().slice(0, 10)}.locat-server`;
-        document.body.append(link);
-        link.click();
-        link.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        downloadBlob(new Blob([data], { type: "application/json" }), `Locat-server-${new Date().toISOString().slice(0, 10)}.locat-server`);
         setFeedback(
           "Encrypted metadata backup downloaded. Keep its password separately."
         );

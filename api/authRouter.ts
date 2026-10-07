@@ -187,6 +187,7 @@ function publicProfile(user: typeof users.$inferSelect) {
     lcCode: user.lcCode!,
     bio: user.bio,
     avatar: user.avatar,
+    allowAvatarDownload: user.allowAvatarDownload,
     usernameVisibility: user.usernameVisibility,
     profileVisibility: user.profileVisibility,
     presenceVisibility: user.presenceVisibility,
