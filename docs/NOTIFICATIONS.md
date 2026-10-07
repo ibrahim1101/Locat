@@ -20,63 +20,17 @@ Close all Locat windows and reopen to activate the updated service worker. In Se
 
 Android uses a supported HTTPS browser/PWA. On iPhone/iPad (iOS/iPadOS 16.4+), install the app through Safari → Share → Add to Home Screen, then enable notifications from the installed app. Browser support, operating-system power policies, and notification settings affect delivery. See https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/.
 
-For a private Tailscale deployment, an…19491 tokens truncated…sible to other users on this server. After removing, tap Save picture.</p>
-      <div className="space-y-2"><Label htmlFor="profile-name">Display name / nickname</Label>
-        <Input id="profile-name" value={displayName} maxLength={64} disabled={busy} onChange={e => setDisplayName(e.target.value)} />
-      </div>
-      <div className="space-y-2"><Label htmlFor="profile-username">Unique username</Label>
-        <Input id="profile-username" value={user.username} readOnly />
-        <p className="text-xs text-secondary">Your login username is fixed. Change your nickname above.</p>
-      </div>
-      <div className="space-y-2"><Label htmlFor="profile-username-visibility">Who can see my login username?</Label>
-        <select id="profile-username-visibility" value={usernameVisibility} disabled={busy}
-          onChange={event => setUsernameVisibility(event.target.value as typeof usernameVisibility)}
-          className="h-11 w-full rounded-md border bg-background px-3 text-sm">
-          <option value="everyone">Everyone on this server</option>
-          <option value="contacts">Accepted contacts</option>
-          <option value="nobody">Nobody</option>
-        </select>
-        <p className="text-xs text-secondary">Your nickname and LC code stay visible so people can send requests. Administrators can still see account usernames for safety and support.</p>
-      </div>
-      <div className="space-y-2"><Label htmlFor="profile-details-visibility">Who can see my picture and bio?</Label>
-        <select id="profile-details-visibility" value={profileVisibility} disabled={busy}
-          onChange={event => setProfileVisibility(event.target.value as typeof profileVisibility)}
-          className="h-11 w-full rounded-md border bg-background px-3 text-sm">
-          <option value="everyone">Everyone on this server</option><option value="contacts">Accepted contacts</option><option value="nobody">Nobody</option>
-        </select>
-      </div>
-      <div className="space-y-2"><Label htmlFor="profile-presence-visibility">Who can see when I am online?</Label>
-        <select id="profile-presence-visibility" value={presenceVisibility} disabled={busy}
-          onChange={event => setPresenceVisibility(event.target.value as typeof presenceVisibility)}
-          className="h-11 w-full rounded-md border bg-background px-3 text-sm">
-          <option value="everyone">Everyone on this server</option><option value="contacts">Accepted contacts</option><option value="nobody">Nobody</option>
-        </select>
-        <p className="text-xs text-secondary">Online status is approximate and only shared while this device is connected.</p>
-      </div>
-      <div className="space-y-2"><Label htmlFor="profile-code">LC code</Label>
-        <div className="flex gap-2"><Input id="profile-code" value={userCode(user.lcCode)} readOnly />
-          <Button variant="outline" disabled={!user.lcCode} onClick={() => void navigator.clipboard.writeText(userCode(user.lcCode))
-            .then(() => setFeedback("LC code copied."))
-            .catch(() => setFeedback("Copy is unavailable. Select and copy the code above."))}>Copy</Button></div>
-        <p className="text-xs text-secondary">Share this code to help people find you on this server.</p>
-      </div>
-      <label className="flex items-center gap-3 text-sm">
-        <input type="checkbox" checked={allowAvatarDownload} disabled={busy}
-          onChange={event => setAllowAvatarDownload(event.target.checked)} />
-        Allow people who can see my picture to download it
-      </label>
-      <p className="text-xs text-secondary">Turning this off removes Locat’s download option. People who can view your picture can still take screenshots or save it through their browser.</p>
-      <div className="space-y-2"><Label htmlFor="profile-bio">Bio</Label>
-        <textarea id="profile-bio" value={bio} maxLength={280} disabled={busy} onChange={e => setBio(e.target.value)}
-          className="min-h-24 w-full resize-y rounded-md border bg-background p-3 text-sm" placeholder="A little about you" />
-        <p className="text-xs text-secondary">{bio.length}/280</p>
-      </div>
-      <Button disabled={busy || !displayName.trim()} onClick={() => void (async () => {
-        if (avatar !== (user.avatar ?? null)) await savePicture.mutateAsync({ avatar });
-        await update.mutateAsync({ displayName: displayName.trim(), bio, usernameVisibility, profileVisibility, presenceVisibility, allowAvatarDownload });
-      })().catch(() => {})}>
-        {update.isPending ? "Saving…" : "Save profile"}</Button>
-      {feedback && <p role="status" className="text-sm">{feedback}</p>}
-    </DialogContent>
-  </Dialog>;
-}
+For a private Tailscale deployment, an alert can arrive through the browser's internet push service, but opening Locat still requires Tailscale connectivity to your server.
+
+## Docker setup
+
+Compose passes `VAPID_SUBJECT`, `VAPID_PUBLIC_KEY`, and `VAPID_PRIVATE_KEY` from your existing `.env`. Generate keys into that file using the built image (Bash example):
+
+```bash
+docker compose run --rm --no-deps --user root -v "$PWD/.env:/app/.env" app npm run push:setup -- mailto:YOUR_EMAIL_ADDRESS
+docker compose up -d
+```
+
+The `.env` must already exist. Keep it private. On Windows, use an absolute host file path for the volume mapping. Native Node.js installations use the same `npm run push:setup` command from the deployment directory.
+
+Current provider allowlist: Chrome/Chromium FCM, Mozilla Firefox, Apple Web Push, and Microsoft WNS. Other push destinations are rejected so subscription URLs cannot make the server send requests to arbitrary or internal addresses. Full end-to-end delivery requires real-browser testing after setup.
