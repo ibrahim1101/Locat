@@ -3,7 +3,7 @@ import { hashPassword, verifyPassword, newSessionToken } from "../../api/crypto"
 import {
   generateIdentity, deriveDirectKey, encryptPayload, decryptPayload,
   wrapPrivateKeyForBackup, unwrapPrivateKeyBackup,
-  generateGroupKey, wrapGroupKey, unwrapGroupKey,
+  generateGroupKey, wrapGroupKey, unwrapGroupKey, voiceToPayload,
 } from "./crypto";
 
 describe("Locat encryption", () => {
@@ -62,6 +62,17 @@ describe("Locat encryption", () => {
     }
     const image = { type: "image", mime: "image/png", name: "a", dataB64: "AA==" };
     expect(await decryptPayload(key, await seal(image))).toEqual(image);
+  });
+
+  it("validates and encrypts bounded voice messages", async () => {
+    const key = await generateGroupKey();
+    const payload = await voiceToPayload(new Blob([new Uint8Array([1, 2, 3])], { type: "audio/webm" }), 1200);
+    expect(payload.type).toBe("voice");
+    const sealed = await encryptPayload(key, payload);
+    expect(sealed).not.toContain("AQID");
+    expect(await decryptPayload(key, sealed)).toEqual(payload);
+    await expect(voiceToPayload(new Blob([new Uint8Array([1])], { type: "audio/webm" }), 100)).rejects.toThrow("too short");
+    await expect(voiceToPayload(new Blob([new Uint8Array([1])], { type: "audio/wav" }), 1000)).rejects.toThrow("not supported");
   });
 
   it("verifies password hashes and generates unique session tokens", async () => {
