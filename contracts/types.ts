@@ -14,6 +14,7 @@ export type EncryptedEnvelope = {
 export type MessagePayload =
   | { type: "text"; text: string; messageRef?: string }
   | { type: "image"; mime: string; name: string; dataB64: string; messageRef?: string }
+  | { type: "file"; mime: string; name: string; size: number; dataB64: string; messageRef?: string }
   | { type: "voice"; mime: "audio/webm" | "audio/ogg" | "audio/mp4"; dataB64: string; durationMs: number; messageRef?: string };
 
 /** Event pushed from server to online clients over the subscription stream. */
