@@ -32,7 +32,8 @@ export type RelayEvent =
 
 export type PublicUser = {
   id: number;
-  username: string;
+  /** Null when this account's server-enforced privacy policy hides it from the viewer. */
+  username: string | null;
   displayName: string;
   lcCode: string | null;
   bio: string | null;
