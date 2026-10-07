@@ -23,3 +23,14 @@ A later release milestone will commit the Android project, add native permission
 ## Acceptance
 
 Before calling the Android client supported, test login, direct/group text, images, voice notes, offline/reconnect, local history, profiles, themes, blocking, notification behavior, app background/foreground, process restart and server connectivity on a physical Android device.
+
+
+## Native server connection checkpoint
+
+The Android shell is origin-separated from the self-hosted server, so relative web API URLs and browser-cookie-only authentication are not sufficient. First launch now requires the user to enter the server's HTTPS origin. Locat stores that origin locally and refuses plaintext HTTP.
+
+Registration/login already return the same random server session token used by cookie sessions. Android stores that token locally and sends it as the existing Authorization bearer credential on tRPC requests; the server context already supports bearer authentication. CORS is restricted to Capacitor's `https://localhost` origin rather than opened globally.
+
+The current native alpha disables the EventSource subscription transport because browser EventSource cannot attach the bearer Authorization header reliably. Durable polling/reconnect remains active every 20 seconds, so message delivery continues to use the existing encrypted relay/outbox/ACK path. A later native notification/realtime transport will replace this fallback without putting session tokens in URLs.
+
+The PWA/web client continues using same-origin relative APIs, cookies, service workers and SSE exactly as before.
