@@ -36,7 +36,7 @@ export function conversationTitle(
     const other = conv.members.find(m => m.id !== myId);
     return {
       title: other?.displayName ?? "Unknown",
-      subtitle: other ? `@${other.username}` : "",
+      subtitle: other?.username ? `@${other.username}` : "",
     };
   }
   return {
