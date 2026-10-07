@@ -29,6 +29,11 @@ jobs:
           distribution: temurin
           java-version: "21"
       - run: npm ci
+      - name: Verify Locat client
+        run: |
+          npm run check
+          npm run lint
+          npm test
       # Bootstrap the native shell without changing the web dependency lock yet.
       # The generated Android project is an alpha artifact; it will be committed
       # once native plugins/custom Android code become part of Locat.
