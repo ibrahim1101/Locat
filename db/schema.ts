@@ -24,6 +24,8 @@ export const users = mysqlTable("users", {
   bio: varchar("bio", { length: 280 }),
   avatar: text("avatar"),
   usernameVisibility: mysqlEnum("username_visibility", ["everyone", "contacts", "nobody"]).notNull().default("everyone"),
+  profileVisibility: mysqlEnum("profile_visibility", ["everyone", "contacts", "nobody"]).notNull().default("everyone"),
+  presenceVisibility: mysqlEnum("presence_visibility", ["everyone", "contacts", "nobody"]).notNull().default("contacts"),
   isAdmin: boolean("is_admin").notNull().default(false),
   disabled: boolean("disabled").notNull().default(false),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
