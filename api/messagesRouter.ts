@@ -18,7 +18,7 @@ import {
   userBlocks,
   contactRelationships,
 } from "@db/schema";
-import { subscribe as hubSubscribe, emitToUsers, onlineUserIds } from "./hub";
+import { subscribe as hubSubscribe, emitToUsers, onlineUserIds, visibleOnlineUserIds } from "./hub";
 import type { RelayEvent } from "@contracts/types";
 
 /** Envelopes are opaque ciphertext; cap at ~6MB of base64 (≈4MB media). */
@@ -216,8 +216,9 @@ export const messagesRouter = createRouter({
   subscribe: authedQuery.subscription(({ ctx }) => {
     const me = ctx.user!.id;
     return observable<RelayEvent>((emit) => {
-      emit.next({ type: "presence", online: onlineUserIds() });
       const unsubscribe = hubSubscribe(me, (event) => emit.next(event));
+      void visibleOnlineUserIds(me).then(online => emit.next({ type: "presence", online }))
+        .catch(() => emit.error(new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not load presence" })));
       const timer = setInterval(() => {
         if (!ctx.sessionToken) return;
         void getDb().select({ token: sessions.token }).from(sessions).innerJoin(users, eq(sessions.userId, users.id))
