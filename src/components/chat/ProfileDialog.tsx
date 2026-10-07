@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { chooseUserStorageFolder, storagePreference, useInternalStorage, type StoragePreference } from "@/lib/storagePreference";
+import { chooseUserStorageFolder, storagePreference, selectInternalStorage, type StoragePreference } from "@/lib/storagePreference";
 import { isNativeShell } from "@/lib/native";
 import { prepareProfilePicture } from "@/lib/profilePicture";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -119,7 +119,7 @@ export function ProfileDialog({ user, open, onOpenChange }: {
               .catch(error => setFeedback(error instanceof Error ? error.message : "Could not select storage folder."));
           }}>Choose Android folder</Button>}
           <Button type="button" variant="outline" disabled={busy || storage.mode === "internal"} onClick={() => {
-            setStorage(useInternalStorage()); setFeedback("Protected app storage selected.");
+            setStorage(selectInternalStorage()); setFeedback("Protected app storage selected.");
           }}>Use protected storage</Button>
         </div>
         {!isNativeShell() && <p className="text-xs text-secondary">Custom folders are available in the Locat Android app. Browsers keep using their sandboxed local storage and download controls.</p>}
