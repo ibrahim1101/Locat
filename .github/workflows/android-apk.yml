@@ -48,6 +48,8 @@ jobs:
           ln -s "$RUNNER_TEMP/locat-capacitor/node_modules/.bin/cap" node_modules/.bin/cap
       - run: npm run build:web
       - run: npx cap add android
+      - name: Install Locat Android storage bridge
+        run: node scripts/install-android-storage-plugin.mjs
       - run: npx cap sync android
       - name: Build debug APK
         working-directory: android
