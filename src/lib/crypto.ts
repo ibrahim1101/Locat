@@ -244,3 +244,19 @@ export function imageUrl(payload: MessagePayload): string | null {
   const blob = new Blob([b64decode(payload.dataB64) as BlobPart], { type: payload.mime });
   return URL.createObjectURL(blob);
 }
+
+export async function voiceToPayload(blob: Blob, durationMs: number): Promise<MessagePayload> {
+  const mime = blob.type.split(";")[0];
+  if (!["audio/webm", "audio/ogg", "audio/mp4"].includes(mime))
+    throw new Error("This browser's voice recording format is not supported.");
+  if (durationMs < 250) throw new Error("Voice message is too short.");
+  if (durationMs > 60_000) throw new Error("Voice messages are limited to 60 seconds.");
+  if (blob.size > 2_900_000) throw new Error("Voice message is too large. Try a shorter recording.");
+  return { type: "voice", mime: mime as "audio/webm" | "audio/ogg" | "audio/mp4",
+    dataB64: b64encode(await blob.arrayBuffer()), durationMs: Math.round(durationMs) };
+}
+
+export function voiceUrl(payload: MessagePayload): string | null {
+  if (payload.type !== "voice" || !["audio/webm", "audio/ogg", "audio/mp4"].includes(payload.mime)) return null;
+  return URL.createObjectURL(new Blob([b64decode(payload.dataB64) as BlobPart], { type: payload.mime }));
+}
