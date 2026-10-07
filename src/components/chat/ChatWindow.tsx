@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LocalMessage } from "@/lib/localdb";
 import type { ConversationSummary } from "@contracts/types";
-import { imageUrl } from "@/lib/crypto";
+import { imageUrl, voiceUrl } from "@/lib/crypto";
 import { dayLabel, sameDay, timeLabel } from "@/lib/format";
 import { Avatar, AvatarStack } from "./Avatar";
 import { FriendProfileDialog } from "./FriendProfileDialog";
@@ -23,6 +23,8 @@ import {
   Ban,
   EyeOff,
   Eye,
+  Mic,
+  Square,
 } from "lucide-react";
 
 export type UiMessage = LocalMessage & {
@@ -56,6 +58,7 @@ export function ChatWindow({
   onBack,
   onSendText,
   onSendImage,
+  onSendVoice,
   onRetry,
   onShowSecurity,
   onShowGroup,
@@ -75,6 +78,7 @@ export function ChatWindow({
   onBack: () => void;
   onSendText: (text: string) => void;
   onSendImage: (file: File) => void;
+  onSendVoice: (blob: Blob, durationMs: number) => void;
   onRetry: (tempId: string) => void;
   onShowSecurity: () => void;
   onShowGroup: () => void;
@@ -96,6 +100,12 @@ export function ChatWindow({
   const nearBottom = useRef(true);
   const previousLength = useRef(0);
   const [reply, setReply] = useState<string | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [recordingMs, setRecordingMs] = useState(0);
+  const [recordingError, setRecordingError] = useState("");
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordingStarted = useRef(0);
+  const recordingTimer = useRef<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollToLatest = () => {
     const el = scrollRef.current;
@@ -122,6 +132,65 @@ export function ChatWindow({
       el.scrollTop = el.scrollHeight;
     previousLength.current = messages.length;
   }, [messages, conversation.id]);
+
+  useEffect(() => () => {
+    if (recordingTimer.current !== null) window.clearInterval(recordingTimer.current);
+    const recorder = recorderRef.current;
+    if (recorder?.state === "recording") recorder.stop();
+    recorder?.stream.getTracks().forEach(track => track.stop());
+  }, []);
+
+  async function startRecording() {
+    setRecordingError("");
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setRecordingError("Voice recording is unavailable in this browser.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const candidates = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"];
+      const mimeType = candidates.find(type => MediaRecorder.isTypeSupported(type));
+      if (!mimeType) {
+        stream.getTracks().forEach(track => track.stop());
+        setRecordingError("This browser does not offer a supported voice recording format.");
+        return;
+      }
+      const recorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 48_000 });
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+      recorder.onstop = () => {
+        if (recordingTimer.current !== null) window.clearInterval(recordingTimer.current);
+        recordingTimer.current = null;
+        const durationMs = Math.min(60_000, Date.now() - recordingStarted.current);
+        stream.getTracks().forEach(track => track.stop());
+        recorderRef.current = null;
+        setRecording(false);
+        setRecordingMs(0);
+        if (durationMs >= 250 && chunks.length)
+          onSendVoice(new Blob(chunks, { type: recorder.mimeType.split(";")[0] }), durationMs);
+      };
+      recorder.onerror = () => {
+        setRecordingError("Recording failed. Check microphone permission and try again.");
+        if (recorder.state !== "inactive") recorder.stop();
+      };
+      recorderRef.current = recorder;
+      recordingStarted.current = Date.now();
+      recorder.start(1000);
+      setRecording(true);
+      setRecordingMs(0);
+      recordingTimer.current = window.setInterval(() => {
+        const elapsed = Date.now() - recordingStarted.current;
+        setRecordingMs(Math.min(60_000, elapsed));
+        if (elapsed >= 60_000 && recorder.state === "recording") recorder.stop();
+      }, 250);
+    } catch {
+      setRecordingError("Microphone permission was not granted.");
+    }
+  }
+
+  function stopRecording() {
+    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+  }
 
   function submit() {
     const text = draft.trim();
@@ -335,7 +404,21 @@ export function ChatWindow({
               >
                 <ImagePlus className="h-5 w-5" />
               </button>
-              <textarea
+              <button
+                type="button"
+                onClick={() => recording ? stopRecording() : void startRecording()}
+                disabled={blocked}
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-md border transition-colors hover:bg-accent ${recording ? "text-destructive" : "text-secondary"}`}
+                aria-label={recording ? "Stop and send voice message" : "Record voice message"}
+                title={recording ? "Stop and send" : "Voice message"}
+              >
+                {recording ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-5 w-5" />}
+              </button>
+              {recording ? (
+                <div role="status" className="flex min-h-11 flex-1 items-center rounded-md border px-3 text-sm">
+                  Recording… {(recordingMs / 1000).toFixed(1)} / 60s
+                </div>
+              ) : <textarea
                 ref={textareaRef}
                 aria-label="Message"
                 disabled={blocked}
@@ -360,17 +443,18 @@ export function ChatWindow({
                 placeholder={blocked ? "Direct contact is blocked" : "Message…"}
                 rows={1}
                 className="max-h-36 min-h-11 flex-1 resize-none rounded-md border border-input bg-background px-3 py-2.5 text-sm outline-none placeholder:text-secondary focus-visible:ring-1 focus-visible:ring-ring"
-              />
+              />}
               <button
                 type="button"
                 onClick={submit}
-                disabled={blocked || !draft.trim()}
+                disabled={blocked || recording || !draft.trim()}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.94] disabled:opacity-30"
                 aria-label="Send"
               >
                 <SendHorizonal className="h-5 w-5" />
               </button>
             </div>
+            {recordingError && <p role="alert" className="mx-auto mt-2 max-w-3xl text-xs text-destructive">{recordingError}</p>}
           </div>
         </>
       )}
@@ -403,11 +487,13 @@ function MessageBubble({
   const [expanded, setExpanded] = useState(false);
   const [feedback, setFeedback] = useState("");
   const img = useMemo(() => imageUrl(m.payload), [m.payload]);
+  const voice = useMemo(() => voiceUrl(m.payload), [m.payload]);
   useEffect(() => {
     return () => {
       if (img) URL.revokeObjectURL(img);
+      if (voice) URL.revokeObjectURL(voice);
     };
-  }, [img]);
+  }, [img, voice]);
 
   const mine = m.outgoing;
   return (
@@ -522,6 +608,13 @@ function MessageBubble({
           {m.payload.type === "text" && (
             <p className="whitespace-pre-wrap break-words">{m.payload.text}</p>
           )}
+          {m.payload.type === "voice" && voice && (
+            <div className="min-w-56">
+              <p className="mb-1 text-xs opacity-75">Voice message · {Math.ceil(m.payload.durationMs / 1000)}s</p>
+              <audio controls preload="metadata" src={voice} className="h-10 w-full" />
+            </div>
+          )}
+          {m.payload.type === "voice" && !voice && <p>Unsupported voice message</p>}
           <div
             className={`mt-1 flex items-center gap-2 ${mine ? "justify-end" : "justify-start"}`}
           >
