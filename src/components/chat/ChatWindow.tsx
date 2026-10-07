@@ -2,13 +2,14 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LocalMessage } from "@/lib/localdb";
 import type { ConversationSummary } from "@contracts/types";
-import { imageUrl, voiceUrl } from "@/lib/crypto";
+import { downloadFilePayload, imageUrl, voiceUrl } from "@/lib/crypto";
 import { dayLabel, sameDay, timeLabel } from "@/lib/format";
 import { Avatar, AvatarStack } from "./Avatar";
 import { FriendProfileDialog } from "./FriendProfileDialog";
 import {
   ArrowLeft,
   ImagePlus,
+  Paperclip,
   SendHorizonal,
   ShieldCheck,
   RotateCcw,
@@ -58,6 +59,7 @@ export function ChatWindow({
   onBack,
   onSendText,
   onSendImage,
+  onSendFile,
   onSendVoice,
   onRetry,
   onShowSecurity,
@@ -78,6 +80,7 @@ export function ChatWindow({
   onBack: () => void;
   onSendText: (text: string) => void;
   onSendImage: (file: File) => void;
+  onSendFile: (file: File) => void;
   onSendVoice: (blob: Blob, durationMs: number) => void;
   onRetry: (tempId: string) => void;
   onShowSecurity: () => void;
@@ -115,6 +118,7 @@ export function ChatWindow({
     }
   };
   const fileRef = useRef<HTMLInputElement>(null);
+  const attachmentRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { title, subtitle } = conversationTitle(conversation, myId);
   const otherId =
@@ -395,6 +399,13 @@ export function ChatWindow({
                   e.target.value = "";
                 }}
               />
+              <input ref={attachmentRef} type="file" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) onSendFile(f); e.target.value = ""; }} />
+              <button type="button" onClick={() => attachmentRef.current?.click()} disabled={blocked}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border text-secondary transition-colors hover:bg-accent hover:text-foreground"
+                aria-label="Send file" title="Send file (up to 2.9 MB)">
+                <Paperclip className="h-5 w-5" />
+              </button>
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
@@ -607,6 +618,16 @@ function MessageBubble({
           {m.payload.type === "image" && !img && <p>Unsupported image format</p>}
           {m.payload.type === "text" && (
             <p className="whitespace-pre-wrap break-words">{m.payload.text}</p>
+          )}
+          {m.payload.type === "file" && (
+            <button type="button" onClick={() => downloadFilePayload(m.payload)}
+              className="flex min-h-11 max-w-full items-center gap-2 rounded-md border px-3 text-left">
+              <Download className="h-4 w-4 shrink-0" />
+              <span className="min-w-0">
+                <span className="block truncate font-medium">{m.payload.name}</span>
+                <span className="block text-xs opacity-75">{Math.max(1, Math.ceil(m.payload.size / 1024))} KB · Download</span>
+              </span>
+            </button>
           )}
           {m.payload.type === "voice" && voice && (
             <div className="min-w-56">
