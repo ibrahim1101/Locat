@@ -16,6 +16,7 @@ import {
   deriveDirectKey,
   encryptPayload,
   imageToPayload,
+  fileToPayload,
   voiceToPayload,
   unwrapGroupKey,
 } from "@/lib/crypto";
@@ -950,6 +951,11 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
                   "Could not prepare this image. Try a smaller image or a different format."
                 )
               )
+            }
+            onSendFile={file =>
+              void fileToPayload(file)
+                .then(payload => sendPayload(activeConv, payload, crypto.randomUUID()))
+                .catch(error => setArchiveError(error instanceof Error ? error.message : "Could not prepare this file."))
             }
             onSendVoice={(blob, durationMs) =>
               void voiceToPayload(blob, durationMs)
