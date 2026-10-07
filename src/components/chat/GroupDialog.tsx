@@ -99,7 +99,7 @@ export function GroupDialog({
                   {member.displayName}
                   {member.id === conversation.createdBy ? " · Owner" : ""}
                 </p>
-                <p className="text-xs text-secondary">@{member.username}</p>
+                {member.username && <p className="text-xs text-secondary">@{member.username}</p>}
               </div>
               {owner && member.id !== me?.user.id && !conversation.archived && (
                 <Button
@@ -140,7 +140,7 @@ export function GroupDialog({
                     }}
                   >
                     <span className="min-w-0 text-left">
-                      <span className="block">Add {row.displayName} (@{row.username})</span>
+                      <span className="block">Add {row.displayName}{row.username ? ` (@${row.username})` : ""}</span>
                       {row.bio && <span className="block truncate text-xs text-secondary">{row.bio}</span>}
                     </span>
                   </Button>
