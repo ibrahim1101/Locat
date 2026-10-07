@@ -164,6 +164,26 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     expect(await bob.users.search({ q: "LC-0" })).toEqual([]);
   });
 
+  it("enforces username visibility in directory, requests, keys and conversations", async () => {
+    const aliceCode = (await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) }))!.lcCode!;
+    await alice.users.updateProfile({ displayName: "Garden Person", bio: "Private chat enthusiast", usernameVisibility: "contacts" });
+    expect((await bob.users.search({ q: `LC-${aliceCode}` }))[0].username).toBe("alice");
+    expect((await outsider.users.search({ q: `LC-${aliceCode}` }))[0].username).toBeNull();
+    expect(await outsider.users.search({ q: "alice" })).toEqual([]);
+    expect((await outsider.users.keys({ ids: [aliceId] }))[0].username).toBeNull();
+    expect((await bob.conversations.list())[0].members.find(member => member.id === aliceId)?.username).toBe("alice");
+
+    await outsider.users.updateProfile({ displayName: "Outside Person", bio: "", usernameVisibility: "nobody" });
+    await outsider.users.requestContact({ userId: aliceId });
+    const preview = (await alice.users.contactRequests()).find(row => row.user.id === outsiderId)!;
+    expect(preview.user.username).toBeNull();
+    await alice.users.respondContact({ requestId: preview.id, accept: false });
+
+    await alice.users.updateProfile({ displayName: "Alice Example", bio: "Private chat enthusiast", usernameVisibility: "nobody" });
+    expect((await bob.users.search({ q: `LC-${aliceCode}` }))[0].username).toBeNull();
+    await alice.users.updateProfile({ displayName: "Alice Example", bio: "Private chat enthusiast", usernameVisibility: "everyone" });
+  });
+
   it("assigns unique fixed numeric codes, backfills legacy accounts, and preserves them", async () => {
     let account = (await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) }))!;
     const original = account.lcCode;
