@@ -88,7 +88,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
   it("enforces registration policy without rejecting existing short passwords", async () => {
     const caller = router.createCaller({ req: new Request("http://localhost"), resHeaders: new Headers() });
     const keys = { publicKey: identities[0].publicKeyB64, encryptedPrivateKey: "test", keySalt: "test" };
-    for (const password of ["short", "Password123456789!", "weakuser-long-secret"])
+    for (const password of ["short", "Password123456789!", "weakuser-long-secret", "abcabcabcabcabc", "234567890123456"])
       await expect(caller.auth.register({ username: "weakuser", displayName: "New", password, keys })).rejects.toThrow();
     expect(await db.query.users.findFirst({ where: eq(schema.users.username, "weakuser") })).toBeUndefined();
     const { hashPassword } = await import("../../api/crypto");
