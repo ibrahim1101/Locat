@@ -104,6 +104,15 @@ const data = z
       )
       .max(100000)
       .default([]),
+    contacts: z.array(z.object({
+      id,
+      userLowId: id,
+      userHighId: id,
+      requestedById: id,
+      status: z.enum(["pending", "accepted"]),
+      createdAt: date,
+      updatedAt: date,
+    })).max(100000).default([]),
   })
   .parse(JSON.parse(plain.toString("utf8")));
 const db = await mysql.createConnection(process.env.DATABASE_URL);
@@ -117,6 +126,7 @@ try {
     "sessions",
     "group_keys",
     "push_subscriptions",
+    "contact_relationships",
   ]) {
     const [rows] = await db.query(`SELECT id FROM ${table} LIMIT 1 FOR UPDATE`);
     if (rows.length)
@@ -193,6 +203,14 @@ try {
         row.wrapperPublicKey,
       ]
     );
+  for (const row of data.contacts)
+    await db.query(
+      "INSERT INTO contact_relationships (id,user_low_id,user_high_id,requested_by_id,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?)",
+      [row.id, row.userLowId, row.userHighId, row.requestedById, row.status, row.createdAt, row.updatedAt]
+    );
+  await db.query(
+    "INSERT IGNORE INTO contact_relationships (user_low_id,user_high_id,requested_by_id,status) SELECT LEAST(a.user_id,b.user_id),GREATEST(a.user_id,b.user_id),c.created_by,'accepted' FROM conversations c JOIN conversation_members a ON a.conversation_id=c.id JOIN conversation_members b ON b.conversation_id=c.id AND a.user_id<b.user_id WHERE c.type='direct'"
+  );
   await db.query(
     "INSERT INTO group_keys (conversation_id,user_id,epoch,wrapped_key,wrapper_public_key) SELECT cm.conversation_id,cm.user_id,c.group_epoch,cm.wrapped_key,u.public_key FROM conversation_members cm JOIN conversations c ON c.id=cm.conversation_id JOIN users u ON u.id=cm.wrapped_by WHERE c.type='group' AND cm.wrapped_key IS NOT NULL AND NOT EXISTS (SELECT 1 FROM group_keys g WHERE g.conversation_id=c.id AND g.user_id=cm.user_id AND g.epoch=c.group_epoch)"
   );
