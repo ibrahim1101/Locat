@@ -107,6 +107,7 @@ export function ChatWindow({
   const [recording, setRecording] = useState(false);
   const [recordingMs, setRecordingMs] = useState(0);
   const [recordingError, setRecordingError] = useState("");
+  const [downloadError, setDownloadError] = useState("");
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordingStarted = useRef(0);
   const recordingTimer = useRef<number | null>(null);
@@ -639,7 +640,10 @@ function MessageBubble({
             <p className="whitespace-pre-wrap break-words">{m.payload.text}</p>
           )}
           {m.payload.type === "file" && (
-            <button type="button" onClick={() => downloadFilePayload(m.payload)}
+            <button type="button" onClick={() => {
+              setDownloadError("");
+              void downloadFilePayload(m.payload).catch(() => setDownloadError("Locat could not write to your selected Android folder. Open your profile, choose the storage folder again, then retry the download."));
+            }}
               className="flex min-h-11 max-w-full items-center gap-2 rounded-md border px-3 text-left">
               <Download className="h-4 w-4 shrink-0" />
               <span className="min-w-0">
@@ -648,6 +652,7 @@ function MessageBubble({
               </span>
             </button>
           )}
+          {m.payload.type === "file" && downloadError && <p role="alert" className="mt-2 max-w-72 text-xs text-destructive">{downloadError}</p>}
           {m.payload.type === "voice" && voice && (
             <div className="min-w-56">
               <p className="mb-1 text-xs opacity-75">Voice message · {Math.ceil(m.payload.durationMs / 1000)}s</p>
