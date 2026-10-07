@@ -260,3 +260,32 @@ export function voiceUrl(payload: MessagePayload): string | null {
   if (payload.type !== "voice" || !["audio/webm", "audio/ogg", "audio/mp4"].includes(payload.mime)) return null;
   return URL.createObjectURL(new Blob([b64decode(payload.dataB64) as BlobPart], { type: payload.mime }));
 }
+
+function safeAttachmentName(name: string): string {
+  const cleaned = name.replace(/[\\/\0-\x1f\x7f]/g, "_").trim();
+  return (cleaned || "attachment").slice(0, 255);
+}
+
+export async function fileToPayload(file: File): Promise<MessagePayload> {
+  if (!file.size) throw new Error("This file is empty.");
+  if (file.size > 2_900_000) throw new Error("Files above 2.9 MB will use Locat's upcoming chunked attachment transfer.");
+  return {
+    type: "file",
+    mime: (file.type || "application/octet-stream").slice(0, 255),
+    name: safeAttachmentName(file.name),
+    size: file.size,
+    dataB64: b64encode(await file.arrayBuffer()),
+  };
+}
+
+export function downloadFilePayload(payload: MessagePayload): void {
+  if (payload.type !== "file") return;
+  const blob = new Blob([b64decode(payload.dataB64) as BlobPart], { type: "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = safeAttachmentName(payload.name);
+  link.rel = "noopener";
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
