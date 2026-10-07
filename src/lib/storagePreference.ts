@@ -15,7 +15,7 @@ export function storagePreference(): StoragePreference {
   return { mode: mode === "user-folder" && treeUri ? mode : "internal", treeUri, label: treeUri ? displayTreeUri(treeUri) : null };
 }
 
-export function useInternalStorage(): StoragePreference {
+export function selectInternalStorage(): StoragePreference {
   localStorage.setItem(STORAGE_MODE_KEY, "internal");
   return storagePreference();
 }
