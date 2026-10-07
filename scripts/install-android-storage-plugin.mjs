@@ -15,8 +15,6 @@ import android.net.Uri;
 import android.provider.DocumentsContract;
 import android.util.Base64;
 
-import androidx.documentfile.provider.DocumentFile;
-
 import java.io.OutputStream;
 
 import com.getcapacitor.JSObject;
