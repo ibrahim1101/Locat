@@ -6,19 +6,25 @@ import { AuthProvider } from "./state/auth";
 import App from "./App";
 import "./index.css";
 import { startAppearance } from "./lib/appearance";
+import { isNativeShell, nativeServerUrl } from "./lib/native";
+import { NativeServerSetup } from "./components/NativeServerSetup";
 
 const stopAppearance = startAppearance();
 if (import.meta.hot) import.meta.hot.dispose(stopAppearance);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter>
-      <TRPCProvider><AuthProvider><App /></AuthProvider></TRPCProvider>
-    </BrowserRouter>
+    {isNativeShell() && !nativeServerUrl() ? (
+      <NativeServerSetup />
+    ) : (
+      <BrowserRouter>
+        <TRPCProvider><AuthProvider><App /></AuthProvider></TRPCProvider>
+      </BrowserRouter>
+    )}
   </StrictMode>,
 );
 
-if (import.meta.env.PROD && "serviceWorker" in navigator) {
+if (import.meta.env.PROD && !isNativeShell() && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     void navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).catch(console.error);
   });
