@@ -43,6 +43,14 @@ declare global {
   interface Window {
     LocatStorage?: {
       pickDirectory(): Promise<{ uri: string; name?: string | null }>;
+      writeFile(options: { treeUri: string; name: string; mime: string; dataB64: string }): Promise<{ uri: string; name?: string | null }>;
     };
   }
+}
+
+export async function saveToSelectedFolder(name: string, mime: string, dataB64: string): Promise<boolean> {
+  const pref = storagePreference();
+  if (pref.mode !== "user-folder" || !pref.treeUri || !window.LocatStorage?.writeFile) return false;
+  await window.LocatStorage.writeFile({ treeUri: pref.treeUri, name, mime: mime || "application/octet-stream", dataB64 });
+  return true;
 }
