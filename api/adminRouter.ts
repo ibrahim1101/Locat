@@ -13,6 +13,7 @@ import {
   adminAudit,
   groupKeys,
   pushSubscriptions,
+  contactRelationships,
 } from "@db/schema";
 import { verifyPassword } from "./crypto";
 import { limit } from "./rateLimit";
@@ -244,10 +245,12 @@ export const adminRouter = createRouter({
           .select()
           .from(conversationMembers)
           .limit(100001);
+        const contacts = await tx.select().from(contactRelationships).limit(100001);
         if (
           accounts.length > 10000 ||
           chats.length > 10000 ||
           members.length > 100000 ||
+          contacts.length > 100000 ||
           versions.length > 100000
         )
           throw new TRPCError({
@@ -264,6 +267,7 @@ export const adminRouter = createRouter({
           conversations: chats,
           members,
           groupKeys: versions,
+          contacts,
         };
       });
       const plain = Buffer.from(JSON.stringify(metadata));
