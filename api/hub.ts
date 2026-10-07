@@ -4,6 +4,9 @@
 // transient DB queue on their next sync.
 
 import type { RelayEvent } from "@contracts/types";
+import { getDb } from "./queries/connection";
+import { contactRelationships, users } from "@db/schema";
+import { and, eq, inArray, or } from "drizzle-orm";
 
 type Listener = (event: RelayEvent) => void;
 
@@ -18,7 +21,7 @@ export function subscribe(userId: number, listener: Listener): () => void {
   set.add(listener);
 
   const firstConnection = set.size === 1;
-  if (firstConnection) broadcastPresence();
+  if (firstConnection) void broadcastPresence().catch(() => {});
 
   return () => {
     const s = listeners.get(userId);
@@ -26,13 +29,27 @@ export function subscribe(userId: number, listener: Listener): () => void {
     s.delete(listener);
     if (s.size === 0) {
       listeners.delete(userId);
-      broadcastPresence();
+      void broadcastPresence().catch(() => {});
     }
   };
 }
 
 export function onlineUserIds(): number[] {
   return [...listeners.keys()];
+}
+
+export async function visibleOnlineUserIds(viewerId: number): Promise<number[]> {
+  const online = onlineUserIds();
+  if (!online.length) return [];
+  const relationships = await getDb().select().from(contactRelationships).where(and(
+    eq(contactRelationships.status, "accepted"),
+    or(eq(contactRelationships.userLowId, viewerId), eq(contactRelationships.userHighId, viewerId)),
+  ));
+  const contacts = new Set(relationships.map(row => row.userLowId === viewerId ? row.userHighId : row.userLowId));
+  const rows = await getDb().select({ id: users.id, visibility: users.presenceVisibility })
+    .from(users).where(inArray(users.id, online));
+  return rows.filter(row => row.id === viewerId || row.visibility === "everyone" ||
+    (row.visibility === "contacts" && contacts.has(row.id))).map(row => row.id);
 }
 
 export function emitToUsers(userIds: number[], event: RelayEvent): void {
@@ -49,7 +66,8 @@ export function emitToUsers(userIds: number[], event: RelayEvent): void {
   }
 }
 
-export function broadcastPresence(): void {
-  const event: RelayEvent = { type: "presence", online: onlineUserIds() };
-  emitToUsers(onlineUserIds(), event);
+export async function broadcastPresence(): Promise<void> {
+  await Promise.all(onlineUserIds().map(async viewerId => {
+    emitToUsers([viewerId], { type: "presence", online: await visibleOnlineUserIds(viewerId) });
+  }));
 }
