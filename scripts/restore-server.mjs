@@ -57,6 +57,8 @@ const account = z.object({
   bio: z.string().max(280).nullable().default(null),
   avatar: z.string().max(40_000).regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/).nullable().default(null),
   usernameVisibility: z.enum(["everyone", "contacts", "nobody"]).default("everyone"),
+  profileVisibility: z.enum(["everyone", "contacts", "nobody"]).default("everyone"),
+  presenceVisibility: z.enum(["everyone", "contacts", "nobody"]).default("contacts"),
   passwordHash: z
     .string()
     .regex(/^scrypt\$/)
@@ -150,7 +152,7 @@ try {
   }
   for (const row of data.accounts)
     await db.query(
-      "INSERT INTO users (id,username,display_name,lc_code,bio,avatar,username_visibility,password_hash,public_key,encrypted_private_key,key_salt,disabled,is_admin,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+      "INSERT INTO users (id,username,display_name,lc_code,bio,avatar,username_visibility,profile_visibility,presence_visibility,password_hash,public_key,encrypted_private_key,key_salt,disabled,is_admin,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
       [
         row.id,
         row.username,
@@ -159,6 +161,8 @@ try {
         row.bio,
         row.avatar,
         row.usernameVisibility,
+        row.profileVisibility,
+        row.presenceVisibility,
         row.passwordHash,
         row.publicKey,
         row.encryptedPrivateKey,
