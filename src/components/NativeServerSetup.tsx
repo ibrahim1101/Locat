@@ -1,0 +1,36 @@
+import { useState } from "react";
+import { setNativeServerUrl } from "@/lib/native";
+
+export function NativeServerSetup() {
+  const [server, setServer] = useState("");
+  const [error, setError] = useState("");
+  function save(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      setNativeServerUrl(server);
+      window.location.reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Enter a valid HTTPS Locat server.");
+    }
+  }
+  return (
+    <main className="flex min-h-dvh items-center justify-center bg-background px-4 text-foreground">
+      <form onSubmit={save} className="surface-2 w-full max-w-sm space-y-4 rounded-lg border p-6">
+        <div>
+          <h1 className="text-xl font-semibold">Connect Locat</h1>
+          <p className="mt-2 text-sm text-secondary">Enter the HTTPS address of your Locat server. You only need to do this once on this Android installation.</p>
+        </div>
+        <label className="block text-sm">
+          Server address
+          <input type="url" required autoCapitalize="none" autoCorrect="off"
+            placeholder="https://your-locat-server.example"
+            value={server} onChange={e => setServer(e.target.value)}
+            className="mt-2 h-11 w-full rounded-md border bg-background px-3" />
+        </label>
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        <button type="submit" className="h-11 w-full rounded-md bg-primary font-semibold text-primary-foreground">Connect securely</button>
+        <p className="text-xs text-secondary">Locat Android refuses plain HTTP. The server address stays on this device.</p>
+      </form>
+    </main>
+  );
+}
