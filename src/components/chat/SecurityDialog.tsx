@@ -33,7 +33,7 @@ export function SecurityDialog({
       const mine = { label: `You (@${state.user.username})`, key: state.keys.publicKeyB64 };
       const others = conversation.members
         .filter((m) => m.id !== state.user.id)
-        .map((m) => ({ label: `${m.displayName} (@${m.username})`, key: m.publicKey }));
+        .map((m) => ({ label: `${m.displayName}${m.username ? ` (@${m.username})` : ""}`, key: m.publicKey }));
       const out = [];
       for (const e of [mine, ...others]) {
         out.push({ label: e.label, fp: await keyFingerprintB64(e.key) });
