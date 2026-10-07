@@ -20,6 +20,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
   let outsider: ReturnType<typeof Router.createCaller>;
   let aliceId: number;
   let bobId: number;
+  let outsiderId: number;
   let conversationId: number;
   let envelope: string;
   let receivingKey: CryptoKey;
@@ -42,7 +43,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     process.env.DATABASE_URL = databaseUrl;
     connection = await mysql.createConnection(databaseUrl!);
     await connection.query("SET FOREIGN_KEY_CHECKS=0");
-    for (const table of ["user_blocks", "group_keys", "push_subscriptions", "admin_audit", "send_receipts", "message_deliveries", "messages", "conversation_members", "conversations", "sessions", "users"]) {
+    for (const table of ["contact_relationships", "user_blocks", "group_keys", "push_subscriptions", "admin_audit", "send_receipts", "message_deliveries", "messages", "conversation_members", "conversations", "sessions", "users"]) {
       await connection.query(`DROP TABLE IF EXISTS ${table}`);
     }
     await connection.query("SET FOREIGN_KEY_CHECKS=1");
@@ -63,8 +64,13 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
         sessionToken: registered.token }));
       if (username === "alice") aliceId = registered.user.id;
       if (username === "bob") bobId = registered.user.id;
+      if (username === "outsider") outsiderId = registered.user.id;
     }
     [alice, bob, outsider] = callers;
+    expect(await alice.users.requestContact({ userId: bobId })).toEqual({ status: "pending" });
+    const [request] = await bob.users.contactRequests();
+    expect(request.direction).toBe("incoming");
+    expect(await bob.users.respondContact({ requestId: request.id, accept: true })).toEqual({ status: "accepted" });
     const simultaneous = await Promise.all([
       alice.conversations.createDirect({ userId: bobId }), bob.conversations.createDirect({ userId: aliceId }),
     ]);
@@ -83,6 +89,34 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     expect((await alice.auth.login({ username: "alice", password: "test-password-long" })).user.id).toBe(aliceId);
     await expect(alice.auth.login({ username: "alice", password: "wrong" })).rejects.toThrow("Invalid username");
     expect(await bob.conversations.createDirect({ userId: aliceId })).toEqual({ conversationId, created: false });
+  });
+
+  it("backfills an accepted contact for an existing direct chat", async () => {
+    await db.delete(schema.contactRelationships);
+    setup();
+    expect((await alice.users.contacts()).map(row => row.id)).toContain(bobId);
+  });
+
+  it("handles retries, crossed requests, decline, cancel and contact removal", async () => {
+    await expect(alice.conversations.createDirect({ userId: outsiderId })).rejects.toThrow("contact request");
+    expect(await alice.users.requestContact({ userId: outsiderId })).toEqual({ status: "pending" });
+    expect(await alice.users.requestContact({ userId: outsiderId })).toEqual({ status: "pending" });
+    expect(await outsider.users.requestContact({ userId: aliceId })).toEqual({ status: "accepted" });
+    expect((await alice.users.contacts()).map(row => row.id)).toContain(outsiderId);
+    const direct = await alice.conversations.createDirect({ userId: outsiderId });
+    expect(await alice.users.removeContact({ userId: outsiderId })).toEqual({ removed: true });
+    await expect(alice.messages.send({ conversationId: direct.conversationId, envelope, clientMessageId: crypto.randomUUID() }))
+      .rejects.toThrow("no longer accepted");
+    expect(await alice.users.removeContact({ userId: outsiderId })).toEqual({ removed: false });
+
+    await outsider.users.requestContact({ userId: aliceId });
+    let request = (await alice.users.contactRequests()).find(row => row.user.id === outsiderId)!;
+    expect(await alice.users.respondContact({ requestId: request.id, accept: false })).toEqual({ status: "declined" });
+    expect(await outsider.users.contactRequests()).toEqual([]);
+    await alice.users.requestContact({ userId: outsiderId });
+    request = (await alice.users.contactRequests()).find(row => row.user.id === outsiderId)!;
+    expect(request.direction).toBe("outgoing");
+    expect(await alice.users.removeContact({ userId: outsiderId })).toEqual({ removed: true });
   });
 
   it("enforces registration policy without rejecting existing short passwords", async () => {
@@ -114,6 +148,9 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     await expect(bob.messages.send({ conversationId, envelope, clientMessageId: crypto.randomUUID() })).rejects.toThrow("blocked");
     expect(await alice.users.unblock({ userId: bobId })).toEqual({ blocked: false });
     expect(await alice.users.blocked()).toEqual([]);
+    await alice.users.requestContact({ userId: bobId });
+    const request = (await bob.users.contactRequests()).find(row => row.user.id === aliceId)!;
+    await bob.users.respondContact({ requestId: request.id, accept: true });
     expect(await alice.conversations.createDirect({ userId: bobId })).toEqual({ conversationId, created: false });
   });
 
@@ -440,12 +477,13 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     try {
       expect(restore().stderr).toContain("target database is not empty");
       await connection.query("SET FOREIGN_KEY_CHECKS=0");
-      for(const table of ["group_keys","push_subscriptions","admin_audit","message_deliveries","messages","send_receipts","sessions","conversation_members","conversations","users"]) await connection.query(`DELETE FROM ${table}`);
+      for(const table of ["contact_relationships","user_blocks","group_keys","push_subscriptions","admin_audit","message_deliveries","messages","send_receipts","sessions","conversation_members","conversations","users"]) await connection.query(`DELETE FROM ${table}`);
       await connection.query("SET FOREIGN_KEY_CHECKS=1");
       const result = restore(); expect(result.status, result.stderr).toBe(0);
       expect(await count("users")).toBe(3);
       expect(await count("conversations")).toBe(metadata.conversations.length);
       expect(await count("group_keys")).toBe(metadata.groupKeys.length);
+      expect(await count("contact_relationships")).toBe(metadata.contacts.length);
       expect(await count("sessions")).toBe(0);
       const restored = await db.query.users.findFirst({ where:eq(schema.users.id,aliceId) });
       expect(restored!.isAdmin).toBe(true);
