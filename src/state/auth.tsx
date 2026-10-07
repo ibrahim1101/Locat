@@ -27,6 +27,8 @@ export type SessionUser = {
   bio: string | null;
   avatar?: string | null;
   usernameVisibility: "everyone" | "contacts" | "nobody";
+  profileVisibility: "everyone" | "contacts" | "nobody";
+  presenceVisibility: "everyone" | "contacts" | "nobody";
   publicKey: string;
   isAdmin?: boolean;
 };
