@@ -61,6 +61,25 @@ export const userBlocks = mysqlTable("user_blocks", {
   index("user_blocks_blocked_idx").on(t.blockedId),
 ]);
 
+// One row per unordered pair. Pending rows remember who initiated the request;
+// accepted rows are symmetric contacts. Decline/cancel/remove deletes the row.
+export const contactRelationships = mysqlTable("contact_relationships", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  userLowId: bigint("user_low_id", { mode: "number", unsigned: true }).notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  userHighId: bigint("user_high_id", { mode: "number", unsigned: true }).notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  requestedById: bigint("requested_by_id", { mode: "number", unsigned: true }).notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  status: mysqlEnum("status", ["pending", "accepted"]).notNull().default("pending"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("contact_relationships_pair_unique").on(t.userLowId, t.userHighId),
+  index("contact_relationships_high_idx").on(t.userHighId),
+  index("contact_relationships_requester_idx").on(t.requestedById),
+]);
+
 // ─── Conversations ───────────────────────────────────────────────────────────
 export const conversations = mysqlTable("conversations", {
   id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
