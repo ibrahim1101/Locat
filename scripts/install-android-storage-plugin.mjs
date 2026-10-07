@@ -49,25 +49,28 @@ public class LocatStoragePlugin extends Plugin {
             return;
         }
         try {
-            DocumentFile tree = DocumentFile.fromTreeUri(getContext(), Uri.parse(treeUri));
-            if (tree == null || !tree.canWrite()) {
-                call.reject("The selected Android folder is no longer writable.");
-                return;
-            }
+            Uri tree = Uri.parse(treeUri);
+            String documentId = DocumentsContract.getTreeDocumentId(tree);
+            Uri parent = DocumentsContract.buildDocumentUriUsingTree(tree, documentId);
             String safeName = name.replace("/", "_").replace("\\\\", "_");
-            DocumentFile target = tree.createFile(mime, safeName);
+            Uri target = DocumentsContract.createDocument(
+                getContext().getContentResolver(),
+                parent,
+                mime,
+                safeName
+            );
             if (target == null) {
                 call.reject("Android could not create the file.");
                 return;
             }
             byte[] bytes = Base64.decode(dataB64, Base64.DEFAULT);
-            try (OutputStream stream = getContext().getContentResolver().openOutputStream(target.getUri(), "w")) {
+            try (OutputStream stream = getContext().getContentResolver().openOutputStream(target, "w")) {
                 if (stream == null) throw new IllegalStateException("Could not open output stream.");
                 stream.write(bytes);
             }
             JSObject ret = new JSObject();
-            ret.put("uri", target.getUri().toString());
-            ret.put("name", target.getName());
+            ret.put("uri", target.toString());
+            ret.put("name", safeName);
             call.resolve(ret);
         } catch (Exception error) {
             call.reject("Could not save the file to the selected Android folder.", error);
