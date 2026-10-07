@@ -5,9 +5,10 @@ import { TRPCProvider } from "./providers/trpc";
 import { AuthProvider } from "./state/auth";
 import App from "./App";
 import "./index.css";
+import { startAppearance } from "./lib/appearance";
 
-const savedTheme = localStorage.getItem("locat-theme") ?? "dark";
-document.documentElement.dataset.theme = savedTheme === "system" ? matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light" : savedTheme;
+const stopAppearance = startAppearance();
+if (import.meta.hot) import.meta.hot.dispose(stopAppearance);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -70,3 +70,19 @@ body { overscroll-behavior: none; }
   --border: 215 20% 85%; --input: 215 20% 80%;
   --sidebar-background: 210 25% 96%; --sidebar-foreground: 222 28% 12%;
 }
+
+:root {
+  --ring: var(--primary);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-ring: var(--primary);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+}
+:root[data-accent="blue"] { --primary: 210 90% 68%; }
+:root[data-accent="violet"] { --primary: 265 85% 75%; }
+:root[data-accent="rose"] { --primary: 340 85% 73%; }
+:root[data-theme="light"][data-accent="blue"] { --primary: 210 85% 35%; }
+:root[data-theme="light"][data-accent="violet"] { --primary: 265 65% 42%; }
+:root[data-theme="light"][data-accent="rose"] { --primary: 340 75% 36%; }
