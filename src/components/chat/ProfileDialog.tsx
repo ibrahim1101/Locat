@@ -19,6 +19,7 @@ export function ProfileDialog({ user, open, onOpenChange }: {
   const [usernameVisibility, setUsernameVisibility] = useState(user.usernameVisibility ?? "everyone");
   const [profileVisibility, setProfileVisibility] = useState(user.profileVisibility ?? "everyone");
   const [presenceVisibility, setPresenceVisibility] = useState(user.presenceVisibility ?? "contacts");
+  const [allowAvatarDownload, setAllowAvatarDownload] = useState(user.allowAvatarDownload ?? false);
   const [preparing, setPreparing] = useState(false);
   const pictureInput = useRef<HTMLInputElement>(null);
   const savePicture = trpc.users.setAvatar.useMutation({
@@ -95,6 +96,12 @@ export function ProfileDialog({ user, open, onOpenChange }: {
             .catch(() => setFeedback("Copy is unavailable. Select and copy the code above."))}>Copy</Button></div>
         <p className="text-xs text-secondary">Share this code to help people find you on this server.</p>
       </div>
+      <label className="flex items-center gap-3 text-sm">
+        <input type="checkbox" checked={allowAvatarDownload} disabled={busy}
+          onChange={event => setAllowAvatarDownload(event.target.checked)} />
+        Allow people who can see my picture to download it
+      </label>
+      <p className="text-xs text-secondary">Turning this off removes Locat’s download option. People who can view your picture can still take screenshots or save it through their browser.</p>
       <div className="space-y-2"><Label htmlFor="profile-bio">Bio</Label>
         <textarea id="profile-bio" value={bio} maxLength={280} disabled={busy} onChange={e => setBio(e.target.value)}
           className="min-h-24 w-full resize-y rounded-md border bg-background p-3 text-sm" placeholder="A little about you" />
@@ -102,7 +109,7 @@ export function ProfileDialog({ user, open, onOpenChange }: {
       </div>
       <Button disabled={busy || !displayName.trim()} onClick={() => void (async () => {
         if (avatar !== (user.avatar ?? null)) await savePicture.mutateAsync({ avatar });
-        await update.mutateAsync({ displayName: displayName.trim(), bio, usernameVisibility, profileVisibility, presenceVisibility });
+        await update.mutateAsync({ displayName: displayName.trim(), bio, usernameVisibility, profileVisibility, presenceVisibility, allowAvatarDownload });
       })().catch(() => {})}>
         {update.isPending ? "Saving…" : "Save profile"}</Button>
       {feedback && <p role="status" className="text-sm">{feedback}</p>}

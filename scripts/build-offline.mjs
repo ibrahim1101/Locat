@@ -47,15 +47,16 @@ async function pushAccount(value) {
   } finally { db.close(); }
 }
 self.addEventListener('message', event => {
-  if (event.data?.type === 'locat-push-account' && Number.isSafeInteger(event.data.userId) && event.data.userId >= 0) event.waitUntil(pushAccount(event.data.userId));
+  if (event.data?.type === 'locat-push-account' && Number.isSafeInteger(event.data.userId) && event.data.userId >= 0) {
+    event.waitUntil(pushAccount(event.data.userId).then(() => event.ports[0]?.postMessage({ saved: true })));
+  }
 });
 self.addEventListener('push', event => {
   event.waitUntil((async () => {
     let payload;
     try { payload = event.data?.json(); } catch { return; }
     if (payload?.type !== 'new-message' || !payload.userId || payload.userId !== await pushAccount()) return;
-    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    if (clients.some(client => client.visibilityState === 'visible')) return;
+    // Firefox counts silent pushes against its quota. Every valid opted-in push displays an alert.
     await self.registration.showNotification('Locat', { body: 'New messages on Locat', icon: '/icon-192.png', badge: '/icon-192.png', tag: 'locat-inbox', data: { url: '/' } });
   })());
 });

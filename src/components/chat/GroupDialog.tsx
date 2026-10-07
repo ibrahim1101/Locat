@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Avatar } from "./Avatar";
+import { FriendProfileDialog } from "./FriendProfileDialog";
 
 export function GroupDialog({
   conversation,
@@ -27,6 +29,7 @@ export function GroupDialog({
   const me = state.status === "ready" ? state : null;
   const owner = conversation.createdBy === me?.user.id;
   const [name, setName] = useState(conversation.name ?? "Group");
+  const [profileId, setProfileId] = useState<number | null>(null);
   const [members, setMembers] = useState<PublicUser[]>(conversation.members);
   const [search, setSearch] = useState(""),
     [newOwner, setNewOwner] = useState(""),
@@ -94,13 +97,17 @@ export function GroupDialog({
               key={member.id}
               className="flex items-center justify-between gap-2 rounded-lg border p-3"
             >
-              <div>
+              <button type="button" className="flex min-w-0 items-center gap-3 text-left" onClick={() => setProfileId(member.id)}
+                aria-label={`View ${member.displayName}'s profile`}>
+                <Avatar avatar={member.avatar} name={member.displayName} id={member.id} size={38} />
+                <div>
                 <p className="text-sm font-medium">
                   {member.displayName}
                   {member.id === conversation.createdBy ? " · Owner" : ""}
                 </p>
                 {member.username && <p className="text-xs text-secondary">@{member.username}</p>}
-              </div>
+                </div>
+              </button>
               {owner && member.id !== me?.user.id && !conversation.archived && (
                 <Button
                   size="sm"
@@ -294,6 +301,7 @@ export function GroupDialog({
             {feedback}
           </p>
         )}
+        {profileId !== null && <FriendProfileDialog key={profileId} userId={profileId} onClose={() => setProfileId(null)} />}
       </DialogContent>
     </Dialog>
   );

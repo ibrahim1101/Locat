@@ -5,6 +5,7 @@ import type { ConversationSummary } from "@contracts/types";
 import { imageUrl } from "@/lib/crypto";
 import { dayLabel, sameDay, timeLabel } from "@/lib/format";
 import { Avatar, AvatarStack } from "./Avatar";
+import { FriendProfileDialog } from "./FriendProfileDialog";
 import {
   ArrowLeft,
   ImagePlus,
@@ -79,6 +80,7 @@ export function ChatWindow({
   onToggleBlock: () => void;
 }) {
   const [draft, setDraft] = useState("");
+  const [profileId, setProfileId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [atBottom, setAtBottom] = useState(true);
@@ -133,6 +135,8 @@ export function ChatWindow({
           <ArrowLeft className="h-5 w-5" />
         </button>
         {conversation.type === "direct" ? (
+          <button type="button" aria-label={`View ${title}'s profile`} disabled={!otherId}
+            className="rounded-full focus-visible:outline focus-visible:outline-2" onClick={() => otherId && setProfileId(otherId)}>
           <Avatar
             avatar={conversation.members.find(m => m.id !== myId)?.avatar}
             name={title}
@@ -140,6 +144,7 @@ export function ChatWindow({
             size={38}
             online={otherId ? online.has(otherId) : undefined}
           />
+          </button>
         ) : (
           <AvatarStack members={conversation.members} size={38} />
         )}
@@ -188,6 +193,7 @@ export function ChatWindow({
           <ShieldCheck className="h-5 w-5" />
         </button>
       </header>
+      {profileId !== null && <FriendProfileDialog key={profileId} userId={profileId} onClose={() => setProfileId(null)} />}
 
       {searchOpen && (
         <div className="border-b p-3">

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/state/auth";
 import { Button } from "@/components/ui/button";
-import { stopDeviceNotifications } from "@/lib/notifications";
+import { stopDeviceNotifications, setNotificationAccount } from "@/lib/notifications";
 
 export function Notifications() {
   const { state } = useAuth();
@@ -13,6 +13,7 @@ export function Notifications() {
   const [feedback, setFeedback] = useState(""),
     [busy, setBusy] = useState(false);
   const supported =
+    window.isSecureContext &&
     "serviceWorker" in navigator &&
     "PushManager" in window &&
     "Notification" in window;
@@ -87,16 +88,13 @@ export function Notifications() {
                 const json = subscription.toJSON();
                 if (!json.endpoint || !json.keys?.auth || !json.keys?.p256dh)
                   throw new Error("Browser did not provide notification keys.");
+                await setNotificationAccount(registration, state.user.id);
                 await subscribe.mutateAsync({
                   endpoint: json.endpoint,
                   keys: { auth: json.keys.auth, p256dh: json.keys.p256dh },
                 });
-                registration.active?.postMessage({
-                  type: "locat-push-account",
-                  userId: state.user.id,
-                });
                 setFeedback(
-                  "Notifications enabled for this account and browser. Try the test with Locat in the background."
+                  "Notifications enabled for this account and browser. You can now send a test."
                 );
               })
             }
@@ -130,7 +128,7 @@ export function Notifications() {
               void perform(async () => {
                 await test.mutateAsync();
                 setFeedback(
-                  "Test requested. Background Locat to see the alert; delivery depends on your browser and network."
+                  "Test requested. Delivery depends on your browser and network."
                 );
               })
             }
