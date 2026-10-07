@@ -43,6 +43,10 @@ try {
   if (Number(avatarColumn.n) === 0) await connection.query("ALTER TABLE users ADD COLUMN avatar TEXT NULL");
   const [[usernameVisibilityColumn]] = await connection.query("SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'username_visibility'");
   if (Number(usernameVisibilityColumn.n) === 0) await connection.query("ALTER TABLE users ADD COLUMN username_visibility ENUM('everyone','contacts','nobody') NOT NULL DEFAULT 'everyone'");
+  for (const [name, defaultValue] of [["profile_visibility", "everyone"], ["presence_visibility", "contacts"]]) {
+    const [[privacyColumn]] = await connection.query("SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = ?", [name]);
+    if (Number(privacyColumn.n) === 0) await connection.query(`ALTER TABLE users ADD COLUMN ${name} ENUM('everyone','contacts','nobody') NOT NULL DEFAULT '${defaultValue}'`);
+  }
   const [[column]] = await connection.query(
     "SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'messages' AND COLUMN_NAME = 'client_message_id'",
   );
