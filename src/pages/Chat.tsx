@@ -15,6 +15,7 @@ import {
   deriveDirectKey,
   encryptPayload,
   imageToPayload,
+  voiceToPayload,
   unwrapGroupKey,
 } from "@/lib/crypto";
 import {
@@ -850,7 +851,9 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
                     {last
                       ? last.payload.type === "image"
                         ? "🖼 image"
-                        : (last.outgoing ? "you: " : "") + last.payload.text
+                        : last.payload.type === "voice"
+                          ? `${last.outgoing ? "you: " : ""}🎙 voice message`
+                          : (last.outgoing ? "you: " : "") + last.payload.text
                       : c.type === "group"
                         ? `${c.members.length} members`
                         : "say hello"}
@@ -946,6 +949,11 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
                   "Could not prepare this image. Try a smaller image or a different format."
                 )
               )
+            }
+            onSendVoice={(blob, durationMs) =>
+              void voiceToPayload(blob, durationMs)
+                .then(payload => sendPayload(activeConv, payload, crypto.randomUUID()))
+                .catch(error => setArchiveError(error instanceof Error ? error.message : "Could not prepare this voice message."))
             }
             onRetry={tempId => {
               const failed = messages.find(m => m.tempId === tempId);
