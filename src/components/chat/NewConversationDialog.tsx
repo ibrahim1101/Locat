@@ -1,5 +1,5 @@
 import { userCode } from "@contracts/userCode";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,206 +9,128 @@ import { generateGroupKey, wrapGroupKey } from "@/lib/crypto";
 import { Avatar } from "./Avatar";
 import type { PublicUser } from "@contracts/types";
 
-export function NewConversationDialog({
-  open,
-  onOpenChange,
-  onCreated,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  onCreated: (conversationId: number) => void;
+type Tab = "people" | "requests" | "group";
+
+export function NewConversationDialog({ open, onOpenChange, onCreated }: {
+  open: boolean; onOpenChange: (value: boolean) => void; onCreated: (conversationId: number) => void;
 }) {
   const { state } = useAuth();
   const me = state.status === "ready" ? state : null;
-  const [tab, setTab] = useState<"direct" | "group">("direct");
-  const [q, setQ] = useState("");
+  const [tab, setTab] = useState<Tab>("people");
+  const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [groupName, setGroupName] = useState("");
   const [selected, setSelected] = useState<PublicUser[]>([]);
-  const [busy, setBusy] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(q.trim()), 250);
-    return () => clearTimeout(t);
-  }, [q]);
-
-  const search = trpc.users.search.useQuery(
-    { q: debounced },
-    { enabled: open && debounced.length > 0 },
-  );
-  const createDirect = trpc.conversations.createDirect.useMutation();
-  const createGroup = trpc.conversations.createGroup.useMutation();
   const utils = trpc.useUtils();
 
-  const results = useMemo(() => {
-    const rows = (search.data ?? []) as PublicUser[];
-    return rows.filter((r) => !selected.some((s) => s.id === r.id));
-  }, [search.data, selected]);
+  useEffect(() => { const timer = setTimeout(() => setDebounced(query.trim()), 250); return () => clearTimeout(timer); }, [query]);
+  const search = trpc.users.search.useQuery({ q: debounced }, { enabled: open && debounced.length > 0 });
+  const contacts = trpc.users.contacts.useQuery(undefined, { enabled: open });
+  const requests = trpc.users.contactRequests.useQuery(undefined, { enabled: open });
+  const requestContact = trpc.users.requestContact.useMutation();
+  const respondContact = trpc.users.respondContact.useMutation();
+  const removeContact = trpc.users.removeContact.useMutation();
+  const createDirect = trpc.conversations.createDirect.useMutation();
+  const createGroup = trpc.conversations.createGroup.useMutation();
+  const contactIds = useMemo(() => new Set((contacts.data ?? []).map(row => row.id)), [contacts.data]);
+  const requestByUser = useMemo(() => new Map((requests.data ?? []).map(row => [row.user.id, row])), [requests.data]);
+  const results = useMemo(() => ((search.data ?? []) as PublicUser[]).filter(row => !selected.some(item => item.id === row.id)), [search.data, selected]);
+  const incomingCount = (requests.data ?? []).filter(row => row.direction === "incoming").length;
 
-  async function startDirect(user: PublicUser) {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await createDirect.mutateAsync({ userId: user.id });
-      await utils.conversations.list.invalidate();
-      onCreated(res.conversationId);
-      onOpenChange(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to start chat");
-    } finally {
-      setBusy(false);
-    }
+  async function refreshPeople() { await Promise.all([utils.users.contacts.invalidate(), utils.users.contactRequests.invalidate()]); }
+  async function run(id: number, action: () => Promise<unknown>, fallback: string) {
+    setBusyId(id); setError(null);
+    try { await action(); } catch (cause) { setError(cause instanceof Error ? cause.message : fallback); }
+    finally { setBusyId(null); }
   }
-
+  async function startDirect(user: PublicUser) {
+    await run(user.id, async () => {
+      const result = await createDirect.mutateAsync({ userId: user.id });
+      await utils.conversations.list.invalidate(); onCreated(result.conversationId); onOpenChange(false);
+    }, "Could not start this chat.");
+  }
   async function startGroup() {
     if (!me || selected.length === 0 || !groupName.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
+    await run(0, async () => {
       const groupKey = await generateGroupKey();
-      const myPublic: PublicUser = {
-        id: me.user.id,
-        username: me.user.username,
-        displayName: me.user.displayName,
-        bio: me.user.bio,
-        lcCode: me.user.lcCode,
-        publicKey: me.keys.publicKeyB64,
-      };
-      const all = [myPublic, ...selected];
-      const wrappedKeys = await Promise.all(
-        all.map(async (m) => ({
-          userId: m.id,
-          publicKey: m.publicKey,
-          wrappedKey: await wrapGroupKey(groupKey, me.keys.privateKey, m.publicKey),
-        })),
-      );
-      const res = await createGroup.mutateAsync({
-        name: groupName.trim(),
-        memberIds: selected.map((m) => m.id),
-        wrappedKeys,
-      });
-      await utils.conversations.list.invalidate();
-      onCreated(res.conversationId);
-      onOpenChange(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create group");
-    } finally {
-      setBusy(false);
-    }
+      const myself: PublicUser = { id: me.user.id, username: me.user.username, displayName: me.user.displayName,
+        bio: me.user.bio, lcCode: me.user.lcCode, publicKey: me.keys.publicKeyB64 };
+      const wrappedKeys = await Promise.all([myself, ...selected].map(async member => ({ userId: member.id,
+        publicKey: member.publicKey, wrappedKey: await wrapGroupKey(groupKey, me.keys.privateKey, member.publicKey) })));
+      const result = await createGroup.mutateAsync({ name: groupName.trim(), memberIds: selected.map(member => member.id), wrappedKeys });
+      await utils.conversations.list.invalidate(); onCreated(result.conversationId); onOpenChange(false);
+    }, "Could not create this group.");
   }
-
-  function reset() {
-    setQ("");
-    setSelected([]);
-    setGroupName("");
-    setError(null);
+  function person(user: PublicUser, actions: ReactNode) {
+    return <div key={user.id} className="flex min-h-14 items-center gap-3 rounded-lg border bg-background px-3 py-2">
+      <Avatar avatar={user.avatar} name={user.displayName} id={user.id} size={36} />
+      <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{user.displayName}</span>
+        <span className="micro-label block normal-case tracking-normal">@{user.username} · {userCode(user.lcCode!)}</span></span>
+      <span className="flex shrink-0 gap-2">{actions}</span>
+    </div>;
   }
+  function reset() { setTab("people"); setQuery(""); setSelected([]); setGroupName(""); setError(null); }
 
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        onOpenChange(v);
-        if (!v) reset();
-      }}
-    >
-      <DialogContent className="surface-2 border sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="tracking-tight">New conversation</DialogTitle>
-        </DialogHeader>
+  return <Dialog open={open} onOpenChange={value => { onOpenChange(value); if (!value) reset(); }}>
+    <DialogContent className="surface-2 border sm:max-w-lg">
+      <DialogHeader><DialogTitle>People and conversations</DialogTitle></DialogHeader>
+      <div className="grid grid-cols-3 gap-1 rounded-lg border bg-background p-1" role="tablist" aria-label="Conversation options">
+        {(["people", "requests", "group"] as const).map(item => <button key={item} type="button" role="tab" aria-selected={tab === item}
+          onClick={() => { setTab(item); setError(null); }} className={`min-h-11 rounded-md px-2 text-sm font-medium ${tab === item ? "surface-3 text-foreground" : "text-secondary hover:text-foreground"}`}>
+          {item === "people" ? "People" : item === "requests" ? `Requests${incomingCount ? ` (${incomingCount})` : ""}` : "Group"}
+        </button>)}
+      </div>
+      {tab !== "requests" && <Input aria-label={tab === "group" ? "Find group members" : "Find people"}
+        placeholder="Name, username or LC-1234…" value={query} onChange={event => setQuery(event.target.value)} className="h-11 border-input bg-background" autoFocus />}
+      {tab === "group" && <Input aria-label="Group name" placeholder="Group name" value={groupName}
+        onChange={event => setGroupName(event.target.value)} className="h-11 border-input bg-background" />}
 
-        <div className="grid grid-cols-2 gap-1 rounded-md border bg-background p-1">
-          {(["direct", "group"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={`h-11 rounded-[4px] text-sm font-medium transition-colors ${
-                tab === t ? "surface-3 text-foreground" : "text-secondary hover:text-foreground"
-              }`}
-            >
-              {t === "direct" ? "Direct" : "Group"}
-            </button>
-          ))}
-        </div>
-
-        {tab === "group" && (
-          <Input
-            placeholder="Group name"
-            value={groupName}
-            onChange={(e) => setGroupName(e.target.value)}
-            className="h-11 border-input bg-background"
-          />
-        )}
-
-        <Input
-          placeholder="Name, username or LC-code…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="h-11 border-input bg-background"
-          autoFocus
-        />
-
-        {selected.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {selected.map((u) => (
-              <button
-                key={u.id}
-                type="button"
-                onClick={() => setSelected((s) => s.filter((x) => x.id !== u.id))}
-                className="micro-label flex h-11 items-center gap-2 rounded-full border px-3 normal-case tracking-normal hover:border-primary"
-                title="Remove"
-              >
-                {u.displayName} <span aria-hidden>×</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="scroll-slim max-h-64 space-y-1 overflow-y-auto">
-          {debounced.length === 0 && (
-            <p className="micro-label px-1 py-6 text-center normal-case tracking-normal">
-              Type a name to find people
-            </p>
-          )}
-          {debounced.length > 0 && results.length === 0 && !search.isLoading && (
-            <p className="micro-label px-1 py-6 text-center normal-case tracking-normal">
-              No one found for “{debounced}”
-            </p>
-          )}
-          {results.map((u) => (
-            <button
-              key={u.id}
-              type="button"
-              disabled={busy}
-              onClick={() => (tab === "direct" ? void startDirect(u) : setSelected((s) => [...s, u]))}
-              className="flex min-h-11 w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent"
-            >
-              <Avatar avatar={u.avatar} name={u.displayName} id={u.id} size={36} />
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-medium">{u.displayName}</span>
-                <span className="micro-label block normal-case tracking-normal">@{u.username} · {userCode(u.lcCode!)}</span>
-                {u.bio && <span className="block truncate text-xs text-secondary">{u.bio}</span>}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {error && <p className="text-sm text-destructive">{error}</p>}
-
-        {tab === "group" && (
-          <Button
-            disabled={busy || selected.length === 0 || !groupName.trim()}
-            onClick={startGroup}
-            className="h-11 bg-primary font-semibold text-primary-foreground hover:bg-primary/90 active:scale-[0.98]"
-          >
-            {busy
-              ? "Encrypting keys…"
-              : `Create group${selected.length > 0 ? ` (${selected.length + 1})` : ""}`}
-          </Button>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
+      <div className="scroll-slim max-h-[min(55vh,28rem)] space-y-2 overflow-y-auto pr-1">
+        {tab === "people" && !debounced && <>
+          <p className="micro-label px-1 normal-case tracking-normal">Your contacts</p>
+          {contacts.isLoading && <p className="px-1 py-6 text-center text-sm text-secondary">Loading contacts…</p>}
+          {!contacts.isLoading && !contacts.data?.length && <p className="px-1 py-6 text-center text-sm text-secondary">No contacts yet. Search by LC number or name to add someone.</p>}
+          {(contacts.data ?? []).map(user => person(user as PublicUser, <><Button size="sm" disabled={busyId === user.id} onClick={() => void startDirect(user as PublicUser)}>Chat</Button>
+            <Button size="sm" variant="outline" disabled={busyId === user.id} onClick={() => { if (window.confirm(`Remove ${user.displayName} from your contacts? Existing chat history stays on both devices.`))
+              void run(user.id, async () => { await removeContact.mutateAsync({ userId: user.id }); await refreshPeople(); }, "Could not remove contact."); }}>Remove</Button></>))}
+        </>}
+        {tab === "people" && debounced && <>
+          {search.isLoading && <p className="py-6 text-center text-sm text-secondary">Searching…</p>}
+          {!search.isLoading && results.length === 0 && <p className="py-6 text-center text-sm text-secondary">No people found for “{debounced}”.</p>}
+          {results.map(user => { const pending = requestByUser.get(user.id); return person(user, contactIds.has(user.id)
+            ? <Button size="sm" disabled={busyId === user.id} onClick={() => void startDirect(user)}>Chat</Button>
+            : pending?.direction === "incoming" ? <Button size="sm" disabled={busyId === user.id} onClick={() => void run(user.id, async () => {
+                await respondContact.mutateAsync({ requestId: pending.id, accept: true }); await refreshPeople(); }, "Could not accept request.")}>Accept</Button>
+            : pending ? <Button size="sm" variant="outline" disabled>Requested</Button>
+            : <Button size="sm" disabled={busyId === user.id} onClick={() => void run(user.id, async () => {
+                await requestContact.mutateAsync({ userId: user.id }); await refreshPeople(); }, "Could not send request.")}>Add</Button>); })}
+        </>}
+        {tab === "requests" && <>
+          {requests.isLoading && <p className="py-6 text-center text-sm text-secondary">Loading requests…</p>}
+          {!requests.isLoading && !requests.data?.length && <p className="py-6 text-center text-sm text-secondary">No pending friend requests.</p>}
+          {(requests.data ?? []).map(request => person(request.user as PublicUser, request.direction === "incoming" ? <>
+            <Button size="sm" disabled={busyId === request.user.id} onClick={() => void run(request.user.id, async () => {
+              await respondContact.mutateAsync({ requestId: request.id, accept: true }); await refreshPeople(); }, "Could not accept request.")}>Accept</Button>
+            <Button size="sm" variant="outline" disabled={busyId === request.user.id} onClick={() => void run(request.user.id, async () => {
+              await respondContact.mutateAsync({ requestId: request.id, accept: false }); await refreshPeople(); }, "Could not decline request.")}>Decline</Button>
+          </> : <Button size="sm" variant="outline" disabled={busyId === request.user.id} onClick={() => void run(request.user.id, async () => {
+            await removeContact.mutateAsync({ userId: request.user.id }); await refreshPeople(); }, "Could not cancel request.")}>Cancel</Button>))}
+        </>}
+        {tab === "group" && <>
+          {selected.length > 0 && <div className="flex flex-wrap gap-2">{selected.map(user => <button key={user.id} type="button"
+            onClick={() => setSelected(items => items.filter(item => item.id !== user.id))} className="min-h-11 rounded-full border px-3 text-sm hover:border-primary">{user.displayName} ×</button>)}</div>}
+          {!debounced && <p className="py-6 text-center text-sm text-secondary">Search for people to add to the group.</p>}
+          {debounced && !search.isLoading && results.length === 0 && <p className="py-6 text-center text-sm text-secondary">No people found.</p>}
+          {results.map(user => person(user, <Button size="sm" variant="outline" disabled={busyId !== null}
+            onClick={() => setSelected(items => [...items, user])}>Select</Button>))}
+        </>}
+      </div>
+      {(contacts.isError || requests.isError || search.isError) && <p role="alert" className="text-sm text-destructive">Could not load people. Check your connection and try again.</p>}
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {tab === "group" && <Button disabled={busyId !== null || selected.length === 0 || !groupName.trim()} onClick={() => void startGroup()} className="h-11">
+        {busyId === 0 ? "Encrypting keys…" : `Create group${selected.length ? ` (${selected.length + 1})` : ""}`}</Button>}
+    </DialogContent>
+  </Dialog>;
 }
