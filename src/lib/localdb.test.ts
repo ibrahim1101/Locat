@@ -3,13 +3,29 @@ import { openDB } from "idb";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applyMessageControl, applyReadReceipt, messageReference, allMessages, cacheConversations, cachedConversations, savePending, pendingMessages, completePending, deleteLocalMessage, importMessages, kvGet, kvSet, migrateLegacyHistory, storeMessage, wipeAll } from "./localdb";
 import type { LocalMessage } from "./localdb";
-import { hiddenConversationIds, setConversationHidden } from "./localdb";
+import { hiddenConversationIds, setConversationHidden, setMessageHidden, getMessages, latestMessagePerConversation } from "./localdb";
 
 const message: LocalMessage = { mid: 7, conversationId: 10, senderId: 1,
   senderName: "Alice", outgoing: true, payload: { type: "text", text: "hello" }, createdAt: 1000 };
 beforeEach(async () => { await wipeAll(1); await wipeAll(2); });
 
 describe("account-local history", () => {
+  it("hides messages without deleting content and preserves choices through edits and imports", async () => {
+    await storeMessage(1, message);
+    await setMessageHidden(1, message.mid, true);
+    expect((await getMessages(1, 10))[0].hidden).toBe(true);
+    expect((await latestMessagePerConversation(1)).has(10)).toBe(false);
+    expect((await allMessages(1))[0].payload).toEqual(message.payload);
+    expect((await allMessages(1))[0].hidden).toBeUndefined();
+    await applyMessageControl(1, 10, 1, { type: "control", version: 1, action: "edit", target: "legacy:7", text: "changed" }, 20, 2000);
+    await importMessages(1, [message]);
+    expect((await getMessages(1, 10))[0]).toMatchObject({ hidden: true, payload: { text: "changed" } });
+    await storeMessage(2, message);
+    expect((await getMessages(2, 10))[0].hidden).toBeUndefined();
+    await setMessageHidden(1, 7, false);
+    expect((await getMessages(1, 10))[0].hidden).toBeUndefined();
+    expect((await latestMessagePerConversation(1)).get(10)?.payload).toMatchObject({ text: "changed" });
+  });
   it("preserves hidden chats across deliveries and imports without sharing account settings", async () => {
     await setConversationHidden(1, 10, true);
     await setConversationHidden(1, 11, true);

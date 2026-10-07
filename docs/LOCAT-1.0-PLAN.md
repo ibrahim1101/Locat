@@ -191,6 +191,12 @@ These extend the single Locat 1.0 release; they are requirements, not completed 
 - Item 12 implemented: direct/group chats can be hidden and restored through a separate Hidden chats sidebar view. Regular-list search excludes hidden chats. Account-scoped local settings survive reopening, incoming deliveries and history imports without deleting messages. Hidden chats remain accessible in the unlocked session; hiding does not silence push notifications, lock content or sync to other devices. Exported backups do not include hidden choices. See docs/HIDDEN-CHATS.md.
 - All 60 tests passed against fresh MariaDB, including account isolation and delivery/import persistence of hidden choices. Typecheck, lint (0 errors, existing warnings), build and whitespace checks passed. GitHub workflow and physical acceptance pending at publication. Accepted remains 6/44; item 12 is awaiting device testing.
 
+## Individual hidden messages — 2026-10-07
+
+- Items 04/11 implemented: saved messages expose local hide/restore actions, and each conversation has a separate searchable Hidden messages view. Regular message search and sidebar previews exclude hidden content. Flags are stored separately per account and message ID, retaining original content and surviving edits, deletion controls and imports. Pending messages cannot be hidden. Sending returns to the regular view; opening a chat does not automatically emit new read receipts for hidden messages. Prior receipts cannot be withdrawn.
+- Hiding provides organization, not a lock or encryption at rest. Hidden content remains in encrypted chat exports; the hiding choices are device-only and excluded from backups. See docs/HIDDEN-MESSAGES.md. All 61 tests passed with fresh MariaDB, including hidden-message projection, account isolation, edits, imports, preview exclusion and restoration. Typecheck, lint and production build passed; final publication workflow and device acceptance pending. Accepted remains 6/44.
+- Previous hidden-chat publication verified: GitHub run 37597696651 passed verification and Docker smoke checks at 2fedcd2a34f7b75a2004d6d3c9fa98cf8ccc6ffb. Item 12 remains awaiting physical acceptance.
+
 ## Firefox notification setup hardening — 2026-10-07
 
 - Preserved latest branch work at 2fedcd2a34f7b75a2004d6d3c9fa98cf8ccc6ffb. Its GitHub Actions run 37597696651 completed successfully, superseding the hidden-chats checkpoint's pending CI note.

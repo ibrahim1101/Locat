@@ -17,6 +17,7 @@ export type LocalMessage = {
   deleted?: boolean;
   editedAt?: number;
   readBy?: number[];
+  hidden?: boolean; // Derived device-only view state, excluded from archives.
 };
 
 type KvValue = string | number | Record<string, unknown>;
@@ -80,6 +81,13 @@ export async function hiddenConversationIds(userId: number): Promise<number[]> {
 export async function setConversationHidden(userId: number, conversationId: number, hidden: boolean): Promise<void> {
   if (!Number.isSafeInteger(conversationId) || conversationId <= 0) throw new Error("Invalid conversation");
   const key = `hidden-chat:${conversationId}`;
+  if (hidden) await kvSet(userId, key, 1);
+  else await kvDel(userId, key);
+}
+
+export async function setMessageHidden(userId: number, mid: number, hidden: boolean): Promise<void> {
+  if (!Number.isSafeInteger(mid) || mid <= 0) throw new Error("Invalid message");
+  const key = `hidden-message:${mid}`;
   if (hidden) await kvSet(userId, key, 1);
   else await kvDel(userId, key);
 }
@@ -181,13 +189,17 @@ export async function getMessages(userId: number, conversationId: number): Promi
     "byConv",
     conversationId,
   );
-  return rows.sort((a, b) => a.createdAt - b.createdAt || a.mid - b.mid);
+  const keys = new Set(await (await db(userId)).getAllKeys("kv"));
+  return rows.map(row => keys.has(`hidden-message:${row.mid}`) ? { ...row, hidden: true } : row)
+    .sort((a, b) => a.createdAt - b.createdAt || a.mid - b.mid);
 }
 
 export async function latestMessagePerConversation(userId: number): Promise<Map<number, LocalMessage>> {
   const all: LocalMessage[] = await (await db(userId)).getAll("messages");
+  const keys = new Set(await (await db(userId)).getAllKeys("kv"));
   const map = new Map<number, LocalMessage>();
   for (const m of all) {
+    if (keys.has(`hidden-message:${m.mid}`)) continue;
     const cur = map.get(m.conversationId);
     if (!cur || m.mid > cur.mid) map.set(m.conversationId, m);
   }

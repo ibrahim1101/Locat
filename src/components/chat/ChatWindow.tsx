@@ -66,6 +66,7 @@ export function ChatWindow({
   onToggleBlock,
   hidden,
   onToggleHidden,
+  onToggleMessageHidden,
 }: {
   conversation: ConversationSummary;
   messages: UiMessage[];
@@ -84,8 +85,10 @@ export function ChatWindow({
   onToggleBlock: () => void;
   hidden: boolean;
   onToggleHidden: () => void;
+  onToggleMessageHidden: (message: LocalMessage) => void;
 }) {
   const [draft, setDraft] = useState("");
+  const [showHiddenMessages, setShowHiddenMessages] = useState(false);
   const [profileId, setProfileId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -128,9 +131,15 @@ export function ChatWindow({
     setReply(null);
   }
 
+  const visibleMessages = messages.filter(m => Boolean(m.hidden) === showHiddenMessages)
+    .filter(m => !searchOpen || !search || (m.payload.type === "text" && m.payload.text.toLowerCase().includes(search.toLowerCase())));
+
   return (
     <div className="flex h-full min-w-0 flex-col">
       <div className="flex items-center justify-end gap-2 border-b px-3 py-1">
+        <button type="button" aria-pressed={showHiddenMessages} onClick={() => { setShowHiddenMessages(v => !v); setSearch(""); setReply(null); }} className="min-h-11 rounded-md px-3 text-xs hover:bg-accent">
+          {showHiddenMessages ? "Back to messages" : `Hidden messages (${messages.filter(m => m.hidden).length})`}
+        </button>
         <button type="button" onClick={onToggleHidden} className="flex min-h-11 items-center gap-2 rounded-md px-3 text-xs hover:bg-accent">
           {hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
           {hidden ? "Restore to chats" : "Hide on this device"}
@@ -230,26 +239,19 @@ export function ChatWindow({
         }}
         className="scroll-slim min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6"
       >
-        {messages.length === 0 && (
+        {visibleMessages.length === 0 && (
           <div className="flex h-full items-center justify-center">
             <p className="micro-label text-center normal-case leading-relaxed tracking-normal">
-              No messages yet.
+              {showHiddenMessages ? "No hidden messages match this view." : "No visible messages match this view."}
               <br />
-              Everything you send is encrypted on this device first.
+              {showHiddenMessages ? "Hiding is local and does not lock messages." : "Everything you send is encrypted on this device first."}
             </p>
           </div>
         )}
         <div className="mx-auto max-w-3xl space-y-1.5">
-          {messages
-            .filter(
-              m =>
-                !searchOpen ||
-                !search ||
-                (m.payload.type === "text" &&
-                  m.payload.text.toLowerCase().includes(search.toLowerCase()))
-            )
+          {visibleMessages
             .map((m, i) => {
-              const prev = messages[i - 1];
+              const prev = visibleMessages[i - 1];
               const showDay = !prev || !sameDay(prev.createdAt, m.createdAt);
               const showSender =
                 conversation.type === "group" &&
@@ -269,6 +271,7 @@ export function ChatWindow({
                     showSender={showSender}
                     onRetry={onRetry}
                     onDelete={onDelete}
+                    onToggleHidden={onToggleMessageHidden}
                     canControl={!conversation.archived && !conversation.rotationRequired}
                     onEdit={onEdit}
                     onDeleteForAll={onDeleteForAll}
@@ -301,9 +304,9 @@ export function ChatWindow({
           </button>
         </div>
       )}
-      {conversation.archived || conversation.rotationRequired ? (
+      {showHiddenMessages || conversation.archived || conversation.rotationRequired ? (
         <p role="status" className="border-t px-4 py-4 text-sm text-secondary">
-          {conversation.archived
+          {showHiddenMessages ? "Return to messages to compose a reply." : conversation.archived
             ? "Archived · you are no longer a member. History stays on this device."
             : "Sending paused · the owner must rotate the group key in Group details."}
         </p>
@@ -384,6 +387,7 @@ function MessageBubble({
   onEdit,
   onDeleteForAll,
   onReply,
+  onToggleHidden,
 }: {
   canControl: boolean;
   m: UiMessage;
@@ -393,6 +397,7 @@ function MessageBubble({
   onEdit: (message: LocalMessage, text: string) => void;
   onDeleteForAll: (message: LocalMessage) => void;
   onReply: (text: string) => void;
+  onToggleHidden: (message: LocalMessage) => void;
 }) {
   const [menu, setMenu] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -426,6 +431,9 @@ function MessageBubble({
         </div>
         {menu && (
           <div className="mb-2 flex flex-wrap gap-2 rounded-xl border bg-card p-2 text-xs">
+            {!m.tempId && <button className="min-h-11 p-2" onClick={() => { onToggleHidden(m); setMenu(false); }}>
+              {m.hidden ? "Restore message" : "Hide on this device"}
+            </button>}
             {m.payload.type === "image" && !img && <p>Unsupported image format</p>}
           {m.payload.type === "text" && (
               <>

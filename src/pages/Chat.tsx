@@ -34,6 +34,7 @@ import {
   kvSet,
   hiddenConversationIds,
   setConversationHidden,
+  setMessageHidden,
   latestMessagePerConversation,
   storeMessage,
   type LocalMessage,
@@ -340,7 +341,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
           if (!inserted) continue;
 
           const persisted = (await getMessages(user.id, item.conversationId)).find(m => m.mid === msg.mid)!;
-          setLatest(prev => new Map(prev).set(item.conversationId, persisted));
+          if (!persisted.hidden) setLatest(prev => new Map(prev).set(item.conversationId, persisted));
           if (activeIdRef.current === item.conversationId) {
             // outgoing echoes already render optimistically — don't duplicate
             setMessages(prev =>
@@ -351,7 +352,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
               item.messageId
             );
             void kvSet(user.id, "lastRead", lastReadRef.current);
-            if (!msg.outgoing && localStorage.getItem("locat-read-receipts") !== "off")
+            if (!msg.outgoing && !persisted.hidden && localStorage.getItem("locat-read-receipts") !== "off")
               void sendReadReceipt(conv, persisted);
           } else if (!msg.outgoing) {
             setUnread(prev => {
@@ -494,7 +495,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       if (localStorage.getItem("locat-read-receipts") !== "off") {
         const conv = convsRef.current.find(c => c.id === id);
         if (conv && !conv.archived && !conv.rotationRequired) {
-          for (const message of msgs.filter(m => m.senderId !== user.id && !m.deleted))
+          for (const message of msgs.filter(m => m.senderId !== user.id && !m.deleted && !m.hidden))
             void sendReadReceipt(conv, message);
         }
       }
@@ -911,6 +912,13 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
             online={online}
             hidden={hiddenIds.has(activeConv.id)}
             onToggleHidden={() => void toggleHidden(activeConv.id)}
+            onToggleMessageHidden={message => {
+              void setMessageHidden(user.id, message.mid, !message.hidden)
+                .then(async () => {
+                  setArchiveRevision(n => n + 1);
+                  if (activeIdRef.current === activeConv.id) setMessages(await getMessages(user.id, activeConv.id));
+                }).catch(() => setArchiveError("Could not save the hidden-message setting."));
+            }}
             blocked={activeConv.type === "direct" && activeConv.members.some(m => m.id !== user.id && blockedIds.has(m.id))}
             onToggleBlock={() => void (async () => {
               const other = activeConv.members.find(m => m.id !== user.id);
