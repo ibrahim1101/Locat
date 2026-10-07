@@ -16,6 +16,7 @@ import {
   sendReceipts,
   sessions,
   userBlocks,
+  contactRelationships,
 } from "@db/schema";
 import { subscribe as hubSubscribe, emitToUsers, onlineUserIds } from "./hub";
 import type { RelayEvent } from "@contracts/types";
@@ -68,6 +69,12 @@ export const messagesRouter = createRouter({
           and(eq(userBlocks.blockerId, directPeer.id), eq(userBlocks.blockedId, me)),
         )).limit(1);
         if (blocked) throw new TRPCError({ code: "FORBIDDEN", message: "Direct contact is blocked" });
+        const low = Math.min(me, directPeer.id), high = Math.max(me, directPeer.id);
+        const [contact] = await db.select({ id: contactRelationships.id }).from(contactRelationships).where(and(
+          eq(contactRelationships.userLowId, low), eq(contactRelationships.userHighId, high),
+          eq(contactRelationships.status, "accepted"),
+        )).limit(1);
+        if (!contact) throw new TRPCError({ code: "FORBIDDEN", message: "Direct contact is no longer accepted" });
       }
 
       const envelopeHash = createHash("sha256").update(input.envelope).digest("hex");
