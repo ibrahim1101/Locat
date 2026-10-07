@@ -47,6 +47,7 @@ export const conversationsRouter = createRouter({
           avatar: users.avatar,
           publicKey: users.publicKey,
           usernameVisibility: users.usernameVisibility,
+          profileVisibility: users.profileVisibility,
         },
       })
       .from(conversationMembers)
@@ -92,9 +93,12 @@ export const conversationsRouter = createRouter({
         members: allMembers
           .filter(m => m.member.conversationId === c.id)
           .map(m => {
-            const { usernameVisibility, ...user } = m.user;
-            return { ...user, username: user.id === me || usernameVisibility === "everyone" ||
-              (usernameVisibility === "contacts" && contactIds.has(user.id)) ? user.username : null };
+            const { usernameVisibility, profileVisibility, ...user } = m.user;
+            const isContact = contactIds.has(user.id), mine = user.id === me;
+            const showUsername = mine || usernameVisibility === "everyone" || (usernameVisibility === "contacts" && isContact);
+            const showProfile = mine || profileVisibility === "everyone" || (profileVisibility === "contacts" && isContact);
+            return { ...user, username: showUsername ? user.username : null,
+              bio: showProfile ? user.bio : null, avatar: showProfile ? user.avatar : null };
           }),
         wrappedKey: mine?.wrappedKey ?? null,
         wrappedBy: mine?.wrappedBy ?? null,
