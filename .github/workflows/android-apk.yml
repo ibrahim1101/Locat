@@ -10,7 +10,7 @@ on:
       - "public/**"
       - "package.json"
       - "vite.config.ts"
-      - "capacitor.config.ts"
+      - "capacitor.config.json"
       - ".github/workflows/android-apk.yml"
 
 jobs:
