@@ -184,6 +184,28 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     await alice.users.updateProfile({ displayName: "Alice Example", bio: "Private chat enthusiast", usernameVisibility: "everyone" });
   });
 
+  it("enforces profile and realtime presence visibility", async () => {
+    const aliceCode = (await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) }))!.lcCode!;
+    await alice.users.updateProfile({ displayName: "Alice Example", bio: "Contact-only bio", profileVisibility: "contacts" });
+    expect((await bob.users.search({ q: `LC-${aliceCode}` }))[0].bio).toBe("Contact-only bio");
+    expect((await outsider.users.search({ q: `LC-${aliceCode}` }))[0].bio).toBeNull();
+    await alice.users.updateProfile({ displayName: "Alice Example", bio: "Hidden bio", profileVisibility: "nobody" });
+    expect((await bob.users.keys({ ids: [aliceId] }))[0].bio).toBeNull();
+    await alice.users.updateProfile({ displayName: "Alice Example", bio: "Private chat enthusiast", profileVisibility: "everyone" });
+
+    const { subscribe } = await import("../../api/hub");
+    const closeAlice = subscribe(aliceId, () => {}), closeBob = subscribe(bobId, () => {}), closeOutsider = subscribe(outsiderId, () => {});
+    try {
+      expect((await bob.users.presence()).online).toContain(aliceId);
+      expect((await outsider.users.presence()).online).not.toContain(aliceId);
+      await alice.users.updateProfile({ displayName: "Alice Example", bio: "Private chat enthusiast", presenceVisibility: "everyone" });
+      expect((await outsider.users.presence()).online).toContain(aliceId);
+      await alice.users.updateProfile({ displayName: "Alice Example", bio: "Private chat enthusiast", presenceVisibility: "nobody" });
+      expect((await bob.users.presence()).online).not.toContain(aliceId);
+    } finally { closeAlice(); closeBob(); closeOutsider(); }
+    await alice.users.updateProfile({ displayName: "Alice Example", bio: "Private chat enthusiast", presenceVisibility: "contacts" });
+  });
+
   it("assigns unique fixed numeric codes, backfills legacy accounts, and preserves them", async () => {
     let account = (await db.query.users.findFirst({ where: eq(schema.users.id, aliceId) }))!;
     const original = account.lcCode;
