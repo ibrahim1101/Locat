@@ -4,6 +4,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import superjson from "superjson";
 import type { AppRouter } from "../../api/router";
 import type { ReactNode } from "react";
+import { nativeServerUrl, nativeSessionToken } from "@/lib/native";
+
+const apiUrl = () => `${nativeServerUrl()}/api/trpc`;
+const authHeaders = () => {
+  const token = nativeSessionToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 export const trpc = createTRPCReact<AppRouter>();
 
@@ -18,13 +25,14 @@ const trpcClient = trpc.createClient({
     splitLink({
       condition: (op) => op.type === "subscription",
       true: httpSubscriptionLink({
-        url: "/api/trpc",
+        url: apiUrl(),
         transformer: superjson,
         eventSourceOptions: { withCredentials: true },
       }),
       false: httpBatchLink({
-        url: "/api/trpc",
+        url: apiUrl(),
         transformer: superjson,
+        headers: authHeaders,
         fetch(input, init) {
           return globalThis.fetch(input, {
             ...(init ?? {}),
