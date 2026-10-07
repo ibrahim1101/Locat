@@ -20,6 +20,8 @@ Close all Locat windows and reopen to activate the updated service worker. In Se
 
 Android uses a supported HTTPS browser/PWA. On iPhone/iPad (iOS/iPadOS 16.4+), install the app through Safari → Share → Add to Home Screen, then enable notifications from the installed app. Browser support, operating-system power policies, and notification settings affect delivery. See https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/.
 
+Firefox Android does not need an installed PWA for Web Push: use a regular HTTPS tab. Locat checks actual service-worker, push and notification capabilities instead of browser names or installation status. Private browsing may restrict those APIs. The settings panel explains missing HTTPS/API support and denied site permission separately. Service-worker readiness times out after 10 seconds with reopening instructions; it does not bypass HTTPS or certificate checks. Permission is requested from the Enable button before asynchronous subscription work. A browser may not offer an install prompt even when messaging works in its tab.
+
 For a private Tailscale deployment, an alert can arrive through the browser's internet push service, but opening Locat still requires Tailscale connectivity to your server.
 
 ## Docker setup
