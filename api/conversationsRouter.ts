@@ -46,6 +46,7 @@ export const conversationsRouter = createRouter({
           bio: users.bio,
           avatar: users.avatar,
           publicKey: users.publicKey,
+          usernameVisibility: users.usernameVisibility,
         },
       })
       .from(conversationMembers)
@@ -69,6 +70,11 @@ export const conversationsRouter = createRouter({
         )
       );
     const currentKeys = currentRows.map(row => row.key);
+    const contactRows = await db.select().from(contactRelationships).where(and(
+      eq(contactRelationships.status, "accepted"),
+      or(eq(contactRelationships.userLowId, me), eq(contactRelationships.userHighId, me)),
+    ));
+    const contactIds = new Set(contactRows.map(row => row.userLowId === me ? row.userHighId : row.userLowId));
     return convs.map((c): ConversationSummary => {
       const mine = memberships.find(m => m.conversationId === c.id);
       return {
@@ -85,7 +91,11 @@ export const conversationsRouter = createRouter({
         createdAt: c.createdAt,
         members: allMembers
           .filter(m => m.member.conversationId === c.id)
-          .map(m => m.user),
+          .map(m => {
+            const { usernameVisibility, ...user } = m.user;
+            return { ...user, username: user.id === me || usernameVisibility === "everyone" ||
+              (usernameVisibility === "contacts" && contactIds.has(user.id)) ? user.username : null };
+          }),
         wrappedKey: mine?.wrappedKey ?? null,
         wrappedBy: mine?.wrappedBy ?? null,
       };
