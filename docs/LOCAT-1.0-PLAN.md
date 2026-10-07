@@ -1,6 +1,6 @@
 # Locat 1.0 — single release development plan
 
-Approved 2026-10-06, expanded to 44 items on 2026-10-07. All items belong to one development cycle; phases are internal and do not create intermediate releases. Development branch: `feat/locat-1.0`, based on `fix/locat-install-mobile-foundation`. Preserve main and the deployed Pi while developing.
+Approved 2026-10-06, expanded to 49 items on 2026-10-07. All items belong to one development cycle; phases are internal and do not create intermediate releases. Development branch: `feat/locat-1.0`, based on `fix/locat-install-mobile-foundation`. Preserve main and the deployed Pi while developing.
 
 ## Initial source audit
 
@@ -69,6 +69,11 @@ Universal forensic deletion cannot be guaranteed for SSDs, snapshots, backups or
 - [ ] 39. Server presence logs
 - [ ] 40. Configurable video sharing
 - [x] 41. Avatar-triggered profile panel with picture, nickname, username, LC code and bio
+- [ ] 45. General encrypted file/document sharing (PDF, Office/text/archive and arbitrary files) with safe download handling
+- [ ] 46. Full-resolution encrypted photo sharing with preview/download and optional compression
+- [ ] 47. Encrypted video sharing with preview/playback, configured limits and download
+- [ ] 48. Encrypted GPS location sharing (current/static location card, coordinates and map-link handoff; explicit permission only)
+- [ ] 49. OS/PWA share integration: receive supported files/photos/videos/links from the device share sheet where the platform supports Web Share Target
 
 ## Progress
 
@@ -223,3 +228,18 @@ These extend the single Locat 1.0 release; they are requirements, not completed 
 - Item 05 implemented, awaiting workflow and physical acceptance: direct and group chats can record up to 60-second voice notes through the browser microphone. Locat selects a supported MediaRecorder format (Opus/WebM, Opus/Ogg or MP4), caps prepared audio at 2.9 MB, validates duration/type/encoded size, then places the recording inside the existing AES-GCM encrypted message envelope. The relay sees only opaque ciphertext.
 - Voice notes use the existing durable outbox, retry receipts, offline delivery, local IndexedDB history, read receipts, hide/restore and sender delete-for-all behavior. No server media table or plaintext upload endpoint was introduced. Playback is generated locally from decrypted bytes with native browser audio controls. Conversation previews identify voice messages without exposing their content.
 - Recording requires HTTPS/localhost and microphone permission. Unsupported recording codecs fail closed with an actionable message. External recording/screen capture cannot be prevented. Item 05 remains unaccepted until two-device testing confirms record/send/playback, denied permission, offline queue/reconnect, group delivery and delete/hide behavior. Accepted remains 6/44.
+
+
+## Core attachment and location expansion — 2026-10-07
+
+The user identified attachments and GPS sharing as primary Locat goals, so these are now first-class Locat 1.0 requirements rather than post-1.0 extras. Items 45-49 extend the encrypted messaging model.
+
+Design constraints:
+- Message attachments must be encrypted client-side before relay/storage. The relay must not receive plaintext attachment contents, filenames, captions or GPS coordinates except unavoidable transport metadata such as ciphertext size/timing.
+- Do not use data URLs for arbitrary active content. Decrypted files must be rendered only through explicit safe viewers for allowlisted media types; all other document/file types download as inert blobs with sanitized filenames. PDFs should default to download/open-via-user-action rather than injecting document content into Locat's DOM.
+- Add a shared attachment contract with bounded filename, MIME/type metadata, byte size and encrypted bytes. Keep backward compatibility with existing image and voice payloads.
+- Large attachments must not simply expand the current ~6 MB JSON envelope indefinitely. Introduce configured limits and a chunked/encrypted attachment path before enabling large videos/general files; preserve offline/retry semantics and garbage-collect incomplete/acknowledged ciphertext safely.
+- Photos get local thumbnail/preview plus original/full-resolution send where configured. Videos get local metadata/preview/playback and explicit size/duration limits.
+- Static location sharing uses the browser Geolocation API only after an explicit user action and permission. Encrypt latitude/longitude (and optional accuracy/label) inside the message payload. Do not continuously track location for the static-location feature. Live location, if added later, requires a separate expiry/update protocol and privacy review.
+- Installed-PWA share-target integration is progressive enhancement only; browser/platform support is not universal. The normal in-chat attachment picker remains the compatibility path.
+- Acceptance must cover denied permissions, malformed/hostile files, unsupported MIME types, oversized attachments, offline/reconnect, receiver download/playback, delete/hide behavior, group delivery, and Firefox-mobile compatibility.
