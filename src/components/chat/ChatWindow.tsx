@@ -4,6 +4,7 @@ import type { LocalMessage } from "@/lib/localdb";
 import type { ConversationSummary } from "@contracts/types";
 import { downloadFilePayload, imageUrl, voiceUrl } from "@/lib/crypto";
 import { dayLabel, sameDay, timeLabel } from "@/lib/format";
+import { messageComposerState } from "@/lib/controlStates";
 import { Avatar, AvatarStack } from "./Avatar";
 import { FriendProfileDialog } from "./FriendProfileDialog";
 import {
@@ -204,6 +205,14 @@ export function ChatWindow({
     setReply(null);
   }
 
+  const composer = messageComposerState({
+    hiddenMessages: showHiddenMessages,
+    archived: Boolean(conversation.archived),
+    rotationRequired: Boolean(conversation.rotationRequired),
+    blocked,
+    draft,
+  });
+
   const visibleMessages = messages.filter(m => Boolean(m.hidden) === showHiddenMessages)
     .filter(m => !searchOpen || !search || (m.payload.type === "text" && m.payload.text.toLowerCase().includes(search.toLowerCase())));
 
@@ -377,11 +386,9 @@ export function ChatWindow({
           </button>
         </div>
       )}
-      {showHiddenMessages || conversation.archived || conversation.rotationRequired ? (
+      {!composer.composerVisible ? (
         <p role="status" className="border-t px-4 py-4 text-sm text-secondary">
-          {showHiddenMessages ? "Return to messages to compose a reply." : conversation.archived
-            ? "Archived · you are no longer a member. History stays on this device."
-            : "Sending paused · the owner must rotate the group key in Group details."}
+          {composer.unavailableReason}
         </p>
       ) : (
         <>
@@ -401,27 +408,31 @@ export function ChatWindow({
               />
               <input ref={attachmentRef} type="file" className="hidden"
                 onChange={e => { const f = e.target.files?.[0]; if (f) onSendFile(f); e.target.value = ""; }} />
-              <button type="button" onClick={() => attachmentRef.current?.click()} disabled={blocked}
+              <button type="button" onClick={() => attachmentRef.current?.click()} disabled={!composer.canAttach}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border text-secondary transition-colors hover:bg-accent hover:text-foreground"
-                aria-label="Send file" title="Send file (up to 2.9 MB)">
+                aria-label="Send file" title={composer.canAttach ? "Send file (up to 2.9 MB)" : composer.unavailableReason ?? undefined}
+                aria-describedby={composer.unavailableReason ? "composer-unavailable-reason" : undefined}>
                 <Paperclip className="h-5 w-5" />
               </button>
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                disabled={blocked}
+                disabled={!composer.canAttach}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border text-secondary transition-colors hover:bg-accent hover:text-foreground"
                 aria-label="Send image"
+                title={composer.canAttach ? "Send image" : composer.unavailableReason ?? undefined}
+                aria-describedby={composer.unavailableReason ? "composer-unavailable-reason" : undefined}
               >
                 <ImagePlus className="h-5 w-5" />
               </button>
               <button
                 type="button"
                 onClick={() => recording ? stopRecording() : void startRecording()}
-                disabled={blocked}
+                disabled={!composer.canAttach}
                 className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-md border transition-colors hover:bg-accent ${recording ? "text-destructive" : "text-secondary"}`}
                 aria-label={recording ? "Stop and send voice message" : "Record voice message"}
-                title={recording ? "Stop and send" : "Voice message"}
+                title={recording ? "Stop and send" : composer.canAttach ? "Voice message" : composer.unavailableReason ?? undefined}
+                aria-describedby={composer.unavailableReason ? "composer-unavailable-reason" : undefined}
               >
                 {recording ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-5 w-5" />}
               </button>
@@ -432,7 +443,7 @@ export function ChatWindow({
               ) : <textarea
                 ref={textareaRef}
                 aria-label="Message"
-                disabled={blocked}
+                disabled={!composer.canType}
                 maxLength={10000}
                 value={draft}
                 onChange={e => {
@@ -451,20 +462,28 @@ export function ChatWindow({
                     submit();
                   }
                 }}
-                placeholder={blocked ? "Direct contact is blocked" : "Message…"}
+                placeholder={composer.canType ? "Message…" : "Direct contact is blocked"}
+                aria-describedby={composer.unavailableReason ? "composer-unavailable-reason" : undefined}
                 rows={1}
                 className="max-h-36 min-h-11 flex-1 resize-none rounded-md border border-input bg-background px-3 py-2.5 text-sm outline-none placeholder:text-secondary focus-visible:ring-1 focus-visible:ring-ring"
               />}
               <button
                 type="button"
                 onClick={submit}
-                disabled={blocked || recording || !draft.trim()}
+                disabled={!composer.canSend || recording}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.94] disabled:opacity-30"
-                aria-label="Send"
+                aria-label={composer.canSend && !recording ? "Send" : recording ? "Finish recording before sending text" : `Send unavailable: ${composer.sendReason}`}
+                title={composer.canSend && !recording ? "Send" : recording ? "Finish recording before sending text" : composer.sendReason ?? undefined}
+                aria-describedby={composer.unavailableReason ? "composer-unavailable-reason" : undefined}
               >
                 <SendHorizonal className="h-5 w-5" />
               </button>
             </div>
+            {composer.unavailableReason && (
+              <p id="composer-unavailable-reason" role="status" className="mx-auto mt-2 max-w-3xl text-xs text-secondary">
+                {composer.unavailableReason}
+              </p>
+            )}
             {recordingError && <p role="alert" className="mx-auto mt-2 max-w-3xl text-xs text-destructive">{recordingError}</p>}
           </div>
         </>
