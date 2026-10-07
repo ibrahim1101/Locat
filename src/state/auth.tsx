@@ -26,6 +26,7 @@ export type SessionUser = {
   lcCode: string;
   bio: string | null;
   avatar?: string | null;
+  usernameVisibility: "everyone" | "contacts" | "nobody";
   publicKey: string;
   isAdmin?: boolean;
 };
