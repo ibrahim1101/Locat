@@ -855,7 +855,9 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
                         ? "🖼 image"
                         : last.payload.type === "voice"
                           ? `${last.outgoing ? "you: " : ""}🎙 voice message`
-                          : (last.outgoing ? "you: " : "") + last.payload.text
+                          : last.payload.type === "file"
+                            ? `${last.outgoing ? "you: " : ""}📎 ${last.payload.name}`
+                            : `${last.outgoing ? "you: " : ""}${last.payload.text}`
                       : c.type === "group"
                         ? `${c.members.length} members`
                         : "say hello"}
