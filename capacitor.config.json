@@ -1,0 +1,8 @@
+{
+  "appId": "com.shaikibrahim.locat",
+  "appName": "Locat",
+  "webDir": "dist/public",
+  "server": {
+    "androidScheme": "https"
+  }
+}
