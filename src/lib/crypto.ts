@@ -262,7 +262,10 @@ export function voiceUrl(payload: MessagePayload): string | null {
 }
 
 function safeAttachmentName(name: string): string {
-  const cleaned = name.replace(/[\\/\0-\x1f\x7f]/g, "_").trim();
+  const cleaned = Array.from(name, (char) => {
+    const code = char.charCodeAt(0);
+    return char === "/" || char === "\\" || code <= 31 || code === 127 ? "_" : char;
+  }).join("").trim();
   return (cleaned || "attachment").slice(0, 255);
 }
 
