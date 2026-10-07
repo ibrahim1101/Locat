@@ -16,6 +16,7 @@ export function ProfileDialog({ user, open, onOpenChange }: {
   const [bio, setBio] = useState(user.bio ?? "");
   const [feedback, setFeedback] = useState("");
   const [avatar, setAvatar] = useState(user.avatar ?? null);
+  const [usernameVisibility, setUsernameVisibility] = useState(user.usernameVisibility ?? "everyone");
   const [preparing, setPreparing] = useState(false);
   const pictureInput = useRef<HTMLInputElement>(null);
   const savePicture = trpc.users.setAvatar.useMutation({
@@ -60,6 +61,16 @@ export function ProfileDialog({ user, open, onOpenChange }: {
         <Input id="profile-username" value={user.username} readOnly />
         <p className="text-xs text-secondary">Your login username is fixed. Change your nickname above.</p>
       </div>
+      <div className="space-y-2"><Label htmlFor="profile-username-visibility">Who can see my login username?</Label>
+        <select id="profile-username-visibility" value={usernameVisibility} disabled={busy}
+          onChange={event => setUsernameVisibility(event.target.value as typeof usernameVisibility)}
+          className="h-11 w-full rounded-md border bg-background px-3 text-sm">
+          <option value="everyone">Everyone on this server</option>
+          <option value="contacts">Accepted contacts</option>
+          <option value="nobody">Nobody</option>
+        </select>
+        <p className="text-xs text-secondary">Your nickname and LC code stay visible so people can send requests. Administrators can still see account usernames for safety and support.</p>
+      </div>
       <div className="space-y-2"><Label htmlFor="profile-code">LC code</Label>
         <div className="flex gap-2"><Input id="profile-code" value={userCode(user.lcCode)} readOnly />
           <Button variant="outline" disabled={!user.lcCode} onClick={() => void navigator.clipboard.writeText(userCode(user.lcCode))
@@ -74,7 +85,7 @@ export function ProfileDialog({ user, open, onOpenChange }: {
       </div>
       <Button disabled={busy || !displayName.trim()} onClick={() => void (async () => {
         if (avatar !== (user.avatar ?? null)) await savePicture.mutateAsync({ avatar });
-        await update.mutateAsync({ displayName: displayName.trim(), bio });
+        await update.mutateAsync({ displayName: displayName.trim(), bio, usernameVisibility });
       })().catch(() => {})}>
         {update.isPending ? "Saving…" : "Save profile"}</Button>
       {feedback && <p role="status" className="text-sm">{feedback}</p>}
