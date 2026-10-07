@@ -18,7 +18,24 @@ const publicUserCols = {
   bio: users.bio,
   avatar: users.avatar,
   publicKey: users.publicKey,
+  usernameVisibility: users.usernameVisibility,
 };
+
+async function acceptedIds(viewerId: number) {
+  const rows = await getDb().select().from(contactRelationships).where(and(
+    eq(contactRelationships.status, "accepted"),
+    or(eq(contactRelationships.userLowId, viewerId), eq(contactRelationships.userHighId, viewerId)),
+  ));
+  return new Set(rows.map(row => row.userLowId === viewerId ? row.userHighId : row.userLowId));
+}
+
+function privateUsers<T extends { id: number; username: string; usernameVisibility: "everyone" | "contacts" | "nobody" }>(
+  rows: T[], viewerId: number, contacts: Set<number>,
+) {
+  return rows.map(({ usernameVisibility, ...row }) => ({ ...row,
+    username: row.id === viewerId || usernameVisibility === "everyone" ||
+      (usernameVisibility === "contacts" && contacts.has(row.id)) ? row.username : null }));
+}
 
 export const usersRouter = createRouter({
   contacts: authedQuery.query(async ({ ctx }) => {
@@ -29,7 +46,8 @@ export const usersRouter = createRouter({
     ));
     const ids = rows.map(row => row.userLowId === me ? row.userHighId : row.userLowId);
     if (!ids.length) return [];
-    return getDb().select(publicUserCols).from(users).where(and(inArray(users.id, ids), eq(users.disabled, false)));
+    const people = await getDb().select(publicUserCols).from(users).where(and(inArray(users.id, ids), eq(users.disabled, false)));
+    return privateUsers(people, me, new Set(ids));
   }),
   contactRequests: authedQuery.query(async ({ ctx }) => {
     const me = ctx.user!.id;
@@ -38,7 +56,7 @@ export const usersRouter = createRouter({
       or(eq(contactRelationships.userLowId, me), eq(contactRelationships.userHighId, me)),
     ));
     const ids = rows.map(row => row.userLowId === me ? row.userHighId : row.userLowId);
-    const people = ids.length ? await getDb().select(publicUserCols).from(users).where(inArray(users.id, ids)) : [];
+    const people = ids.length ? privateUsers(await getDb().select(publicUserCols).from(users).where(inArray(users.id, ids)), me, await acceptedIds(me)) : [];
     const byId = new Map(people.map(person => [person.id, person]));
     return rows.flatMap(row => {
       const peerId = row.userLowId === me ? row.userHighId : row.userLowId;
@@ -105,9 +123,10 @@ export const usersRouter = createRouter({
     return { removed: result[0].affectedRows > 0 };
   }),
   blocked: authedQuery.query(async ({ ctx }) => {
-    return getDb().select({ id: users.id, username: users.username, displayName: users.displayName,
-      avatar: users.avatar }).from(userBlocks).innerJoin(users, eq(userBlocks.blockedId, users.id))
+    const rows = await getDb().select({ id: users.id, username: users.username, displayName: users.displayName,
+      avatar: users.avatar, usernameVisibility: users.usernameVisibility }).from(userBlocks).innerJoin(users, eq(userBlocks.blockedId, users.id))
       .where(eq(userBlocks.blockerId, ctx.user!.id));
+    return privateUsers(rows, ctx.user!.id, new Set());
   }),
   block: authedQuery.input(z.object({ userId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     if (input.userId === ctx.user!.id) throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot block yourself" });
@@ -133,12 +152,14 @@ export const usersRouter = createRouter({
     .input(z.object({
       displayName: z.string().trim().min(1).max(64),
       bio: z.string().trim().max(280),
+      usernameVisibility: z.enum(["everyone", "contacts", "nobody"]).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
       await db.update(users).set({
         displayName: input.displayName,
         bio: input.bio || null,
+        usernameVisibility: input.usernameVisibility,
       }).where(eq(users.id, ctx.user!.id));
       return { ...input, bio: input.bio || null };
     }),
@@ -154,7 +175,8 @@ export const usersRouter = createRouter({
       const blockedRows = await db.select({ blockerId: userBlocks.blockerId, blockedId: userBlocks.blockedId })
         .from(userBlocks).where(or(eq(userBlocks.blockerId, ctx.user!.id), eq(userBlocks.blockedId, ctx.user!.id)));
       const hiddenIds = blockedRows.map(row => row.blockerId === ctx.user!.id ? row.blockedId : row.blockerId);
-      return db
+      const contactIds = await acceptedIds(ctx.user!.id);
+      const rows = await db
         .select(publicUserCols)
         .from(users)
         .where(
@@ -162,23 +184,31 @@ export const usersRouter = createRouter({
             ne(users.id, ctx.user!.id),
             eq(users.disabled, false),
             hiddenIds.length ? notInArray(users.id, hiddenIds) : undefined,
-            codeId !== null ? eq(users.lcCode, codeId) : or(like(users.username, q), like(users.displayName, q)),
+            codeId !== null ? eq(users.lcCode, codeId) : or(
+              like(users.displayName, q),
+              and(like(users.username, q), or(
+                eq(users.usernameVisibility, "everyone"),
+                contactIds.size ? and(eq(users.usernameVisibility, "contacts"), inArray(users.id, [...contactIds])) : undefined,
+              )),
+            ),
           ),
         )
         .limit(12);
+      return privateUsers(rows, ctx.user!.id, contactIds);
     }),
 
   /** Fetch public keys + fingerprints for a set of users. */
   keys: authedQuery
     .input(z.object({ ids: z.array(z.number().int().positive()).max(100) }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       if (input.ids.length === 0) return [];
       const db = getDb();
       const rows = await db
         .select(publicUserCols)
         .from(users)
         .where(inArray(users.id, input.ids));
-      return rows.map((u) => ({ ...u, fingerprint: keyFingerprint(u.publicKey) }));
+      return privateUsers(rows, ctx.user!.id, await acceptedIds(ctx.user!.id))
+        .map((u) => ({ ...u, fingerprint: keyFingerprint(u.publicKey) }));
     }),
 
   /** Currently online user ids (has an open realtime connection). */
