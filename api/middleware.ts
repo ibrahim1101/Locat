@@ -12,8 +12,11 @@ export const publicQuery = t.procedure.use(async ({ ctx, type, next }) => {
     const origin = ctx.req.headers.get("origin");
     const expected = process.env.PUBLIC_ORIGIN || new URL(ctx.req.url).origin;
     const isNativeOrigin = origin === "https://localhost";
-    const hasBearerAuth = ctx.req.headers.get("authorization")?.startsWith("Bearer ") ?? false;
-    const isAllowedNativeRequest = isNativeOrigin && hasBearerAuth;
+    // Capacitor serves the packaged app from this fixed HTTPS origin. Login and
+    // registration cannot carry a bearer token yet, so allow that native origin
+    // through the origin/Fetch-Metadata guard. CORS remains restricted to the same
+    // exact origin, while browser mutations still require PUBLIC_ORIGIN.
+    const isAllowedNativeRequest = isNativeOrigin;
     if (origin && !isAllowedNativeRequest && (process.env.PUBLIC_ORIGIN ? origin !== expected : new URL(origin).host !== new URL(expected).host)) {
       throw new TRPCError({ code: "FORBIDDEN", message: "Request origin is not allowed" });
     }
