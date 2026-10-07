@@ -23,6 +23,7 @@ export const users = mysqlTable("users", {
   lcCode: varchar("lc_code", { length: 16 }).unique("users_lc_code_unique"),
   bio: varchar("bio", { length: 280 }),
   avatar: text("avatar"),
+  usernameVisibility: mysqlEnum("username_visibility", ["everyone", "contacts", "nobody"]).notNull().default("everyone"),
   isAdmin: boolean("is_admin").notNull().default(false),
   disabled: boolean("disabled").notNull().default(false),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
