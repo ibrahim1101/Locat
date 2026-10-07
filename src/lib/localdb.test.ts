@@ -3,12 +3,25 @@ import { openDB } from "idb";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applyMessageControl, applyReadReceipt, messageReference, allMessages, cacheConversations, cachedConversations, savePending, pendingMessages, completePending, deleteLocalMessage, importMessages, kvGet, kvSet, migrateLegacyHistory, storeMessage, wipeAll } from "./localdb";
 import type { LocalMessage } from "./localdb";
+import { hiddenConversationIds, setConversationHidden } from "./localdb";
 
 const message: LocalMessage = { mid: 7, conversationId: 10, senderId: 1,
   senderName: "Alice", outgoing: true, payload: { type: "text", text: "hello" }, createdAt: 1000 };
 beforeEach(async () => { await wipeAll(1); await wipeAll(2); });
 
 describe("account-local history", () => {
+  it("preserves hidden chats across deliveries and imports without sharing account settings", async () => {
+    await setConversationHidden(1, 10, true);
+    await setConversationHidden(1, 11, true);
+    await storeMessage(1, message);
+    await importMessages(1, [{ ...message, mid: 8 }]);
+    expect((await hiddenConversationIds(1)).sort()).toEqual([10, 11]);
+    expect(await hiddenConversationIds(2)).toEqual([]);
+    await setConversationHidden(1, 10, false);
+    expect(await hiddenConversationIds(1)).toEqual([11]);
+    expect(await allMessages(1)).toHaveLength(2);
+    await expect(setConversationHidden(1, -1, true)).rejects.toThrow("Invalid conversation");
+  });
   it("keeps accounts separate, including unread state", async () => {
     await storeMessage(1, message);
     await kvSet(1, "lastRead", { "10": 7 });

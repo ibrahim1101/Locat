@@ -71,6 +71,19 @@ export async function kvDel(userId: number, key: string): Promise<void> {
   await (await db(userId)).delete("kv", key);
 }
 
+export async function hiddenConversationIds(userId: number): Promise<number[]> {
+  const keys = await (await db(userId)).getAllKeys("kv");
+  return keys.filter(key => typeof key === "string" && /^hidden-chat:[1-9]\d*$/.test(key))
+    .map(key => Number(String(key).slice("hidden-chat:".length))).filter(Number.isSafeInteger);
+}
+
+export async function setConversationHidden(userId: number, conversationId: number, hidden: boolean): Promise<void> {
+  if (!Number.isSafeInteger(conversationId) || conversationId <= 0) throw new Error("Invalid conversation");
+  const key = `hidden-chat:${conversationId}`;
+  if (hidden) await kvSet(userId, key, 1);
+  else await kvDel(userId, key);
+}
+
 // ─── identity keys ───────────────────────────────────────────────────────────
 
 export async function saveIdentity(

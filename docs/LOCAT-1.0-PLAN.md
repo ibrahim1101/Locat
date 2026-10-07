@@ -1,6 +1,6 @@
 # Locat 1.0 — single release development plan
 
-Approved 2026-10-06. All 41 items belong to one development cycle; phases are internal and do not create intermediate releases. Development branch: `feat/locat-1.0`, based on `fix/locat-install-mobile-foundation`. Preserve main and the deployed Pi while developing.
+Approved 2026-10-06, expanded to 44 items on 2026-10-07. All items belong to one development cycle; phases are internal and do not create intermediate releases. Development branch: `feat/locat-1.0`, based on `fix/locat-install-mobile-foundation`. Preserve main and the deployed Pi while developing.
 
 ## Initial source audit
 
@@ -180,3 +180,13 @@ These extend the single Locat 1.0 release; they are requirements, not completed 
 - Encrypted dashboard backups now include directed blocked-user choices. Restore distinguishes an absent legacy contacts field from an explicit list (including an empty list), preserving removals instead of backfilling every direct chat. Recovery refuses a nonempty block table and restores blocks transactionally with accounts/contacts. Older backups cannot recover block choices they never recorded; administration documentation states this limitation.
 - Regression coverage exercises legacy backfill, removal followed by repeated setup, retained conversations, encrypted block metadata, restored contact counts and enforcement after recovery. Local validation: 30 tests passed; 24 MariaDB cases skipped because no database is installed here. Typecheck, lint (0 errors/11 existing warnings), production build and whitespace checks passed. GitHub Actions run 37579508000 passed MariaDB verification and Docker Compose smoke checks at code checkpoint c64cc4c9055e7cd476f9e2d94c63095422431b4a: https://github.com/ibrahim1101/Locat/actions/runs/37579508000 .
 - Device acceptance remains 6/44. Next: remove a friend, restart/update and confirm a new request is required while old history remains; block a user, make an encrypted dashboard backup and restore it on a separate disposable server, then confirm the block and profile privacy choices survive. Never use the live Pi as the restore target.
+
+## Mobile Firefox and friend profile increment — 2026-10-07
+
+- Added image-element decoding fallback when ImageBitmap is absent or rejects an image; attached download links retain their URL for 60 seconds for mobile saving. Fresh friend profiles open from direct-chat avatars or group member rows. Avatar downloads default off and recheck current visibility, blocks and permission on the server. Additive migration 0012, doctor/readiness and metadata recovery preserve this setting. Visible valid push events now show generic notifications, and enabling notifications waits for durable service-worker account acknowledgement before server registration.
+- All 59 tests passed against fresh MariaDB, plus typecheck, lint and production build. Published tree was verified against the local tree; GitHub run 37596782403 passed verification and Docker smoke checks at 542494c5eefbf420d7d96daacc0d9db3a87909ad. Firefox desktop is reported working; Firefox mobile acceptance is deferred by the user. No newly accepted item; progress remains 6/44.
+
+## Hide chats increment — 2026-10-07
+
+- Item 12 implemented: direct/group chats can be hidden and restored through a separate Hidden chats sidebar view. Regular-list search excludes hidden chats. Account-scoped local settings survive reopening, incoming deliveries and history imports without deleting messages. Hidden chats remain accessible in the unlocked session; hiding does not silence push notifications, lock content or sync to other devices. Exported backups do not include hidden choices. See docs/HIDDEN-CHATS.md.
+- All 60 tests passed against fresh MariaDB, including account isolation and delivery/import persistence of hidden choices. Typecheck, lint (0 errors, existing warnings), build and whitespace checks passed. GitHub workflow and physical acceptance pending at publication. Accepted remains 6/44; item 12 is awaiting device testing.

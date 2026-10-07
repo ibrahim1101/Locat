@@ -32,6 +32,8 @@ import {
   migrateLegacyHistory,
   kvGet,
   kvSet,
+  hiddenConversationIds,
+  setConversationHidden,
   latestMessagePerConversation,
   storeMessage,
   type LocalMessage,
@@ -71,6 +73,16 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
 
   const [cached, setCached] = useState<ConversationSummary[]>([]);
   const [search, setSearch] = useState("");
+  const [hiddenIds, setHiddenIds] = useState<Set<number>>(new Set());
+  const [showHidden, setShowHidden] = useState(false);
+  const [hiddenReady, setHiddenReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void hiddenConversationIds(user.id).then(ids => {
+      if (!cancelled) { setHiddenIds(new Set(ids)); setHiddenReady(true); }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [user.id]);
   const conversationsQ = trpc.conversations.list.useQuery();
   const conversations = useMemo(
     () =>
@@ -683,8 +695,18 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
 
   const activeConv = conversations.find(c => c.id === activeId) ?? null;
 
+  async function toggleHidden(conversationId: number) {
+    try {
+      const hidden = !hiddenIds.has(conversationId);
+      await setConversationHidden(user.id, conversationId, hidden);
+      setHiddenIds(new Set(await hiddenConversationIds(user.id)));
+      setActiveId(null);
+    } catch { setArchiveError("Could not save the hidden-chat setting on this device."); }
+  }
+
   const sortedConversations = useMemo(() => {
     return [...conversations]
+      .filter(c => hiddenReady && hiddenIds.has(c.id) === showHidden)
       .filter(c =>
         conversationTitle(c, user.id)
           .title.toLowerCase()
@@ -698,7 +720,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
           (la?.createdAt ?? new Date(a.createdAt).getTime())
         );
       });
-  }, [conversations, latest, search, user.id]);
+  }, [conversations, latest, search, user.id, hiddenReady, hiddenIds, showHidden]);
 
   // ── layout ──
   const sidebar = (
@@ -749,6 +771,12 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       </div>
 
       <div className="px-4 py-3">
+        <div className="mb-3 flex gap-2" role="group" aria-label="Conversation visibility">
+          <button type="button" aria-pressed={!showHidden} onClick={() => { setShowHidden(false); setSearch(""); }} className={`min-h-11 flex-1 rounded-lg border text-sm ${!showHidden ? "bg-accent" : ""}`}>Chats</button>
+          <button type="button" aria-pressed={showHidden} onClick={() => { setShowHidden(true); setSearch(""); }} className={`min-h-11 flex-1 rounded-lg border text-sm ${showHidden ? "bg-accent" : ""}`}>Hidden chats ({conversations.filter(c => hiddenIds.has(c.id)).length})</button>
+        </div>
+        {showHidden && <p className="mb-3 text-xs text-secondary">Hidden only on this device. This does not lock chats or silence notifications.</p>}
+        {!hiddenReady && <p role="status" className="mb-3 text-xs text-secondary">Loading local chat settings. If this persists, check browser storage permissions.</p>}
         <input
           aria-label="Search conversations"
           placeholder="Search chats…"
@@ -772,11 +800,11 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         </p>
       )}
       <div className="scroll-slim min-h-0 flex-1 overflow-y-auto">
-        {sortedConversations.length === 0 && (
+        {hiddenReady && sortedConversations.length === 0 && (
           <p className="micro-label px-4 py-10 text-center normal-case leading-relaxed tracking-normal">
-            No conversations yet.
+            {search ? "No matching chats." : showHidden ? "No hidden chats on this device." : "No visible conversations yet."}
             <br />
-            Tap + to find people on Locat.
+            {showHidden ? "Open a chat and choose Hide on this device." : "Tap + to find people, or check Hidden chats."}
           </p>
         )}
         {sortedConversations.map(c => {
@@ -881,6 +909,8 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
             messages={messages}
             myId={user.id}
             online={online}
+            hidden={hiddenIds.has(activeConv.id)}
+            onToggleHidden={() => void toggleHidden(activeConv.id)}
             blocked={activeConv.type === "direct" && activeConv.members.some(m => m.id !== user.id && blockedIds.has(m.id))}
             onToggleBlock={() => void (async () => {
               const other = activeConv.members.find(m => m.id !== user.id);

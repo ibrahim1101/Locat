@@ -21,6 +21,8 @@ import {
   Download,
   Users,
   Ban,
+  EyeOff,
+  Eye,
 } from "lucide-react";
 
 export type UiMessage = LocalMessage & {
@@ -62,6 +64,8 @@ export function ChatWindow({
   onDeleteForAll,
   blocked,
   onToggleBlock,
+  hidden,
+  onToggleHidden,
 }: {
   conversation: ConversationSummary;
   messages: UiMessage[];
@@ -78,6 +82,8 @@ export function ChatWindow({
   onDeleteForAll: (message: LocalMessage) => void;
   blocked: boolean;
   onToggleBlock: () => void;
+  hidden: boolean;
+  onToggleHidden: () => void;
 }) {
   const [draft, setDraft] = useState("");
   const [profileId, setProfileId] = useState<number | null>(null);
@@ -124,6 +130,12 @@ export function ChatWindow({
 
   return (
     <div className="flex h-full min-w-0 flex-col">
+      <div className="flex items-center justify-end gap-2 border-b px-3 py-1">
+        <button type="button" onClick={onToggleHidden} className="flex min-h-11 items-center gap-2 rounded-md px-3 text-xs hover:bg-accent">
+          {hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+          {hidden ? "Restore to chats" : "Hide on this device"}
+        </button>
+      </div>
       {/* header */}
       <header className="flex min-h-16 pt-safe shrink-0 items-center gap-3 border-b px-3 sm:px-4">
         <button
