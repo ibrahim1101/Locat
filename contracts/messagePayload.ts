@@ -13,6 +13,14 @@ export const messagePayloadSchema = z.discriminatedUnion("type", [
     messageRef: z.string().uuid().optional(),
   }).strict(),
   z.object({
+    type: z.literal("file"),
+    mime: z.string().min(1).max(255),
+    name: z.string().min(1).max(255),
+    size: z.number().int().min(1).max(2_900_000),
+    dataB64: base64.max(4_000_000),
+    messageRef: z.string().uuid().optional(),
+  }).strict(),
+  z.object({
     type: z.literal("voice"),
     mime: z.enum(["audio/webm", "audio/ogg", "audio/mp4"]),
     dataB64: base64.max(4_000_000),
