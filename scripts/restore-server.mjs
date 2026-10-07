@@ -115,7 +115,8 @@ const data = z
       status: z.enum(["pending", "accepted"]),
       createdAt: date,
       updatedAt: date,
-    })).max(100000).default([]),
+    })).max(100000).optional(),
+    blocks: z.array(z.object({ id, blockerId: id, blockedId: id, createdAt: date })).max(100000).default([]),
   })
   .parse(JSON.parse(plain.toString("utf8")));
 const db = await mysql.createConnection(process.env.DATABASE_URL);
@@ -130,6 +131,7 @@ try {
     "group_keys",
     "push_subscriptions",
     "contact_relationships",
+    "user_blocks",
   ]) {
     const [rows] = await db.query(`SELECT id FROM ${table} LIMIT 1 FOR UPDATE`);
     if (rows.length)
@@ -209,13 +211,17 @@ try {
         row.wrapperPublicKey,
       ]
     );
-  for (const row of data.contacts)
+  for (const row of data.blocks)
+    await db.query("INSERT INTO user_blocks (id,blocker_id,blocked_id,created_at) VALUES (?,?,?,?)", [row.id, row.blockerId, row.blockedId, row.createdAt]);
+  for (const row of data.contacts ?? [])
     await db.query(
       "INSERT INTO contact_relationships (id,user_low_id,user_high_id,requested_by_id,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?)",
       [row.id, row.userLowId, row.userHighId, row.requestedById, row.status, row.createdAt, row.updatedAt]
     );
-  await db.query(
-    "INSERT IGNORE INTO contact_relationships (user_low_id,user_high_id,requested_by_id,status) SELECT LEAST(a.user_id,b.user_id),GREATEST(a.user_id,b.user_id),c.created_by,'accepted' FROM conversations c JOIN conversation_members a ON a.conversation_id=c.id JOIN conversation_members b ON b.conversation_id=c.id AND a.user_id<b.user_id WHERE c.type='direct'"
+  // Only older backups without a contacts field need the legacy backfill.
+  // An explicit empty list records removals and must remain empty.
+  if (data.contacts === undefined) await db.query(
+    "INSERT IGNORE INTO contact_relationships (user_low_id,user_high_id,requested_by_id,status) SELECT LEAST(a.user_id,b.user_id),GREATEST(a.user_id,b.user_id),c.created_by,'accepted' FROM conversations c JOIN conversation_members a ON a.conversation_id=c.id JOIN conversation_members b ON b.conversation_id=c.id AND a.user_id<b.user_id WHERE c.type='direct' AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE (ub.blocker_id=a.user_id AND ub.blocked_id=b.user_id) OR (ub.blocker_id=b.user_id AND ub.blocked_id=a.user_id))"
   );
   await db.query(
     "INSERT INTO group_keys (conversation_id,user_id,epoch,wrapped_key,wrapper_public_key) SELECT cm.conversation_id,cm.user_id,c.group_epoch,cm.wrapped_key,u.public_key FROM conversation_members cm JOIN conversations c ON c.id=cm.conversation_id JOIN users u ON u.id=cm.wrapped_by WHERE c.type='group' AND cm.wrapped_key IS NOT NULL AND NOT EXISTS (SELECT 1 FROM group_keys g WHERE g.conversation_id=c.id AND g.user_id=cm.user_id AND g.epoch=c.group_epoch)"
