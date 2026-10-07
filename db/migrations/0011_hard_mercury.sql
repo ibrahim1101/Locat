@@ -1,0 +1,2 @@
+ALTER TABLE `users` ADD `profile_visibility` enum('everyone','contacts','nobody') DEFAULT 'everyone' NOT NULL;--> statement-breakpoint
+ALTER TABLE `users` ADD `presence_visibility` enum('everyone','contacts','nobody') DEFAULT 'contacts' NOT NULL;
