@@ -422,3 +422,9 @@ npm run doctor
 - Commit `f212928`: `docs/QUICK_SIGN_IN_DESIGN.md` records threat model, release gates, UI/API/database work and verification plan.
 - Pending: schema/bootstrap migration, server issuance/revocation and login, client UI, crypto/auth automated tests, GitHub CI, Pi and Android physical acceptance.
 - No Pi or APK deployment needed yet; no claim of completed implementation. Existing login unaffected.
+
+
+### Quick Sign-In crypto regression tests (2026-10-09)
+- User reported Android `Failed to fetch` and then identified Tailscale offline in the emulator as the network cause; no app code fix required. Preserve device data.
+- Commit `dafd877`: added `src/lib/quickSignIn.test.ts` testing random 256-bit key generation, verifier normalization, malformed inputs, encrypted ECDH identity restore, independent salt/nonce, wrong-key and ciphertext tamper rejection.
+- Tests have **not yet been executed/verified**. Next: check CI or run `npm test -- src/lib/quickSignIn.test.ts` and `npm run check` on a checkout with dependencies. No Pi or APK deployment needed for tests-only commit.
