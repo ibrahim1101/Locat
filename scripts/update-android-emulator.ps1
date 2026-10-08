@@ -25,10 +25,11 @@ $runs = @($runsJson | ConvertFrom-Json)
 if ($runs.Count -eq 0) { throw "No successful Android build found on $Branch." }
 $run = $runs | Sort-Object createdAt -Descending | Select-Object -First 1
 $work = Join-Path $env:TEMP ("locat-emulator-" + $run.databaseId)
+if (Test-Path $work) { Remove-Item -LiteralPath $work -Recurse -Force }
 New-Item -ItemType Directory -Path $work -Force | Out-Null
 Write-Host "Downloading run $($run.databaseId) (commit $($run.headSha))..."
 & gh run download $run.databaseId -R $Repo -n "locat-android-release" -D $work
-if ($LASTEXITCODE -ne 0) { throw "APK artifact download failed." }
+if ($LASTEXITCODE -ne 0) { throw "APK artifact download failed (run $($run.databaseId)). See the gh error above." }
 $apk = Get-ChildItem -Path $work -Filter "locat-release.apk" -Recurse -File | Select-Object -First 1
 if (-not $apk) { throw "Artifact contains no locat-release.apk." }
 $checksum = Get-ChildItem -Path $work -Filter "locat-release.apk.sha256" -Recurse -File | Select-Object -First 1
