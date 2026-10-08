@@ -208,3 +208,32 @@ export const groupKeys = mysqlTable("group_keys", {
   wrappedKey: text("wrapped_key").notNull(),
   wrapperPublicKey: text("wrapper_public_key").notNull(),
 }, t => [uniqueIndex("group_key_user_epoch_unique").on(t.conversationId,t.userId,t.epoch)]);
+
+
+/**
+ * Unreleased passwordless authentication schema. No authentication route uses
+ * these tables until proof-of-possession and approval protocols are reviewed.
+ */
+export const recoveryCredentials = mysqlTable("recovery_credentials", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  verifier: varchar("verifier", { length: 64 }).notNull().unique(),
+  encryptedIdentity: text("encrypted_identity").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  revokedAt: timestamp("revoked_at"),
+}, t => [index("recovery_credentials_user_idx").on(t.userId)]);
+
+export const deviceLinkRequests = mysqlTable("device_link_requests", {
+  id: varchar("id", { length: 128 }).primaryKey(),
+  codeHash: varchar("code_hash", { length: 64 }).notNull(),
+  requesterPublicKey: text("requester_public_key").notNull(),
+  approverPublicKey: text("approver_public_key"),
+  approvedBy: bigint("approved_by", { mode: "number", unsigned: true })
+    .references(() => users.id, { onDelete: "cascade" }),
+  encryptedIdentity: text("encrypted_identity"),
+  state: mysqlEnum("state", ["pending", "approved", "consumed", "rejected"]).notNull().default("pending"),
+  attempts: int("attempts").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+}, t => [index("device_link_requests_expires_idx").on(t.expiresAt)]);
