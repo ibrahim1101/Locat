@@ -99,7 +99,7 @@ body { overscroll-behavior: none; }
 :root[data-theme="light"][data-accent="titanium"] { --primary: 220 13% 28%; }
 :root[data-accent="teal"] { --primary: 174 76% 48%; }
 :root[data-theme="light"][data-accent="teal"] { --primary: 174 80% 30%; }
-:root[data-accent="olive"] { --primary: 215 13% 82%; }
+:root[data-accent="olive"] { --primary: 82 31% 60%; }
 :root[data-theme="light"][data-accent="olive"] { --primary: 88 40% 29%; }
 :root[data-accent="blue"] { --primary: 210 90% 68%; }
 :root[data-accent="violet"] { --primary: 265 85% 75%; }
