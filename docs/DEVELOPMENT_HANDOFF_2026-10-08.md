@@ -491,3 +491,10 @@ npm run doctor
 - `8c836e3`: wired authenticated preflight endpoint to the shared gate.
 - `dff8661`: added unit tests for correct password, wrong password, absent and disabled account, and no password-hash verification for invalid accounts.
 - These unit tests do not exercise the tRPC middleware, rate limiter, MariaDB, or durable enrollment. The preflight response is not an authorization token; final enrollment must reauthenticate atomically. CI for this stage pending.
+
+
+### Encrypted Recovery Key enrollment storage (2026-10-09)
+- CI #306 (run 37840804526) passed for password-gate unit tests.
+- `c2480c9`: added authenticated `recoveryCredentialEnroll` mutation, with fresh password verification in the same operation, per-account rate limiting, strict verifier format and encrypted-blob length bounds, unique verifier handling, and owner-scoped insertion. Returns only a database record ID.
+- IMPORTANT: The server does not verify that the opaque encrypted blob corresponds to the account's ECDH public key; the client must verify identity correspondence and encrypted backup integrity before invoking enrollment. This endpoint is not wired to a user-facing enrollment screen and does not activate recovery login. The current stored SHA-256 verifier MUST NOT be accepted as a bearer login credential; implement and audit a non-replayable proof-of-possession protocol before enabling login.
+- Pending: enrollment route integration tests, secure UI, proof-of-possession login protocol, recovery revocation/session semantics and deployment acceptance.
