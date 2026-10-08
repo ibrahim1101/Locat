@@ -31,7 +31,7 @@ export function Preferences() {
       <select aria-label="Accent color" className="min-h-11 rounded-md border bg-background p-2" value={appearance.accent} onChange={e => {
         if (!setAppearance({ ...appearance, accent: e.target.value as Accent })) setFeedback('Appearance changed for this session. Browser storage prevented saving it.');
       }}>
-        <option value="teal">Teal</option><option value="blue">Blue</option><option value="violet">Violet</option><option value="rose">Rose</option>
+        <option value="olive">Obsidian Olive</option><option value="teal">Classic Teal</option><option value="blue">Blue</option><option value="violet">Violet</option><option value="rose">Rose</option>
       </select>
     </label>
     <p className="text-xs text-secondary">Saved for this browser. System follows your device appearance even with Settings closed.</p>
