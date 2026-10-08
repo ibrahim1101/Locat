@@ -410,8 +410,11 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       }
     },
     onError: error => {
-      if (error.data?.code === "UNAUTHORIZED" && navigator.onLine) {
-        window.location.reload();
+      // Subscription auth failures must not reload the entire application:
+      // native WebView SSE cannot send the bearer token used by API requests.
+      // The independent sync poller continues delivering messages.
+      if (error.data?.code === "UNAUTHORIZED") {
+        setConnection("Real-time unavailable · syncing messages…");
         return;
       }
       setConnection("Reconnecting…");
