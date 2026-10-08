@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Eye, EyeOff, LockKeyhole, ShieldCheck } from "lucide-react";
 import { registrationPasswordError, PASSWORD_MAX_CODE_UNITS } from "@contracts/password";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +9,7 @@ import { useAuth } from "@/state/auth";
 function LocatMark({ className = "h-8 w-8" }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" fill="none" className={className} aria-hidden>
-      <circle cx="7" cy="16" r="3.5" stroke="hsl(187 100% 50%)" strokeWidth="2" />
+      <circle cx="7" cy="16" r="3.5" stroke="hsl(var(--primary))" strokeWidth="2" />
       <circle cx="25" cy="16" r="3.5" stroke="currentColor" strokeWidth="2" />
       <path
         d="M11 16h10"
@@ -37,18 +38,19 @@ export default function Login() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-background px-4 pt-safe pb-safe">
-      <div className="w-full max-w-sm">{children}</div>
+    <div className="obsidian-auth-shell flex min-h-dvh items-center justify-center bg-background px-4 pt-safe pb-safe">
+      <div className="relative z-10 w-full max-w-md">{children}</div>
     </div>
   );
 }
 
 function Brand() {
   return (
-    <div className="mb-8">
-      <LocatMark className="mb-4 h-9 w-9 text-foreground" />
-      <h1 className="text-xl font-semibold tracking-tight">Locat</h1>
-      <p className="micro-label mt-2">end-to-end encrypted · stored on your devices</p>
+    <div className="mb-8 text-center">
+      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[20px] border border-primary/30 bg-primary/10 shadow-[0_0_36px_hsl(var(--primary)/0.08)]"><LocatMark className="h-10 w-10 text-foreground" /></div>
+      <p className="obsidian-kicker mb-2">Private by design</p>
+      <h1 className="text-3xl font-semibold tracking-tight">Locat<span className="text-primary">.</span></h1>
+      <p className="mt-2 text-sm text-muted-foreground">End-to-end encrypted conversations, on your terms.</p>
     </div>
   );
 }
@@ -65,6 +67,7 @@ function AuthForm({
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -91,8 +94,8 @@ function AuthForm({
   return (
     <Shell>
       <Brand />
-      <div className="surface-2 rounded-lg border p-6 shadow-super">
-        <div className="mb-6 grid grid-cols-2 gap-1 rounded-md border bg-background p-1">
+      <div className="obsidian-panel rounded-2xl p-5 shadow-super sm:p-7">
+        <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl border bg-background/80 p-1" role="group" aria-label="Account action">
           {(["login", "register"] as const).map((m) => (
             <button
               key={m}
@@ -101,7 +104,8 @@ function AuthForm({
                 setMode(m);
                 setError(null);
               }}
-              className={`h-11 rounded-[4px] text-sm font-medium transition-colors ${
+              aria-pressed={mode === m}
+              className={`h-11 rounded-lg text-sm font-medium transition-colors ${
                 mode === m ? "surface-3 text-foreground" : "text-secondary hover:text-foreground"
               }`}
             >
@@ -110,6 +114,7 @@ function AuthForm({
           ))}
         </div>
 
+        <div className="mb-5"><h2 className="text-xl font-semibold tracking-tight">{mode === "login" ? "Welcome back" : "Create your private space"}</h2><p className="mt-1 text-sm text-muted-foreground">{mode === "login" ? "Sign in to continue your conversations." : "Your identity and messages stay protected."}</p></div>
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="username" className="micro-label">
@@ -144,17 +149,17 @@ function AuthForm({
             <Label htmlFor="password" className="micro-label">
               Password
             </Label>
-            <Input
+            <div className="relative"><Input
               id="password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               autoComplete={mode === "login" ? "current-password" : "new-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="h-11 border-input bg-background"
+              className="h-11 border-input bg-background pr-12"
               required
               maxLength={PASSWORD_MAX_CODE_UNITS}
               aria-describedby={mode === "register" ? "password-help" : undefined}
-            />
+            /><button type="button" aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)} className="obsidian-interactive absolute inset-y-0 right-1 flex w-10 items-center justify-center rounded-lg text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
             {mode === "register" && (
               <p id="password-help" className="text-xs text-secondary">
                 Use at least 8 characters. Avoid your username,
@@ -172,7 +177,7 @@ function AuthForm({
             </div>
           )}
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
           <Button
             type="submit"
@@ -183,9 +188,7 @@ function AuthForm({
           </Button>
         </form>
 
-        <p className="micro-label mt-5 normal-case tracking-normal">
-          Your messages are encrypted on this device before they ever touch the relay.
-        </p>
+        <div className="mt-6 flex items-start gap-2 border-t pt-4 text-xs leading-relaxed text-muted-foreground"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" /><p>Your messages are encrypted on this device before they ever reach the relay.</p></div>
       </div>
     </Shell>
   );
@@ -222,13 +225,16 @@ function KeyRestore({
     <Shell>
       <Brand />
       <div className="surface-2 rounded-lg border p-6 shadow-super">
-        <p className="micro-label mb-2">New device detected</p>
+        <div className="mb-3 flex items-center gap-2 text-primary"><LockKeyhole className="h-5 w-5" aria-hidden="true" /><p className="obsidian-kicker">Restore encrypted identity</p></div>
+        <h2 className="mb-2 text-xl font-semibold">Welcome to your new device</h2>
         <p className="mb-5 text-sm text-secondary">
           Hi {user} — this device doesn't have your encryption keys yet. Enter your password
           to unlock the backup and restore your identity here.
         </p>
         <form onSubmit={submit} className="space-y-4">
+          <Label htmlFor="restore-password">Account password</Label>
           <Input
+            id="restore-password"
             type="password"
             autoComplete="current-password"
             placeholder="Password"
