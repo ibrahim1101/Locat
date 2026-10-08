@@ -3,6 +3,7 @@ import { downloadBlob } from "@/lib/download";
 import { chooseUserStorageFolder, selectInternalStorage, storagePreference, type StoragePreference } from "@/lib/storagePreference";
 import { isNativeShell } from "@/lib/native";
 import { Preferences } from "./Preferences";
+import { PrivacyCommandCenter } from "./PrivacyCommandCenter";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
   user: SessionUser; open: boolean; onOpenChange: (open: boolean) => void; onImported: () => void;
 }) {
   const [password, setPassword] = useState("");
+  const [view, setView] = useState<"settings" | "privacy">("settings");
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [storage, setStorage] = useState("Checking device storage…");
@@ -42,13 +44,17 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
 
   return <Dialog open={open} onOpenChange={(next) => {
     if (busy) return;
-    if (!next) { setPassword(""); setFeedback(""); }
+    if (!next) { setPassword(""); setFeedback(""); setView("settings"); }
     onOpenChange(next);
   }}>
-    <DialogContent className="surface-2 max-h-[90dvh] overflow-y-auto sm:max-w-md">
+    <DialogContent className="smoked-glass max-h-[90dvh] overflow-y-auto rounded-2xl sm:max-w-lg">
+      {view === "privacy" ? <PrivacyCommandCenter onBack={() => setView("settings")} /> : <>
       <DialogHeader><DialogTitle>Settings & backups</DialogTitle>
         <DialogDescription>Your chat history lives on this device. Keep a backup before clearing browser data or changing phones.</DialogDescription>
       </DialogHeader>
+      <Button type="button" variant="outline" className="min-h-12 w-full justify-between rounded-xl" onClick={() => setView("privacy")}>
+        Privacy Command Center <span aria-hidden="true">→</span>
+      </Button>
       <Preferences />
       <Notifications />
       <div className="space-y-3 rounded-xl border p-4">
@@ -107,6 +113,7 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
       }} />
       {feedback && <p role="status" className="text-sm">{feedback}</p>}
       <p className="text-xs text-secondary">Import merges history for this account on this server. Limit: 50 MB per file. History on the device itself is not encrypted at rest.</p>
+      </>}
     </DialogContent>
   </Dialog>;
 }
