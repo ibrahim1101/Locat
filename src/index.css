@@ -107,3 +107,6 @@ body { overscroll-behavior: none; }
 :root[data-theme="light"][data-accent="blue"] { --primary: 210 85% 35%; }
 :root[data-theme="light"][data-accent="violet"] { --primary: 265 65% 42%; }
 :root[data-theme="light"][data-accent="rose"] { --primary: 340 75% 36%; }
+
+/* Liquid Titanium: subtle hover polish without costly full-screen blur. */
+@media (hover: hover) { .titanium-panel:hover { border-color: hsl(var(--primary) / 0.25); } }
