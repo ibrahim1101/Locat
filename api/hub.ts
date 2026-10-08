@@ -11,6 +11,17 @@ import { and, eq, inArray, or } from "drizzle-orm";
 type Listener = (event: RelayEvent) => void;
 
 const listeners = new Map<number, Set<Listener>>();
+// HTTP polling clients (including native WebViews) also count as online.
+// Expire stale heartbeats so closed/crashed clients don't remain online.
+const heartbeats = new Map<number, number>();
+const HEARTBEAT_TTL_MS = 65_000;
+
+export function heartbeat(userId: number): void {
+  const wasOnline = onlineUserIds().includes(userId);
+  heartbeats.set(userId, Date.now() + HEARTBEAT_TTL_MS);
+  if (!wasOnline) void broadcastPresence().catch(() => {});
+}
+
 
 export function subscribe(userId: number, listener: Listener): () => void {
   let set = listeners.get(userId);
@@ -35,7 +46,9 @@ export function subscribe(userId: number, listener: Listener): () => void {
 }
 
 export function onlineUserIds(): number[] {
-  return [...listeners.keys()];
+  const now = Date.now();
+  for (const [id, expiry] of heartbeats) if (expiry <= now) heartbeats.delete(id);
+  return [...new Set([...listeners.keys(), ...heartbeats.keys()])];
 }
 
 export async function visibleOnlineUserIds(viewerId: number): Promise<number[]> {
