@@ -1,0 +1,61 @@
+# Locat Obsidian — Olive UI redesign plan
+
+Status: **Approved; phase 1 in progress**. Target branch: `feat/locat-1.0`. GitHub-only development, no local checkout required.
+
+## Product brief
+Premium privacy-first messenger with deep graphite/obsidian surfaces, warm ivory typography, matte olive highlights, low-noise borders, precise spacing, and discreet cat-inspired Locat identity. Keep it recognizable and calm, not neon/cyberpunk. Preserve existing app workflows and behavior.
+
+## Visual system
+- Obsidian canvas `#10120f`; raised surface `#1b1f19`; tertiary surface `#252a21`; separators `#363d32`.
+- Olive action `#a4b879`; olive hover `#b8ca92`; foreground `#f2f1e9`; secondary text `#aeb5a5`. Verify contrast on actual surfaces; avoid low-contrast olive text on pale surfaces.
+- Radius: 12px baseline; 16–20px for large cards, 999px for pills. Compact but generous 44px+ touch targets.
+- Typographic hierarchy: legible system/Inter stack, 14–16px body, 20–28px section headings; reserve monospaced labels for technical fingerprints.
+- Motion: 120–220ms transitions for hover, navigation, drawers; respect `prefers-reduced-motion`. No animated gradients behind conversation text.
+- Preserve light theme and existing accent preferences; make Olive the default, never force a previously saved preference.
+
+## Implementation stages and acceptance gates
+
+### 0. Audit / safety baseline
+- Inventory app entry, login/restore, conversation list, chat composer, groups, friends, profile, security, storage, settings, admin and native server setup.
+- Capture existing component APIs, state transitions, responsive breakpoints, data-testid hooks and any tests.
+- Avoid changes to `api/`, `db/`, `src/lib/crypto.ts`, delivery/receipt handling, authentication state, local message storage or encryption contracts in visual-only commits.
+- CI gates: TypeScript, lint, unit tests, production build, Docker smoke. Device/browser visual acceptance later.
+
+### 1. Shared design foundation (first implementation)
+- Replace legacy teal/navy default tokens with Obsidian/Olive in `src/index.css`.
+- Add reusable surface, focus and message-shell utilities without removing existing class names.
+- Preserve safe-area, Android status bar, text input zoom prevention and reduced-motion behavior.
+- Add token regression tests checking essential tokens and safeguards.
+
+### 2. Authentication and onboarding
+- Brand panel, clear sign-in/create-account states, accessible field labels/errors, password visibility, password recovery explanation, native server connection state.
+- Key restore remains explicit; no recovery key or link-device buttons until secure endpoints are shipped.
+- Mobile keyboard avoidance and 320px minimum layout acceptance.
+
+### 3. Desktop shell and mobile navigation
+- Desktop 3-pane option (rail / conversation list / chat) and mobile single-pane flow with predictable back navigation.
+- Search, unread counts, online indicators, archived/hidden chats, friends tab and new-conversation affordance.
+- Test chat switching and list persistence with existing state unchanged.
+
+### 4. Conversation view
+- Refine bubble shapes, timestamps, read receipts, message status, day dividers, attachments, voice notes, images and errors.
+- Composer retains keyboard shortcuts, upload controls, draft behavior, optimistic send, retries, encryption and delivery semantics.
+- Validate long text, RTL, image/file, group, and failed-send cases.
+
+### 5. Profiles, groups, settings and security
+- Unified modal/drawer surfaces, consistent fields, controls and confirmation hierarchy.
+- Privacy dashboard groups current capabilities accurately; unreleased Recovery Key / Link Device flows must not appear as functioning features.
+- Settings include appearance preview and reduced-motion compatibility; do not regress browser and native preferences.
+
+### 6. Polish and release validation
+- Loading/empty/offline/error states, keyboard navigation, screen-reader labels, focus order and contrast.
+- Cross-device QA: desktop Chromium/Firefox, Android WebView, Firefox Android; narrow widths, tall screens and OS font scaling.
+- Performance: no large blur effects over scrolling lists; avoid layout shift and unnecessary re-renders.
+- Security regression: send/receive E2EE direct and group, attachment/voice, identity restore, push/presence, receipts, hidden chats, session behavior.
+- Deploy to Pi and emulator **only after** relevant CI and device testing; log results and regressions in development handoff.
+
+## Rollout policy
+Use small, reversible commits on `feat/locat-1.0`, run CI after each stage, do not merge into `main` until sign-off. Prefer styling existing components over rewriting stateful messaging components. Preserve historical trials and failures in `docs/DEVELOPMENT_HANDOFF_2026-10-08.md`.
+
+## Accessibility targets
+WCAG 2.2 AA where applicable: text contrast >= 4.5:1 for ordinary text; interactive visual indicators >= 3:1, keyboard and focus visibility, no color-only status cues, and reduced motion. Verify actual computed colors and user-selectable themes.
