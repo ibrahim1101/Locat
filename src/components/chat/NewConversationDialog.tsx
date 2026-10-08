@@ -18,6 +18,7 @@ export function NewConversationDialog({ open, onOpenChange, onCreated }: {
   const me = state.status === "ready" ? state : null;
   const [tab, setTab] = useState<Tab>("people");
   const [query, setQuery] = useState("");
+  const [friendQuery, setFriendQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [groupName, setGroupName] = useState("");
   const [selected, setSelected] = useState<PublicUser[]>([]);
@@ -38,6 +39,9 @@ export function NewConversationDialog({ open, onOpenChange, onCreated }: {
   const requestByUser = useMemo(() => new Map((requests.data ?? []).map(row => [row.user.id, row])), [requests.data]);
   const results = useMemo(() => ((search.data ?? []) as PublicUser[]).filter(row => !selected.some(item => item.id === row.id)), [search.data, selected]);
   const incomingCount = (requests.data ?? []).filter(row => row.direction === "incoming").length;
+  const filteredContacts = useMemo(() => (contacts.data ?? []).filter(person =>
+    `${person.displayName} ${person.username ?? ""} ${userCode(person.lcCode!)}`.toLocaleLowerCase().includes(friendQuery.trim().toLocaleLowerCase())
+  ), [contacts.data, friendQuery]);
 
   async function refreshPeople() { await Promise.all([utils.users.contacts.invalidate(), utils.users.contactRequests.invalidate()]); }
   async function run(id: number, action: () => Promise<unknown>, fallback: string) {
@@ -71,7 +75,7 @@ export function NewConversationDialog({ open, onOpenChange, onCreated }: {
       <span className="flex shrink-0 gap-2">{actions}</span>
     </div>;
   }
-  function reset() { setTab("people"); setQuery(""); setSelected([]); setGroupName(""); setError(null); }
+  function reset() { setTab("people"); setQuery(""); setFriendQuery(""); setSelected([]); setGroupName(""); setError(null); }
 
   return <Dialog open={open} onOpenChange={value => { onOpenChange(value); if (!value) reset(); }}>
     <DialogContent className="surface-2 border sm:max-w-lg">
@@ -89,10 +93,12 @@ export function NewConversationDialog({ open, onOpenChange, onCreated }: {
 
       <div className="scroll-slim max-h-[min(55vh,28rem)] space-y-2 overflow-y-auto pr-1">
         {tab === "people" && !debounced && <>
+          <Input aria-label="Search your friends" placeholder="Search your accepted friends…" value={friendQuery} onChange={event => setFriendQuery(event.target.value)} className="h-11 border-input bg-background" />
           <p className="micro-label px-1 normal-case tracking-normal">Your contacts</p>
           {contacts.isLoading && <p className="px-1 py-6 text-center text-sm text-secondary">Loading contacts…</p>}
           {!contacts.isLoading && !contacts.data?.length && <p className="px-1 py-6 text-center text-sm text-secondary">No contacts yet. Search by LC number or name to add someone.</p>}
-          {(contacts.data ?? []).map(user => person(user as PublicUser, <><Button size="sm" disabled={busyId === user.id} onClick={() => void startDirect(user as PublicUser)}>Chat</Button>
+          {filteredContacts.length === 0 && friendQuery.trim() && <p className="px-1 py-3 text-sm text-secondary">No matching friends.</p>}
+          {filteredContacts.map(user => person(user as PublicUser, <><Button size="sm" disabled={busyId === user.id} onClick={() => void startDirect(user as PublicUser)}>Chat</Button>
             <Button size="sm" variant="outline" disabled={busyId === user.id} onClick={() => { if (window.confirm(`Remove ${user.displayName} from your contacts? Existing chat history stays on both devices.`))
               void run(user.id, async () => { await removeContact.mutateAsync({ userId: user.id }); await refreshPeople(); }, "Could not remove contact."); }}>Remove</Button></>))}
         </>}
