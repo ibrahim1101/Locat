@@ -516,3 +516,9 @@ npm run doctor
 - `6d98628`: redesigned login, registration, and identity-restore presentation in `src/pages/Login.tsx`: olive brand treatment, responsive centered panel, clearer headings, accessible password visibility toggle, account action pressed state, explicit restore password label, and alert semantics. Existing auth functions and crypto flows unchanged.
 - `3699b3d`: added a subtle static Obsidian auth background effect to `src/index.css`.
 - Pending: CI and device/browser visual acceptance for phase 2. No passwordless recovery or link-device UI enabled.
+
+
+### Final visual direction — Liquid Titanium + Smoked Glass (2026-10-09)
+- User rejected Olive and any UI edition name; brand must display exactly **Locat**. Chosen T2 Liquid Titanium + P2 Smoked Glass, balanced gloss. Privacy Command Center retained.
+- `e88da5e`: dark titanium/silver global palette and smoked-glass reusable surface utilities; `73b1253`: titanium default accent while retaining stored choices; `2954d38`: settings theme selector; `a9a8e84`: updated login branding and surface; `32344a9`: neutral auth-shell class naming; `c7eb39d`: appearance regression tests; `3e8cfeb`: smoked glass Privacy Command Center conversation key-verification dialog; `8d9a2a1`: inbox separators and active conversation styling; `ffc68d1`: refreshed visual roadmap and explicit naming rule.
+- UI-only changes: no crypto, relay, account, database, or message-persistence logic modified. The Privacy Command Center currently exposes existing conversation fingerprint verification; a full account-level dashboard and unfinished recovery/device linking remain future work. CI and physical QA to verify.
