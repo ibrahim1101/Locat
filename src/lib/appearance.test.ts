@@ -3,9 +3,10 @@ import { getAppearance, parseAppearance, setAppearance, startAppearance } from "
 
 afterEach(() => vi.unstubAllGlobals());
 it("rejects unknown stored choices and preserves supported legacy modes", () => {
-  expect(parseAppearance("invalid", "invalid")).toEqual({ theme: "dark", accent: "olive" });
+  expect(parseAppearance("invalid", "invalid")).toEqual({ theme: "dark", accent: "titanium" });
   expect(parseAppearance(null, null)).toEqual({ theme: "dark", accent: "olive" });
   expect(parseAppearance("dark", "teal")).toEqual({ theme: "dark", accent: "teal" });
+  expect(parseAppearance("dark", "titanium")).toEqual({ theme: "dark", accent: "titanium" });
   expect(parseAppearance("light", "olive")).toEqual({ theme: "light", accent: "olive" });
   expect(parseAppearance("system", "rose")).toEqual({ theme: "system", accent: "rose" });
 });
