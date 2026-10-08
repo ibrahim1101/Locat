@@ -449,3 +449,10 @@ npm run doctor
 - Prior attempt to edit setup-db was blocked; no schema bootstrap was changed then.
 - `6fdc4cc`: added idempotent `CREATE TABLE IF NOT EXISTS` statements to `scripts/setup-db.mjs`, including user foreign keys, expiry and verifier indexes. Existing accounts/messages are not intentionally altered by these new statements.
 - **Not verified** by CI, TypeScript check or a live MariaDB setup run. Next: validate `npm run check`, run `npm run db:setup` on a backed-up test installation, verify both tables, and build safe authentication protocols.
+
+
+### GitHub-only validation (2026-10-09)
+- User confirmed no local Locat checkout and requested GitHub-only development.
+- Existing `.github/workflows/ci.yml` already ran `npm run check`, lint, all tests, build and Docker smoke tests on `feat/locat-1.0`.
+- Commit `2c2aa95` explicitly adds Quick Sign-In and Link Device Vitest suites, runs MariaDB `npm run db:setup` twice to detect non-idempotent bootstrap, and verifies both passwordless tables exist.
+- Workflow results are pending verification. Do not treat a pushed workflow as proof of passing tests; inspect Actions runs and fix failures before production deployment.
