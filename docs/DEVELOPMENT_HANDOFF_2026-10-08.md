@@ -367,3 +367,26 @@ npm run doctor
 - User ran `gh run view RUN_ID -R ibrahim1101/Locat --log-failed` literally and got HTTP 404; `RUN_ID` was a placeholder, not a workflow identifier. Correct command if needed: `gh run view 37825264826 -R ibrahim1101/Locat` (no failed logs needed for a successful run).
 - Next implementation: native Android push SDK, runtime permission, FCM registration, backend token storage and secure sender. Existing browser push does not cover Capacitor native push.
 - No Pi deployment required for CI-only changes. Do not assert background notifications work yet.
+
+
+## Native Android Push SDK dependency milestone (2026-10-09)
+
+- Commit `537e9b8` extends the isolated Capacitor 8 toolchain in `.github/workflows/android-apk.yml` with `@capacitor/push-notifications@8`, and symlinks it into the project's `node_modules/@capacitor` before `npx cap sync android`.
+- Firebase configuration and Google Services Gradle plugin were already proven by successful Android workflows `37824807173` and `37825264826`.
+- **Current push plugin workflow not yet verified.** Next inspect workflow result; if plugin discovery fails, fix build before introducing app-level notification logic.
+- **Not yet implemented**: Android permission request and token listeners, authenticated Pi token registration/storage, FCM server sender, logout cleanup and device testing. Plugin installation does not imply notifications work.
+
+### Windows PowerShell
+
+```powershell
+gh run list -R ibrahim1101/Locat -w android-apk.yml -b feat/locat-1.0 -L 5
+```
+
+### Raspberry Pi
+
+```bash
+cd /opt/locat
+npm run doctor
+```
+
+- No Pi deployment needed for this Android workflow-only change. Avoid installing the APK until build is verified and app-side native notification flow is implemented.
