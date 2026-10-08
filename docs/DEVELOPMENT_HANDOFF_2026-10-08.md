@@ -161,3 +161,35 @@ For every future milestone, append exact Raspberry Pi, PowerShell, diagnostic, a
 - Previously pending manual checks for these features are now recorded as **user-reported successful**. No independent automated test run is claimed.
 - Continue with profile improvements, faster presence testing, and Android notification verification.
 - Deployment and PowerShell commands remain recorded in the command reference above; preserve the exact commands for future milestones.
+
+
+## Profile UX milestone (2026-10-08)
+
+- Commit `349a8e7`: friend profile now offers Copy LC code and Retry after a profile-fetch failure; existing privacy-filtered profile query remains in place.
+- Commit `0000684`: own-profile description now reflects user-configurable visibility; bio counter clarifies the 280-character limit.
+- GitHub commits succeeded. Automated checks, Pi deployment, Android emulator behavior, and clipboard permissions **not yet independently verified**.
+- Manual tests: open Friends > Profile, copy LC code, paste to verify; confirm privacy settings and bio count; simulate offline profile request and Retry after reconnecting.
+
+### Apply this milestone — Raspberry Pi
+
+```bash
+curl -fL \
+  https://raw.githubusercontent.com/ibrahim1101/Locat/feat/locat-1.0/scripts/deploy-pi.sh \
+  -o /tmp/locat-deploy.sh
+sudo bash /tmp/locat-deploy.sh
+cd /opt/locat
+npm run doctor
+sudo systemctl status locat.service --no-pager
+```
+
+### Apply this milestone — Windows PowerShell / Android emulator
+
+Wait for the APK GitHub Actions workflow to succeed before running:
+
+```powershell
+Invoke-WebRequest \`
+  -Uri "https://raw.githubusercontent.com/ibrahim1101/Locat/feat/locat-1.0/scripts/update-android-emulator.ps1" \`
+  -OutFile "C:\\platform-tools\\update-locat.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass \`
+  -File "C:\\platform-tools\\update-locat.ps1"
+```
