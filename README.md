@@ -50,6 +50,8 @@ Verify fingerprints through another trusted channel. Public keys are pinned on f
 
 ## More documentation
 
+- **[Project history, failures, fixes and new-chat handoff](docs/PROJECT-HISTORY-AND-HANDOFF.md)** — living editable engineering journal (updated 2026-10-08)
+
 - [Pi preservation and public HTTPS](docs/RASPBERRY_PI.md)
 - [Cross-platform hosting](docs/CROSS_PLATFORM.md)
 - [Administration and recovery](docs/SERVER_ADMIN.md)
