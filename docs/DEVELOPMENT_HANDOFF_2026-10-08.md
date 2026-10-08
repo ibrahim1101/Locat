@@ -255,3 +255,53 @@ After the browser presence refresh change in commit `7c51730`, the user reported
 5. No noticeable lag or excessive battery use.
 
 Result: **5/5 user-reported PASS**. Exact online/offline transition latency was not measured; do not claim a specific number of seconds. No independent automated test is claimed. Next milestone: Android notification testing (foreground, background, closed app, and permission behavior). This is documentation-only and requires no redeployment.
+
+
+## Android notification verification milestone (2026-10-08)
+
+### Architecture review
+
+- Existing `src/components/chat/Notifications.tsx` uses browser `Notification`, `PushManager`, and service workers. `api/push.ts` sends privacy-preserving generic Web Push notifications using VAPID, when configured.
+- A Capacitor Android WebView does **not** automatically inherit full native FCM background push capability from this browser Web Push code. Treat standalone APK background/terminated notifications as **unverified**; do not promise delivery.
+- `docs/NOTIFICATIONS.md` describes supported HTTPS browser/PWA behavior and Pi VAPID setup. The user's Android APK must be tested separately.
+- Never regenerate existing VAPID keys unless intentionally rotating them; check `npm run doctor` first. Do not commit private keys or endpoints.
+
+### Manual test matrix (pending)
+
+1. On Pi, run `cd /opt/locat && npm run doctor` and check whether push is configured (no secret output).
+2. On Android APK, open Locat settings and report the exact Background notifications message and whether Enable / Send test buttons are available.
+3. If supported, grant notification permission and use Send test; record whether an OS notification appears.
+4. Send a message to Android while foregrounded, backgrounded, and swiped away; record each result separately. Do not assume force-stopped app delivery.
+5. Tap an alert, if delivered, and record whether it opens Locat/the right chat. Confirm no sender name/message text is exposed in previews.
+6. In a supported HTTPS desktop/mobile browser, repeat the same tests to distinguish browser Web Push from native APK behavior.
+
+### Raspberry Pi read-only diagnostics
+
+```bash
+cd /opt/locat
+npm run doctor
+sudo systemctl status locat.service --no-pager
+```
+
+### Windows PowerShell read-only APK diagnostics
+
+```powershell
+& "C:\\platform-tools\\adb.exe" -s emulator-5554 shell pm list packages | Select-String locat
+& "C:\\platform-tools\\adb.exe" -s emulator-5554 shell dumpsys notification | Select-String -Pattern "locat" -Context 1,2
+```
+
+### Existing deployment commands (only after an actual code update)
+
+```bash
+curl -fL https://raw.githubusercontent.com/ibrahim1101/Locat/feat/locat-1.0/scripts/deploy-pi.sh -o /tmp/locat-deploy.sh
+sudo bash /tmp/locat-deploy.sh
+```
+
+```powershell
+Invoke-WebRequest \`
+  -Uri "https://raw.githubusercontent.com/ibrahim1101/Locat/feat/locat-1.0/scripts/update-android-emulator.ps1" \`
+  -OutFile "C:\\platform-tools\\update-locat.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "C:\\platform-tools\\update-locat.ps1"
+```
+
+- Status: architecture inspected; tests and any native push implementation **not yet completed**. This commit is documentation-only, so no deployment is required.
