@@ -165,6 +165,38 @@ export const authRouter = createRouter({
       return { verified: true, publicKey };
     }),
 
+  /** Stores an encrypted recovery backup only after fresh password verification.
+   * Enrollment does not enable recovery login; no secret is accepted or returned.
+   */
+  recoveryCredentialEnroll: authedQuery
+    .input(z.object({
+      password: z.string().min(1).max(PASSWORD_MAX_CODE_UNITS),
+      verifier: z.string().regex(/^[a-f0-9]{64}$/),
+      encryptedIdentity: z.string().min(40).max(16_000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      limit(`recovery-enroll:${ctx.user!.id}`, 5, 15 * 60_000);
+      const db = getDb();
+      const account = await db.query.users.findFirst({ where: eq(users.id, ctx.user!.id) });
+      await verifyRecoveryEnrollmentPassword(account, input.password);
+      // This encrypted blob is opaque to the server. Client must confirm its
+      // identity matches the returned account public key before calling this.
+      try {
+        const [created] = await db.insert(recoveryCredentials).values({
+          userId: ctx.user!.id,
+          verifier: input.verifier,
+          encryptedIdentity: input.encryptedIdentity,
+        }).$returningId();
+        return { id: created.id };
+      } catch (error) {
+        const cause = (error as { cause?: { code?: string } }).cause;
+        if (cause?.code === "ER_DUP_ENTRY") {
+          throw new TRPCError({ code: "CONFLICT", message: "Recovery credential already registered" });
+        }
+        throw error;
+      }
+    }),
+
   recoveryCredentialList: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
     return db.select({
