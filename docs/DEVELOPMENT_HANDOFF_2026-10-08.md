@@ -456,3 +456,9 @@ npm run doctor
 - Existing `.github/workflows/ci.yml` already ran `npm run check`, lint, all tests, build and Docker smoke tests on `feat/locat-1.0`.
 - Commit `2c2aa95` explicitly adds Quick Sign-In and Link Device Vitest suites, runs MariaDB `npm run db:setup` twice to detect non-idempotent bootstrap, and verifies both passwordless tables exist.
 - Workflow results are pending verification. Do not treat a pushed workflow as proof of passing tests; inspect Actions runs and fix failures before production deployment.
+
+
+### Recovery credential management foundation (2026-10-09)
+- Commit `4630405`: added authenticated `recoveryCredentialList` and `recoveryCredentialRevoke` procedures to `api/authRouter.ts`.
+- List returns record IDs and creation timestamps only. Revocation requires a session, filters by account owner and active state, and is rate-limited.
+- No recovery credential enrollment or passwordless login is enabled. This update has not been confirmed by CI at the time of writing.
