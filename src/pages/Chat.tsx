@@ -1,4 +1,3 @@
-import { isNativeShell } from "@/lib/native";
 import { relayPayloadSchema, type MessageControl } from "@contracts/messagePayload";
 import { userCode } from "@contracts/userCode";
 import { Link } from "react-router";
