@@ -217,7 +217,7 @@ export function ChatWindow({
     .filter(m => !searchOpen || !search || (m.payload.type === "text" && m.payload.text.toLowerCase().includes(search.toLowerCase())));
 
   return (
-    <div className="flex h-full min-w-0 flex-col">
+    <div className="locat-chat flex h-full min-w-0 flex-col">
       <div className="flex items-center justify-end gap-2 border-b px-3 py-1">
         <button type="button" aria-pressed={showHiddenMessages} onClick={() => { setShowHiddenMessages(v => !v); setSearch(""); setReply(null); }} className="min-h-11 rounded-md px-3 text-xs hover:bg-accent">
           {showHiddenMessages ? "Back to messages" : `Hidden messages (${messages.filter(m => m.hidden).length})`}
@@ -228,7 +228,7 @@ export function ChatWindow({
         </button>
       </div>
       {/* header */}
-      <header className="flex min-h-16 pt-safe shrink-0 items-center gap-3 border-b px-3 sm:px-4">
+      <header className="smoked-glass flex min-h-16 pt-safe shrink-0 items-center gap-3 border-b px-3 sm:px-4">
         <button
           type="button"
           onClick={onBack}
@@ -319,7 +319,7 @@ export function ChatWindow({
             el.scrollHeight - el.scrollTop - el.clientHeight < 120;
           setAtBottom(nearBottom.current);
         }}
-        className="scroll-slim min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6"
+        className="locat-chat-canvas scroll-slim min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6"
       >
         {visibleMessages.length === 0 && (
           <div className="flex h-full items-center justify-center">
@@ -393,7 +393,7 @@ export function ChatWindow({
       ) : (
         <>
           {/* composer */}
-          <div className="shrink-0 border-t px-3 py-3 pb-safe sm:px-6">
+          <div className="smoked-glass shrink-0 border-t px-3 py-3 pb-safe sm:px-6">
             <div className="mx-auto flex max-w-3xl items-end gap-2">
               <input
                 ref={fileRef}
@@ -465,13 +465,13 @@ export function ChatWindow({
                 placeholder={composer.canType ? "Message…" : "Direct contact is blocked"}
                 aria-describedby={composer.unavailableReason ? "composer-unavailable-reason" : undefined}
                 rows={1}
-                className="max-h-36 min-h-11 flex-1 resize-none rounded-md border border-input bg-background px-3 py-2.5 text-sm outline-none placeholder:text-secondary focus-visible:ring-1 focus-visible:ring-ring"
+                className="max-h-36 min-h-11 flex-1 resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none placeholder:text-secondary focus-visible:ring-1 focus-visible:ring-ring"
               />}
               <button
                 type="button"
                 onClick={submit}
                 disabled={!composer.canSend || recording}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.94] disabled:opacity-30"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.94] disabled:opacity-30"
                 aria-label={composer.canSend && !recording ? "Send" : recording ? "Finish recording before sending text" : `Send unavailable: ${composer.sendReason}`}
                 title={composer.canSend && !recording ? "Send" : recording ? "Finish recording before sending text" : composer.sendReason ?? undefined}
                 aria-describedby={composer.unavailableReason ? "composer-unavailable-reason" : undefined}
@@ -617,8 +617,8 @@ function MessageBubble({
         <div
           className={`overflow-hidden rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
             mine
-              ? "rounded-br-md bg-primary text-primary-foreground"
-              : "surface-2 rounded-bl-md border"
+              ? "rounded-br-md bg-[hsl(var(--muted))] text-foreground border border-border/80"
+              : "surface-2 rounded-bl-md border border-border/70"
           } ${m.pending ? "opacity-60" : ""} ${m.failed ? "border-destructive" : ""}`}
         >
           {m.payload.type === "image" && img && (
