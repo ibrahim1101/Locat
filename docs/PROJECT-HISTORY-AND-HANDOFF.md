@@ -194,6 +194,18 @@ Only use a **same-signing-key** APK. Never uninstall, clear app storage or rotat
 
 **Note:** Existing `README.md` and `LOCAT-1.0-PLAN.md` contain some stale historical statements (e.g. “APK planned” after APK was built). Refresh them in a separate, reviewed documentation update. This journal describes observed progress, not an independently verified release manifest.
 
+
+### 2026-10-08 17:45 IST — Android presence investigation (source audit; device reproduction pending)
+- Goal: resume Android missing-online-state diagnosis without touching accounts, keys, local IndexedDB history, or production MariaDB.
+- Starting branch/commit: `feat/locat-1.0` / `97e390b`. Latest observed Locat checks run `37775291983` passed at that documentation checkpoint.
+- Files inspected: `api/hub.ts`, `api/messagesRouter.ts`, `api/context.ts`, `src/providers/trpc.tsx`, `src/lib/native.ts`, `src/pages/Chat.tsx` and the 1.0 plan.
+- Findings: `messages.presence` is an authenticated HTTP query and records a 65-second server heartbeat. Native HTTP batch requests supply `Authorization: Bearer <session>` through `authHeaders()`; native SSE uses an EventSource that cannot supply the same Authorization header. Messaging can therefore work through HTTP polling even if SSE fails.
+- Suspected failure points, NOT yet confirmed root causes: native `messages.presence` request may fail or not execute; its rejection currently shares a `try` block with conversation sync and is hidden by an unlabelled catch; UI may overwrite presence state from SSE/polling races; server privacy filtering can hide an Android account from Firefox even with Firefox's own visibility set to Everyone (the *Android account's* presence policy controls its visibility).
+- Successful outcome: GitHub source audit performed; earlier device-accepted message stability and data-preserving APK upgrade retained. No code, schema, settings, authentication or relay behavior changed in this audit.
+- Failed/blocked: No sanitized Android ADB logs or authenticated Android `auth.me` / `messages.presence` result available yet, so no root cause or device fix can be honestly claimed.
+- Testing: source inspection only (not a new automated test); no APK installation or Pi deployment. Android online status remains FAIL / OPEN.
+- Next: run `.\\adb.exe devices` then logcat while Android Locat is in foreground; inspect native network errors without sharing secrets, verify Android `auth.me.id` and `presenceVisibility`, and check whether authenticated HTTP presence heartbeat reaches Pi. Make a small independently tested change only after isolating the fault. Never uninstall, clear site/app data, reset accounts, rotate keys, or run integration tests against the production DB.
+
 ## 9. Editable running log template
 
 Copy this section for each new milestone:
