@@ -14,10 +14,10 @@ const listeners = new Map<number, Set<Listener>>();
 // HTTP polling clients (including native WebViews) also count as online.
 // Expire stale heartbeats so closed/crashed clients don't remain online.
 const heartbeats = new Map<number, number>();
-const HEARTBEAT_TTL_MS = 15_000;
+const HEARTBEAT_TTL_MS = 12_000;
 // Presence is best-effort: expired polling heartbeats must be pruned even
 // when no new user logs in or out.
-const PRESENCE_SWEEP_MS = 5_000;
+const PRESENCE_SWEEP_MS = 2_000;
 
 export function heartbeat(userId: number): void {
   const wasOnline = onlineUserIds().includes(userId);
