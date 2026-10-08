@@ -359,3 +359,11 @@ npm run doctor
 ```
 
 - Do not reinstall the Android APK merely to test the Firebase SDK setup: notification support is not yet implemented. Preserve the user's app data.
+
+
+## Firebase Android CI verification (2026-10-09)
+
+- User provided `gh run list` showing **SUCCESS** for Firebase config injection run `37824807173` and Google Services Gradle integration run `37825264826`. This verifies the signed Android APK workflow completed, **not** that native push is operational.
+- User ran `gh run view RUN_ID -R ibrahim1101/Locat --log-failed` literally and got HTTP 404; `RUN_ID` was a placeholder, not a workflow identifier. Correct command if needed: `gh run view 37825264826 -R ibrahim1101/Locat` (no failed logs needed for a successful run).
+- Next implementation: native Android push SDK, runtime permission, FCM registration, backend token storage and secure sender. Existing browser push does not cover Capacitor native push.
+- No Pi deployment required for CI-only changes. Do not assert background notifications work yet.
