@@ -3,7 +3,10 @@ import { getAppearance, parseAppearance, setAppearance, startAppearance } from "
 
 afterEach(() => vi.unstubAllGlobals());
 it("rejects unknown stored choices and preserves supported legacy modes", () => {
-  expect(parseAppearance("invalid", "invalid")).toEqual({ theme: "dark", accent: "teal" });
+  expect(parseAppearance("invalid", "invalid")).toEqual({ theme: "dark", accent: "olive" });
+  expect(parseAppearance(null, null)).toEqual({ theme: "dark", accent: "olive" });
+  expect(parseAppearance("dark", "teal")).toEqual({ theme: "dark", accent: "teal" });
+  expect(parseAppearance("light", "olive")).toEqual({ theme: "light", accent: "olive" });
   expect(parseAppearance("system", "rose")).toEqual({ theme: "system", accent: "rose" });
 });
 it("tracks system appearance outside Settings, cross-tab updates and blocked storage", () => {
