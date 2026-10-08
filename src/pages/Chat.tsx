@@ -3,6 +3,7 @@ import { userCode } from "@contracts/userCode";
 import { Link } from "react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/providers/trpc";
+import { isNativeShell } from "@/lib/native";
 import { useAuth, type SessionUser } from "@/state/auth";
 import type {
   ConversationSummary,
@@ -435,11 +436,15 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       }
       running = true;
       try {
+        // Invalidate cached results so each cycle sends a real presence heartbeat.
+        await utils.messages.presence.invalidate();
         const presence = await utils.messages.presence.fetch();
         if (!stopped) setOnline(new Set(presence.online));
         await utils.conversations.list.fetch();
         // Cursor advances past undecryptable envelopes; retry from zero next sweep.
         for (let pages = 0; pages < 20 && !stopped; pages++) {
+          // Never treat a cached sync result as a fresh relay delivery check.
+          await utils.messages.sync.invalidate();
           const page = await utils.messages.sync.fetch({ after: cursor });
           if (stopped) return;
           await enqueue(page.items);
@@ -463,7 +468,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       setConnection("Offline · history stays on this device");
     reconnectRef.current = refresh;
     refresh();
-    const timer = window.setInterval(refresh, 20000);
+    const timer = window.setInterval(refresh, isNativeShell() ? 3000 : 20000);
     window.addEventListener("online", refresh);
     window.addEventListener("offline", offline);
     document.addEventListener("visibilitychange", visibility);
