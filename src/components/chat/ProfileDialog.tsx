@@ -1,6 +1,4 @@
 import { useRef, useState } from "react";
-import { chooseUserStorageFolder, storagePreference, selectInternalStorage, type StoragePreference } from "@/lib/storagePreference";
-import { isNativeShell } from "@/lib/native";
 import { prepareProfilePicture } from "@/lib/profilePicture";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -23,7 +21,6 @@ export function ProfileDialog({ user, open, onOpenChange }: {
   const [presenceVisibility, setPresenceVisibility] = useState(user.presenceVisibility ?? "contacts");
   const [allowAvatarDownload, setAllowAvatarDownload] = useState(user.allowAvatarDownload ?? false);
   const [preparing, setPreparing] = useState(false);
-  const [storage, setStorage] = useState<StoragePreference>(() => storagePreference());
   const pictureInput = useRef<HTMLInputElement>(null);
   const savePicture = trpc.users.setAvatar.useMutation({
     onSuccess: async () => { await queryClient.invalidateQueries(); },
@@ -105,25 +102,6 @@ export function ProfileDialog({ user, open, onOpenChange }: {
         Allow people who can see my picture to download it
       </label>
       <p className="text-xs text-secondary">Turning this off removes Locat’s download option. People who can view your picture can still take screenshots or save it through their browser.</p>
-      <div className="space-y-3 rounded-xl border p-4">
-        <div><p className="font-medium">Local storage</p>
-          <p className="text-xs text-secondary">Choose where Locat saves user-controlled downloads and encrypted exports. Encryption keys, login sessions, and private runtime data stay in protected app storage.</p></div>
-        <div className="rounded-lg bg-muted/40 p-3 text-sm">
-          <p className="font-medium">{storage.mode === "user-folder" ? "User-selected folder" : "Protected app storage"}</p>
-          {storage.mode === "user-folder" && storage.label && <p className="mt-1 break-all text-xs text-secondary">{storage.label}</p>}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {isNativeShell() && <Button type="button" variant="outline" disabled={busy} onClick={() => {
-            setFeedback("");
-            void chooseUserStorageFolder().then(next => { setStorage(next); setFeedback("Storage folder selected."); })
-              .catch(error => setFeedback(error instanceof Error ? error.message : "Could not select storage folder."));
-          }}>Choose Android folder</Button>}
-          <Button type="button" variant="outline" disabled={busy || storage.mode === "internal"} onClick={() => {
-            setStorage(selectInternalStorage()); setFeedback("Protected app storage selected.");
-          }}>Use protected storage</Button>
-        </div>
-        {!isNativeShell() && <p className="text-xs text-secondary">Custom folders are available in the Locat Android app. Browsers keep using their sandboxed local storage and download controls.</p>}
-      </div>
       <div className="space-y-2"><Label htmlFor="profile-bio">Bio</Label>
         <textarea id="profile-bio" value={bio} maxLength={280} disabled={busy} onChange={e => setBio(e.target.value)}
           className="min-h-24 w-full resize-y rounded-md border bg-background p-3 text-sm" placeholder="A little about you" />

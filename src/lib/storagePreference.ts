@@ -50,7 +50,9 @@ declare global {
 
 export async function saveToSelectedFolder(name: string, mime: string, dataB64: string): Promise<boolean> {
   const pref = storagePreference();
-  if (pref.mode !== "user-folder" || !pref.treeUri || !window.LocatStorage?.writeFile) return false;
+  if (pref.mode !== "user-folder") return false;
+  if (!pref.treeUri || !window.LocatStorage?.writeFile)
+    throw new Error("The selected Android folder is unavailable. Choose it again.");
   await window.LocatStorage.writeFile({ treeUri: pref.treeUri, name, mime: mime || "application/octet-stream", dataB64 });
   return true;
 }

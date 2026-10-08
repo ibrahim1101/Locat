@@ -1,5 +1,7 @@
 import { Notifications } from "./Notifications";
 import { downloadBlob } from "@/lib/download";
+import { chooseUserStorageFolder, selectInternalStorage, storagePreference, type StoragePreference } from "@/lib/storagePreference";
+import { isNativeShell } from "@/lib/native";
 import { Preferences } from "./Preferences";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,6 +19,7 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [storage, setStorage] = useState("Checking device storage…");
+  const [destination, setDestination] = useState<StoragePreference>(() => storagePreference());
   const fileInput = useRef<HTMLInputElement>(null);
   const account = { userId: user.id, username: user.username, origin: location.origin };
   useEffect(() => {
@@ -48,6 +51,27 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
       </DialogHeader>
       <Preferences />
       <Notifications />
+      <div className="space-y-3 rounded-xl border p-4">
+        <div><p className="font-medium">Downloads & encrypted exports</p>
+          <p className="text-xs text-secondary">Choose where attachments and encrypted history backups are saved. Identity keys, login sessions and Locat's private runtime data always remain in protected app storage.</p></div>
+        <div className="rounded-lg bg-muted/40 p-3 text-sm">
+          <p className="font-medium">{destination.mode === "user-folder" ? "User-selected Android folder" : "Browser downloads"}</p>
+          {destination.mode === "user-folder" && destination.label && <p className="mt-1 break-all text-xs text-secondary">{destination.label}</p>}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {isNativeShell() && <Button type="button" variant="outline" disabled={busy} onClick={() => void perform(async () => {
+            const next = await chooseUserStorageFolder();
+            setDestination(next);
+            setFeedback("Android folder selected. Attachments and encrypted exports will be saved there.");
+          })}>Choose Android folder</Button>}
+          <Button type="button" variant="outline" disabled={busy || destination.mode === "internal"} onClick={() => {
+            setDestination(selectInternalStorage());
+            setFeedback("Browser download handling selected.");
+          }}>Use browser downloads</Button>
+        </div>
+        {!isNativeShell() && <p className="text-xs text-secondary">Folder selection is available in the Locat Android app. Browsers use their normal download controls.</p>}
+        {destination.mode === "user-folder" && <p className="text-xs text-secondary">If Android revokes access, choose the folder again. Locat will not silently save a second copy elsewhere.</p>}
+      </div>
       <p className="text-xs text-secondary">One active login per account. Signing in on another device ends this session; saved history stays here.</p>
       <p className="text-sm text-secondary">{storage}</p>
       <Button variant="outline" disabled={busy} onClick={() => void perform(async () => {
@@ -63,8 +87,10 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
       <div className="flex gap-2">
         <Button className="flex-1" disabled={busy || password.length < 8} onClick={() => void perform(async () => {
           const text = await encodeArchive(account, await allMessages(user.id), password);
-          downloadBlob(new Blob([text], { type: "application/json" }), `Locat-${user.username}-${new Date().toISOString().slice(0, 10)}.locat`);
-          setFeedback("Encrypted backup downloaded. Store it somewhere safe.");
+          const saved = await downloadBlob(new Blob([text], { type: "application/json" }), `Locat-${user.username}-${new Date().toISOString().slice(0, 10)}.locat`);
+          setFeedback(saved === "selected-folder"
+            ? "Encrypted backup saved to your selected Android folder."
+            : "Encrypted backup downloaded. Store it somewhere safe.");
         })}>{busy ? "Working…" : "Export backup"}</Button>
         <Button className="flex-1" variant="outline" disabled={busy || password.length < 8}
           onClick={() => fileInput.current?.click()}>Import backup</Button>

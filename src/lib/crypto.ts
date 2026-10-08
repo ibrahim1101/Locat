@@ -1,4 +1,4 @@
-import { saveToSelectedFolder } from "@/lib/storagePreference";
+import { downloadBlob } from "@/lib/download";
 // ─── End-to-end encryption layer (WebCrypto) ───────────────────────────────
 // Everything here runs on the device. The server only ever sees:
 //   - public keys (directory)
@@ -284,13 +284,6 @@ export async function fileToPayload(file: File): Promise<MessagePayload> {
 
 export async function downloadFilePayload(payload: MessagePayload): Promise<void> {
   if (payload.type !== "file") return;
-  if (await saveToSelectedFolder(safeAttachmentName(payload.name), payload.mime, payload.dataB64)) return;
   const blob = new Blob([b64decode(payload.dataB64) as BlobPart], { type: "application/octet-stream" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = safeAttachmentName(payload.name);
-  link.rel = "noopener";
-  link.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  await downloadBlob(blob, safeAttachmentName(payload.name));
 }
