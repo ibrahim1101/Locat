@@ -38,7 +38,7 @@ it("keeps a download URL alive until the mobile download manager can consume it"
   let attached = false;
   const link = { href: "", download: "", click: vi.fn(() => expect(attached).toBe(true)), remove: vi.fn() };
   vi.stubGlobal("document", { createElement: () => link, body: { append: () => { attached = true; } } });
-  await downloadBlob(new Blob(["photo"]), "profile.jpg");
+  await downloadBlob(new Blob(["photo"]), "profile.jpg", { saveSelected: async () => false });
   expect(link.download).toBe("profile.jpg"); expect(link.click).toHaveBeenCalled();
   vi.advanceTimersByTime(1000); expect(revoke).not.toHaveBeenCalled();
   vi.advanceTimersByTime(59_000); expect(revoke).toHaveBeenCalledWith("blob:download");
