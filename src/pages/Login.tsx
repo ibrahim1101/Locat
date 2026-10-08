@@ -38,7 +38,7 @@ export default function Login() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="obsidian-auth-shell flex min-h-dvh items-center justify-center bg-background px-4 pt-safe pb-safe">
+    <div className="locat-auth-shell flex min-h-dvh items-center justify-center bg-background px-4 pt-safe pb-safe">
       <div className="relative z-10 w-full max-w-md">{children}</div>
     </div>
   );
@@ -48,8 +48,8 @@ function Brand() {
   return (
     <div className="mb-8 text-center">
       <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[20px] border border-primary/30 bg-primary/10 shadow-[0_0_36px_hsl(var(--primary)/0.08)]"><LocatMark className="h-10 w-10 text-foreground" /></div>
-      <p className="obsidian-kicker mb-2">Private by design</p>
-      <h1 className="text-3xl font-semibold tracking-tight">Locat<span className="text-primary">.</span></h1>
+      <p className="text-xs font-medium tracking-wide text-muted-foreground mb-2">Secure messaging</p>
+      <h1 className="text-3xl font-semibold tracking-tight">Locat</h1>
       <p className="mt-2 text-sm text-muted-foreground">End-to-end encrypted conversations, on your terms.</p>
     </div>
   );
@@ -94,7 +94,7 @@ function AuthForm({
   return (
     <Shell>
       <Brand />
-      <div className="obsidian-panel rounded-2xl p-5 shadow-super sm:p-7">
+      <div className="titanium-panel rounded-2xl p-5 shadow-super sm:p-7">
         <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl border bg-background/80 p-1" role="group" aria-label="Account action">
           {(["login", "register"] as const).map((m) => (
             <button
@@ -225,7 +225,7 @@ function KeyRestore({
     <Shell>
       <Brand />
       <div className="surface-2 rounded-lg border p-6 shadow-super">
-        <div className="mb-3 flex items-center gap-2 text-primary"><LockKeyhole className="h-5 w-5" aria-hidden="true" /><p className="obsidian-kicker">Restore encrypted identity</p></div>
+        <div className="mb-3 flex items-center gap-2 text-primary"><LockKeyhole className="h-5 w-5" aria-hidden="true" /><p className="text-xs font-semibold text-primary">Restore encrypted identity</p></div>
         <h2 className="mb-2 text-xl font-semibold">Welcome to your new device</h2>
         <p className="mb-5 text-sm text-secondary">
           Hi {user} — this device doesn't have your encryption keys yet. Enter your password
