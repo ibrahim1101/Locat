@@ -476,3 +476,10 @@ npm run doctor
 - `2d6a343`: bounded encrypted backup and ciphertext sizes and checked envelope field types before PBKDF2/decryption to avoid oversized/malformed input processing.
 - `303643f`: added regression tests for oversized and malformed envelopes.
 - These are cryptographic input-hardening changes only; enrollment and passwordless authentication remain disabled. CI for these commits not yet verified.
+
+
+### Recovery enrollment preflight (2026-10-09)
+- CI run 37839283516 succeeded for the previous backup input-hardening stage.
+- Commit `5b6a701`: added authenticated, rate-limited `recoveryEnrollmentPreflight` that rechecks the account password and returns the account public key for client-side identity comparison.
+- This is a **preflight only**, not a durable recent-authentication grant or credential issuance. A future enrollment mutation must independently verify a fresh password (or securely bound short-lived authorization) in the same operation; never trust a prior `verified: true` response as authorization.
+- No recovery key is generated, persisted or activated by this route. CI and live deployment remain unverified for this change.
