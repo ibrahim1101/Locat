@@ -483,3 +483,11 @@ npm run doctor
 - Commit `5b6a701`: added authenticated, rate-limited `recoveryEnrollmentPreflight` that rechecks the account password and returns the account public key for client-side identity comparison.
 - This is a **preflight only**, not a durable recent-authentication grant or credential issuance. A future enrollment mutation must independently verify a fresh password (or securely bound short-lived authorization) in the same operation; never trust a prior `verified: true` response as authorization.
 - No recovery key is generated, persisted or activated by this route. CI and live deployment remain unverified for this change.
+
+
+### Recovery enrollment authorization gate regression tests (2026-10-09)
+- Verified CI run 37840089577 passed for the preceding preflight endpoint.
+- `ebef58d`: extracted password/disabled-account authorization decision to `api/recoveryEnrollmentGate.ts`.
+- `8c836e3`: wired authenticated preflight endpoint to the shared gate.
+- `dff8661`: added unit tests for correct password, wrong password, absent and disabled account, and no password-hash verification for invalid accounts.
+- These unit tests do not exercise the tRPC middleware, rate limiter, MariaDB, or durable enrollment. The preflight response is not an authorization token; final enrollment must reauthenticate atomically. CI for this stage pending.
