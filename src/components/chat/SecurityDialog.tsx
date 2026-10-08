@@ -50,9 +50,9 @@ export function SecurityDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="surface-2 border sm:max-w-md">
+      <DialogContent className="smoked-glass max-h-[85dvh] overflow-y-auto rounded-2xl sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="tracking-tight">Encryption keys</DialogTitle>
+          <DialogTitle className="text-xl tracking-tight">Privacy Command Center</DialogTitle>
         </DialogHeader>
         <p className="text-sm text-secondary">
           Messages in this conversation are end-to-end encrypted. Compare these key fingerprints
@@ -61,7 +61,7 @@ export function SecurityDialog({
         {changed && <p role="alert" className="text-sm text-destructive">A contact's encryption key changed. Verify the fingerprints through another trusted channel before accepting.</p>}
         <div className="space-y-3">
           {fps.map((f) => (
-            <div key={f.label} className="rounded-md border bg-background p-3">
+            <div key={f.label} className="rounded-xl border bg-background/80 p-3">
               <p className="micro-label mb-1 normal-case tracking-normal">{f.label}</p>
               <p className="font-mono-ui break-all text-sm tracking-wider text-primary">
                 {f.fp.match(/.{1,4}/g)?.join(" ")}
@@ -69,7 +69,7 @@ export function SecurityDialog({
             </div>
           ))}
         </div>
-        <Button onClick={() => {
+        <Button className="min-h-11 w-full" onClick={() => {
           if (!conversation || state.status !== "ready") return;
           void Promise.all(conversation.members.filter((m) => m.id !== state.user.id).map((m) => kvSet(state.user.id, `contact-key-${m.id}`, m.publicKey)))
             .then(() => { setChanged(false); setFeedback("These contact keys are now trusted on this device."); onVerified(); })
