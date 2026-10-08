@@ -522,3 +522,11 @@ npm run doctor
 - User rejected Olive and any UI edition name; brand must display exactly **Locat**. Chosen T2 Liquid Titanium + P2 Smoked Glass, balanced gloss. Privacy Command Center retained.
 - `e88da5e`: dark titanium/silver global palette and smoked-glass reusable surface utilities; `73b1253`: titanium default accent while retaining stored choices; `2954d38`: settings theme selector; `a9a8e84`: updated login branding and surface; `32344a9`: neutral auth-shell class naming; `c7eb39d`: appearance regression tests; `3e8cfeb`: smoked glass Privacy Command Center conversation key-verification dialog; `8d9a2a1`: inbox separators and active conversation styling; `ffc68d1`: refreshed visual roadmap and explicit naming rule.
 - UI-only changes: no crypto, relay, account, database, or message-persistence logic modified. The Privacy Command Center currently exposes existing conversation fingerprint verification; a full account-level dashboard and unfinished recovery/device linking remain future work. CI and physical QA to verify.
+
+
+### Approved final UI mockup — implementation wave (2026-10-09)
+- User approved the generated multi-screen Locat concept (Liquid Titanium + Smoked Glass, balanced gloss) for implementation. Treat as a visual target, not evidence that depicted features exist. In particular, calls, optional email login, persistent login checkbox, and new navigation must not be presented as working until independently implemented and tested.
+- `8ce95bb`: chat header, message bubbles and composer restyled with restrained titanium surfaces, preserving send/edit/receipt and attachment handlers.
+- `0e4591a`: subtle static chat canvas background.
+- `f27f47e`: inbox brand header and smoked-glass search, preserving existing profile access and chat logic.
+- Pending: GitHub CI, APK build, mobile/desktop visual QA; finish full responsive navigation, settings, account-level Privacy Command Center, and other mockup screens in incremental changes. Do not add unsupported features solely to match artwork.
