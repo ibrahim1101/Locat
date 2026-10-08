@@ -206,6 +206,14 @@ Only use a **same-signing-key** APK. Never uninstall, clear app storage or rotat
 - Testing: source inspection only (not a new automated test); no APK installation or Pi deployment. Android online status remains FAIL / OPEN.
 - Next: run `.\\adb.exe devices` then logcat while Android Locat is in foreground; inspect native network errors without sharing secrets, verify Android `auth.me.id` and `presenceVisibility`, and check whether authenticated HTTP presence heartbeat reaches Pi. Make a small independently tested change only after isolating the fault. Never uninstall, clear site/app data, reset accounts, rotate keys, or run integration tests against the production DB.
 
+
+### 2026-10-08 — Android presence and inbound latency mitigation (awaiting CI/device verification)
+- Device evidence: Firefox account ID 3 remains online; Android stays offline even with Android presence visibility set to Everyone. Both apps foreground. PC→Android messages delayed about five seconds; Android→PC messages immediate. Filtered Android PID log contained only UI/keyboard events; Pi systemd journal showed normal service starts and no per-request logs.
+- Source finding: native HTTP uses bearer authentication, while native EventSource SSE cannot supply that header. Chat's polling loop used React Query `fetch()` which can return cached results rather than guaranteeing a new presence heartbeat or message sync.
+- Code commit: `305f2106fdc56bc1934edba1a0bd32d405dfca52` on `feat/locat-1.0`, `src/pages/Chat.tsx`. Invalidates presence and message-sync queries before polling; shortens native fallback interval from 20s to 3s, leaves browser interval at 20s.
+- Outcome: GitHub source change committed. CI, deployment, physical presence, delivery-latency and account/history retention verification are PENDING. This is a mitigation, not a confirmed full SSE authentication fix. No database/schema/key/account changes, no production tests, no APK uninstall or data clear.
+- Follow-up: check GitHub CI, deploy Pi and rebuild/upgrade permanently signed Android APK in place, test online status and PC→Android delivery. If still offline, instrument HTTP heartbeat responses and fix native SSE transport without leaking bearer tokens in URLs.
+
 ## 9. Editable running log template
 
 Copy this section for each new milestone:
