@@ -442,3 +442,10 @@ npm run doctor
 - `1dcdae0`: `linkSafetyCode(requestId, senderPublicKey, recipientPublicKey)` produces a 40-bit human-readable SHA-256-derived comparison bound to the pending request and both ephemeral keys. It is only a comparison aid, **not** a replacement for authenticated approval or pairing authorization.
 - `d0e8075`: regression tests verify deterministic comparison and changes on request or key changes.
 - CI/tests not yet verified. Do not enable Link Device until backend approval, anti-replay, multi-device sessions and UI are completed.
+
+
+### Passwordless schema bootstrap (2026-10-09)
+- `c11fb98`: declared `recovery_credentials` and `device_link_requests` in Drizzle schema (no live auth endpoints).
+- Prior attempt to edit setup-db was blocked; no schema bootstrap was changed then.
+- `6fdc4cc`: added idempotent `CREATE TABLE IF NOT EXISTS` statements to `scripts/setup-db.mjs`, including user foreign keys, expiry and verifier indexes. Existing accounts/messages are not intentionally altered by these new statements.
+- **Not verified** by CI, TypeScript check or a live MariaDB setup run. Next: validate `npm run check`, run `npm run db:setup` on a backed-up test installation, verify both tables, and build safe authentication protocols.
