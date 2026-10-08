@@ -238,3 +238,16 @@ Copy this section for each new milestone:
 
 ---
 *This file is intentionally Markdown so it can be edited directly in GitHub, VS Code or any text editor. Never paste private keys, passwords, session tokens, production SQL dumps or signing secrets into it.*
+
+## Planned: optional encrypted backup-password vault (2026-10-08)
+
+**Status: design approved; not implemented or tested.** User requested an optional way to save the history-backup password to the Locat server, with authentication required before retrieval. This is separate from chat content and must not weaken end-to-end encryption.
+
+- Provide explicit opt-in choices: never store password (default), device-secured storage, or server-backed encrypted vault. Explain security/recovery trade-offs before enrollment.
+- Encrypt the backup password **on the client** with a distinct vault key or recovery secret unavailable to the server. Server stores ciphertext, versioned KDF metadata, nonce, and authenticated encryption metadata only. Never store plaintext, log passwords, or derive the vault encryption key solely from a server-known login credential.
+- Require recent account reauthentication and a second factor (passkey/WebAuthn or TOTP with appropriate enrollment/recovery flows) for vault retrieval; add rate limits, security audit events without secrets, and revoke/delete controls. MFA is an access gate, **not** a replacement for client-side encryption.
+- Android device storage option should use Android Keystore-backed encryption and biometric/device-credential confirmation where available. Avoid plaintext password files.
+- Specify cross-device recovery and lost-secret behavior explicitly: if all independent decryption secrets are lost, zero-knowledge ciphertext is unrecoverable; do not promise server-side recovery.
+- Enforce stronger rules for **new** backup passwords, without breaking imports of existing archives; confirm passwords on export and do not auto-save without opt-in.
+- Before implementation, threat-model server compromise, session theft, account takeover, device theft, brute-force attempts, and credential rotation; add automated tests and a device-level acceptance checklist.
+
