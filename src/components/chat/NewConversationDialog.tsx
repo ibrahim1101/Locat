@@ -7,18 +7,20 @@ import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/state/auth";
 import { generateGroupKey, wrapGroupKey } from "@/lib/crypto";
 import { Avatar } from "./Avatar";
+import { FriendProfileDialog } from "./FriendProfileDialog";
 import type { PublicUser } from "@contracts/types";
 
-type Tab = "people" | "requests" | "group";
+type Tab = "friends" | "people" | "requests" | "group";
 
 export function NewConversationDialog({ open, onOpenChange, onCreated }: {
   open: boolean; onOpenChange: (value: boolean) => void; onCreated: (conversationId: number) => void;
 }) {
   const { state } = useAuth();
   const me = state.status === "ready" ? state : null;
-  const [tab, setTab] = useState<Tab>("people");
+  const [tab, setTab] = useState<Tab>("friends");
   const [query, setQuery] = useState("");
   const [friendQuery, setFriendQuery] = useState("");
+  const [profileUserId, setProfileUserId] = useState<number | null>(null);
   const [debounced, setDebounced] = useState("");
   const [groupName, setGroupName] = useState("");
   const [selected, setSelected] = useState<PublicUser[]>([]);
@@ -75,34 +77,34 @@ export function NewConversationDialog({ open, onOpenChange, onCreated }: {
       <span className="flex shrink-0 gap-2">{actions}</span>
     </div>;
   }
-  function reset() { setTab("people"); setQuery(""); setFriendQuery(""); setSelected([]); setGroupName(""); setError(null); }
+  function reset() { setTab("friends"); setQuery(""); setFriendQuery(""); setSelected([]); setGroupName(""); setError(null); }
 
   return <Dialog open={open} onOpenChange={value => { onOpenChange(value); if (!value) reset(); }}>
     <DialogContent className="surface-2 border sm:max-w-lg">
       <DialogHeader><DialogTitle>People and conversations</DialogTitle></DialogHeader>
-      <div className="grid grid-cols-3 gap-1 rounded-lg border bg-background p-1" role="tablist" aria-label="Conversation options">
-        {(["people", "requests", "group"] as const).map(item => <button key={item} type="button" role="tab" aria-selected={tab === item}
+      <div className="grid grid-cols-4 gap-1 rounded-lg border bg-background p-1" role="tablist" aria-label="Conversation options">
+        {(["friends", "people", "requests", "group"] as const).map(item => <button key={item} type="button" role="tab" aria-selected={tab === item}
           onClick={() => { setTab(item); setError(null); }} className={`min-h-11 rounded-md px-2 text-sm font-medium ${tab === item ? "surface-3 text-foreground" : "text-secondary hover:text-foreground"}`}>
-          {item === "people" ? "People" : item === "requests" ? `Requests${incomingCount ? ` (${incomingCount})` : ""}` : "Group"}
+          {item === "friends" ? "Friends" : item === "people" ? "People" : item === "requests" ? `Requests${incomingCount ? ` (${incomingCount})` : ""}` : "Group"}
         </button>)}
       </div>
-      {tab !== "requests" && <Input aria-label={tab === "group" ? "Find group members" : "Find people"}
+      {tab !== "requests" && tab !== "friends" && <Input aria-label={tab === "group" ? "Find group members" : "Find people"}
         placeholder="Name, username or LC-1234…" value={query} onChange={event => setQuery(event.target.value)} className="h-11 border-input bg-background" autoFocus />}
       {tab === "group" && <Input aria-label="Group name" placeholder="Group name" value={groupName}
         onChange={event => setGroupName(event.target.value)} className="h-11 border-input bg-background" />}
 
       <div className="scroll-slim max-h-[min(55vh,28rem)] space-y-2 overflow-y-auto pr-1">
-        {tab === "people" && !debounced && <>
+        {tab === "friends" && <>
           <Input aria-label="Search your friends" placeholder="Search your accepted friends…" value={friendQuery} onChange={event => setFriendQuery(event.target.value)} className="h-11 border-input bg-background" />
           <p className="micro-label px-1 normal-case tracking-normal">Your contacts</p>
           {contacts.isLoading && <p className="px-1 py-6 text-center text-sm text-secondary">Loading contacts…</p>}
-          {!contacts.isLoading && !contacts.data?.length && <p className="px-1 py-6 text-center text-sm text-secondary">No contacts yet. Search by LC number or name to add someone.</p>}
+          {!contacts.isLoading && !contacts.data?.length && <p className="px-1 py-6 text-center text-sm text-secondary">No friends yet. Open People to find someone and send a request.</p>}
           {filteredContacts.length === 0 && friendQuery.trim() && <p className="px-1 py-3 text-sm text-secondary">No matching friends.</p>}
-          {filteredContacts.map(user => person(user as PublicUser, <><Button size="sm" disabled={busyId === user.id} onClick={() => void startDirect(user as PublicUser)}>Chat</Button>
+          {filteredContacts.map(user => person(user as PublicUser, <><Button size="sm" variant="outline" onClick={() => setProfileUserId(user.id)}>Profile</Button><Button size="sm" disabled={busyId === user.id} onClick={() => void startDirect(user as PublicUser)}>Chat</Button>
             <Button size="sm" variant="outline" disabled={busyId === user.id} onClick={() => { if (window.confirm(`Remove ${user.displayName} from your contacts? Existing chat history stays on both devices.`))
               void run(user.id, async () => { await removeContact.mutateAsync({ userId: user.id }); await refreshPeople(); }, "Could not remove contact."); }}>Remove</Button></>))}
         </>}
-        {tab === "people" && debounced && <>
+        {tab === "people" && <>
           {search.isLoading && <p className="py-6 text-center text-sm text-secondary">Searching…</p>}
           {!search.isLoading && results.length === 0 && <p className="py-6 text-center text-sm text-secondary">No people found for “{debounced}”.</p>}
           {results.map(user => { const pending = requestByUser.get(user.id); return person(user, contactIds.has(user.id)
@@ -134,6 +136,7 @@ export function NewConversationDialog({ open, onOpenChange, onCreated }: {
         </>}
       </div>
       {(contacts.isError || requests.isError || search.isError) && <p role="alert" className="text-sm text-destructive">Could not load people. Check your connection and try again.</p>}
+      {profileUserId !== null && <FriendProfileDialog userId={profileUserId} onClose={() => setProfileUserId(null)} />}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {tab === "group" && <Button disabled={busyId !== null || selected.length === 0 || !groupName.trim()} onClick={() => void startGroup()} className="h-11">
         {busyId === 0 ? "Encrypting keys…" : `Create group${selected.length ? ` (${selected.length + 1})` : ""}`}</Button>}
