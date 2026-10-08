@@ -14,7 +14,10 @@ const listeners = new Map<number, Set<Listener>>();
 // HTTP polling clients (including native WebViews) also count as online.
 // Expire stale heartbeats so closed/crashed clients don't remain online.
 const heartbeats = new Map<number, number>();
-const HEARTBEAT_TTL_MS = 65_000;
+const HEARTBEAT_TTL_MS = 15_000;
+// Presence is best-effort: expired polling heartbeats must be pruned even
+// when no new user logs in or out.
+const PRESENCE_SWEEP_MS = 5_000;
 
 export function heartbeat(userId: number): void {
   const wasOnline = onlineUserIds().includes(userId);
@@ -84,3 +87,13 @@ export async function broadcastPresence(): Promise<void> {
     emitToUsers([viewerId], { type: "presence", online: await visibleOnlineUserIds(viewerId) });
   }));
 }
+
+// Keep SSE viewers informed when a native client silently disappears.
+// The interval is unref'd so it cannot keep the Node process alive.
+const presenceSweep = setInterval(() => {
+  const now = Date.now();
+  if (![...heartbeats.values()].some(expiry => expiry <= now)) return;
+  onlineUserIds();
+  void broadcastPresence().catch(() => {});
+}, PRESENCE_SWEEP_MS);
+presenceSweep.unref?.();
