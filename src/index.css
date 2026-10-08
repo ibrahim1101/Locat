@@ -90,6 +90,8 @@ body { overscroll-behavior: none; }
   --sidebar-accent-foreground: var(--accent-foreground);
   --sidebar-border: var(--border);
 }
+:root[data-accent="teal"] { --primary: 174 76% 48%; }
+:root[data-theme="light"][data-accent="teal"] { --primary: 174 80% 30%; }
 :root[data-accent="olive"] { --primary: 82 31% 60%; }
 :root[data-theme="light"][data-accent="olive"] { --primary: 88 40% 29%; }
 :root[data-accent="blue"] { --primary: 210 90% 68%; }
