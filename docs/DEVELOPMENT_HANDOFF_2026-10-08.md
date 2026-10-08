@@ -193,3 +193,19 @@ Invoke-WebRequest \`
 powershell -NoProfile -ExecutionPolicy Bypass \`
   -File "C:\\platform-tools\\update-locat.ps1"
 ```
+
+
+## Android friend-profile Copy button discrepancy (2026-10-08)
+
+- User reports the new friend-profile LC-code Copy button works in the PC browser but is missing in the Android APK. **Android test failed; browser test passed.**
+- The source in `src/components/chat/FriendProfileDialog.tsx` includes the Copy button. The Android updater selects the most recent *successful* APK workflow run, which could be older than the source change if newer runs failed or are pending.
+- Diagnosis pending: compare Android footer build number with GitHub Actions run number, verify latest workflow conclusion, then inspect whether Android opens the same friend profile dialog. Do not claim the issue fixed until verified.
+
+### Diagnostic commands — Windows PowerShell
+
+```powershell
+gh run list -R ibrahim1101/Locat -w android-apk.yml -b feat/locat-1.0 -L 8
+& "C:\\platform-tools\\adb.exe" -s emulator-5554 shell dumpsys package com.locat.app | Select-String "versionCode|versionName"
+```
+
+If package ID differs from `com.locat.app`, use `& "C:\\platform-tools\\adb.exe" -s emulator-5554 shell pm list packages | Select-String locat` first. Check build workflow success before rerunning the existing updater; never uninstall the app just to fix a version mismatch.
