@@ -498,3 +498,14 @@ npm run doctor
 - `c2480c9`: added authenticated `recoveryCredentialEnroll` mutation, with fresh password verification in the same operation, per-account rate limiting, strict verifier format and encrypted-blob length bounds, unique verifier handling, and owner-scoped insertion. Returns only a database record ID.
 - IMPORTANT: The server does not verify that the opaque encrypted blob corresponds to the account's ECDH public key; the client must verify identity correspondence and encrypted backup integrity before invoking enrollment. This endpoint is not wired to a user-facing enrollment screen and does not activate recovery login. The current stored SHA-256 verifier MUST NOT be accepted as a bearer login credential; implement and audit a non-replayable proof-of-possession protocol before enabling login.
 - Pending: enrollment route integration tests, secure UI, proof-of-possession login protocol, recovery revocation/session semantics and deployment acceptance.
+
+
+### Obsidian Olive full UI redesign kickoff (2026-10-09)
+- User approved **Locat Obsidian**, **Olive** accent, **full redesign**; GitHub-only on `feat/locat-1.0`, preserve messaging/E2EE and local data.
+- `bc1ce84`: added staged design, accessibility, QA and security-preservation roadmap in `docs/OBSIDIAN_UI_REDESIGN.md`.
+- `f318e14`: replaced dark default palette with graphite/olive design tokens and added reusable Obsidian panel, interactive and label utilities. Preserved native safe-area and reduced-motion rules.
+- `47932ae`: changed new-install accent default to Olive, preserving previously stored accent preferences.
+- `67c5e3c`: retained explicit Classic Teal theme for existing users.
+- `f8cb559`: added Obsidian Olive and Classic Teal to appearance preferences.
+- `6c0458a`: updated appearance regression tests for new default and legacy settings.
+- Stage 1 foundation only: full redesign phases 2–6 are pending. No crypto, delivery, storage or backend files changed. CI and visual device QA pending at time of writing.
