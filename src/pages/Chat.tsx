@@ -435,6 +435,8 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       }
       running = true;
       try {
+        const presence = await utils.messages.presence.fetch();
+        if (!stopped) setOnline(new Set(presence.online));
         await utils.conversations.list.fetch();
         // Cursor advances past undecryptable envelopes; retry from zero next sweep.
         for (let pages = 0; pages < 20 && !stopped; pages++) {
