@@ -15,6 +15,8 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const PREFIX = "LQ1";
 const ITERATIONS = 310_000;
+const MAX_BACKUP_CHARS = 24_000;
+const MAX_CIPHERTEXT_BYTES = 12_000;
 
 export function generateQuickSignInKey(): string {
   const secret = crypto.getRandomValues(new Uint8Array(32));
@@ -66,18 +68,25 @@ export async function wrapQuickSignInIdentity(keys: IdentityKeys, code: string):
 
 export async function unwrapQuickSignInIdentity(blob: string, code: string): Promise<CryptoKey> {
   const secret = parseQuickSignInKey(code);
+  if (blob.length > MAX_BACKUP_CHARS) throw new Error("Quick Sign-In backup is too large.");
   const envelope = JSON.parse(decoder.decode(b64decode(blob))) as {
     version: number; salt: string; iv: string; ciphertext: string;
   };
   if (envelope.version !== 1) throw new Error("Unsupported Quick Sign-In backup version.");
+  if (typeof envelope.salt !== "string" || typeof envelope.iv !== "string" || typeof envelope.ciphertext !== "string") {
+    throw new Error("Invalid Quick Sign-In backup.");
+  }
+  if (envelope.ciphertext.length > MAX_BACKUP_CHARS) throw new Error("Quick Sign-In ciphertext is too large.");
   const salt = b64decode(envelope.salt);
   const iv = b64decode(envelope.iv);
   if (salt.length !== 16 || iv.length !== 12) throw new Error("Invalid Quick Sign-In backup.");
+  const ciphertext = b64decode(envelope.ciphertext);
+  if (ciphertext.length < 16 || ciphertext.length > MAX_CIPHERTEXT_BYTES) throw new Error("Invalid Quick Sign-In ciphertext.");
   const key = await wrappingKey(secret, salt);
   const pkcs8 = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: iv as BufferSource },
     key,
-    b64decode(envelope.ciphertext) as BufferSource,
+    ciphertext as BufferSource,
   );
   return crypto.subtle.importKey("pkcs8", pkcs8, { name: "ECDH", namedCurve: "P-256" }, false, ["deriveBits"]);
 }
