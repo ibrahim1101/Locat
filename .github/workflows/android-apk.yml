@@ -51,6 +51,7 @@ jobs:
       - name: Install Locat Android storage bridge
         run: node scripts/install-android-storage-plugin.mjs
       - run: npx cap sync android
+      # Rebuild requested to verify stable signing across consecutive APK releases.
       - name: Set monotonic Android version code
         env:
           RUN_NUMBER: ${{ github.run_number }}
