@@ -1,12 +1,12 @@
 export type Theme = "dark" | "light" | "system";
-export type Accent = "olive" | "teal" | "blue" | "violet" | "rose";
+export type Accent = "titanium" | "olive" | "teal" | "blue" | "violet" | "rose";
 export type Appearance = { theme: Theme; accent: Accent };
 export const appearanceEvent = "locat-appearance-changed";
 export function parseAppearance(theme: string | null, accent: string | null): Appearance {
   return { theme: theme === "light" || theme === "system" ? theme : "dark",
-    accent: accent === "olive" || accent === "teal" || accent === "blue" || accent === "violet" || accent === "rose" ? accent : "olive" };
+    accent: accent === "titanium" || accent === "olive" || accent === "teal" || accent === "blue" || accent === "violet" || accent === "rose" ? accent : "titanium" };
 }
-let current: Appearance = { theme: "dark", accent: "olive" };
+let current: Appearance = { theme: "dark", accent: "titanium" };
 function readAppearance(): Appearance {
   try { return parseAppearance(localStorage.getItem("locat-theme"), localStorage.getItem("locat-accent")); }
   catch { return current; }
@@ -18,7 +18,7 @@ function applyAppearance(): void {
   root.dataset.theme = theme;
   root.dataset.accent = current.accent;
   root.classList.toggle("dark", theme === "dark");
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#10120f" : "#f9fafb");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#0a0b0d" : "#f9fafb");
 }
 export function setAppearance(next: Appearance): boolean {
   current = parseAppearance(next.theme, next.accent);
