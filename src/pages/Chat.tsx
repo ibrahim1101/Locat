@@ -471,7 +471,8 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       setConnection("Offline · history stays on this device");
     reconnectRef.current = refresh;
     refresh();
-    const timer = window.setInterval(refresh, isNativeShell() ? 3000 : 8000);
+    // Poll the browser every 4 seconds for quicker online/offline updates; native remains at 3 seconds.
+    const timer = window.setInterval(refresh, isNativeShell() ? 3000 : 4000);
     window.addEventListener("online", refresh);
     window.addEventListener("offline", offline);
     document.addEventListener("visibilitychange", visibility);
