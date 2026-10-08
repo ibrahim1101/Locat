@@ -468,7 +468,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       setConnection("Offline · history stays on this device");
     reconnectRef.current = refresh;
     refresh();
-    const timer = window.setInterval(refresh, isNativeShell() ? 3000 : 20000);
+    const timer = window.setInterval(refresh, isNativeShell() ? 3000 : 8000);
     window.addEventListener("online", refresh);
     window.addEventListener("offline", offline);
     document.addEventListener("visibilitychange", visibility);
