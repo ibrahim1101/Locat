@@ -37,7 +37,7 @@ export function ProfileDialog({ user, open, onOpenChange }: {
   return <Dialog open={open} onOpenChange={next => { if (!busy) onOpenChange(next); }}>
     <DialogContent className="surface-2 max-h-[90dvh] overflow-y-auto sm:max-w-md">
       <DialogHeader><DialogTitle>My profile</DialogTitle>
-        <DialogDescription>Your name and bio are visible to people on this Locat server.</DialogDescription>
+        <DialogDescription>Control which profile details other people can see using the privacy settings below.</DialogDescription>
       </DialogHeader>
       <div className="flex items-center gap-4 rounded-xl border p-4">
         <Avatar avatar={avatar} name={displayName || user.displayName} id={user.id} size={56} />
@@ -105,7 +105,7 @@ export function ProfileDialog({ user, open, onOpenChange }: {
       <div className="space-y-2"><Label htmlFor="profile-bio">Bio</Label>
         <textarea id="profile-bio" value={bio} maxLength={280} disabled={busy} onChange={e => setBio(e.target.value)}
           className="min-h-24 w-full resize-y rounded-md border bg-background p-3 text-sm" placeholder="A little about you" />
-        <p className="text-xs text-secondary">{bio.length}/280</p>
+        <p className="text-xs text-secondary" aria-live="polite">{bio.length}/280 characters</p>
       </div>
       <Button disabled={busy || !displayName.trim()} onClick={() => void (async () => {
         if (avatar !== (user.avatar ?? null)) await savePicture.mutateAsync({ avatar });
