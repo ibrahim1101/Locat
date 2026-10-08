@@ -53,6 +53,11 @@
 }
 
 .app-height { height: var(--app-height, 100dvh); }
+/* Android targetSdk 35+ draws WebView behind the system status bar. Reserve
+   space in the native shell rather than relying on WebView safe-area env(). */
+.locat-native #root { padding-top: 32px; }
+.locat-native .app-height { height: calc(var(--app-height, 100dvh) - 32px); }
+.locat-native .pt-safe { padding-top: 0.75rem; }
 body { overscroll-behavior: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
