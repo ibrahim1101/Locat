@@ -71,6 +71,26 @@ jobs:
               raise SystemExit("Firebase Android package does not match " + expected)
           print("Firebase configuration package validated")
           PY
+      - name: Enable Firebase Google Services Gradle plugin
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("android/build.gradle")
+          app = Path("android/app/build.gradle")
+          root_text = root.read_text()
+          app_text = app.read_text()
+          marker = "classpath 'com.google.gms:google-services:4.4.4'"
+          if marker not in root_text:
+              anchor = "dependencies {"
+              if anchor not in root_text:
+                  raise SystemExit("Android root Gradle dependencies block not found")
+              root_text = root_text.replace(anchor, anchor + "\n        " + marker, 1)
+          apply_line = "apply plugin: 'com.google.gms.google-services'"
+          if apply_line not in app_text:
+              app_text += "\n" + apply_line + "\n"
+          root.write_text(root_text)
+          app.write_text(app_text)
+          PY
       # Rebuild requested to verify stable signing across consecutive APK releases.
       - name: Set monotonic Android version code
         env:
