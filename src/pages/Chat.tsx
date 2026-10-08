@@ -1,4 +1,6 @@
 import packageInfo from "../../package.json";
+
+declare const __LOCAT_BUILD_ID__: string;
 import { relayPayloadSchema, type MessageControl } from "@contracts/messagePayload";
 import { userCode } from "@contracts/userCode";
 import { Link } from "react-router";
@@ -890,7 +892,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         </Link>
       )}
       <p className="micro-label shrink-0 border-t px-4 py-3 pb-safe normal-case tracking-normal">
-        Locat · {connection} · v{packageInfo.version}
+        Locat · {connection} · v{packageInfo.version} · Build {__LOCAT_BUILD_ID__}
       </p>
     </div>
   );
