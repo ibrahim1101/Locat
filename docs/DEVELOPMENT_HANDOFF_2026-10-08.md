@@ -337,3 +337,25 @@ npm run doctor
 ```
 
 - No Pi deployment needed for the workflow-only change. Android updater is not required until an APK with usable native notification features has successfully built.
+
+
+## Firebase Android SDK Gradle integration (2026-10-09)
+
+- Commit `f6b603e` modifies the generated Android Gradle project in CI after `google-services.json` is injected. It adds `com.google.gms:google-services:4.4.4` to root buildscript dependencies and applies `com.google.gms.google-services` to the app module.
+- Purpose: have Gradle process the Firebase configuration for the matching `com.shaikibrahim.locat` application ID. No native FCM SDK/Capacitor push plugin, device registration, permission flow, or Pi FCM delivery implemented yet.
+- Build status **unverified** until the new Android APK workflow completes. On failure, inspect logs and correct the generated Gradle structure rather than guessing.
+
+### Windows PowerShell — workflow inspection
+
+```powershell
+gh run list -R ibrahim1101/Locat -w android-apk.yml -b feat/locat-1.0 -L 5
+```
+
+### Raspberry Pi — no deployment for CI-only Gradle change
+
+```bash
+cd /opt/locat
+npm run doctor
+```
+
+- Do not reinstall the Android APK merely to test the Firebase SDK setup: notification support is not yet implemented. Preserve the user's app data.
