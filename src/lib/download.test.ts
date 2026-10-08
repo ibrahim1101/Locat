@@ -1,60 +1,55 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { downloadBlob } from "./download";
+import { describe, expect, it, vi } from "vitest";
+import { downloadBlob, type DownloadDependencies } from "./download";
+
+function testDependencies(saveSelected: DownloadDependencies["saveSelected"]) {
+  const click = vi.fn();
+  const remove = vi.fn();
+  const link = { href: "", download: "", click, remove };
+  const revokeObjectURL = vi.fn();
+  let scheduled: (() => void) | undefined;
+  const dependencies: DownloadDependencies = {
+    saveSelected,
+    createObjectURL: vi.fn(() => "blob:test"),
+    revokeObjectURL,
+    createLink: vi.fn(() => link),
+    appendLink: vi.fn(),
+    schedule: vi.fn((callback) => { scheduled = callback; }),
+  };
+  return { dependencies, click, remove, link, revokeObjectURL, runScheduled: () => scheduled?.() };
+}
 
 describe("downloadBlob", () => {
-  let values: Map<string, string>;
-  let click: ReturnType<typeof vi.fn>;
-  let remove: ReturnType<typeof vi.fn>;
-
-  beforeEach(() => {
-    vi.useFakeTimers();
-    values = new Map();
-    click = vi.fn();
-    remove = vi.fn();
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => values.get(key) ?? null,
-      setItem: (key: string, value: string) => values.set(key, value),
-    });
-    vi.stubGlobal("window", {});
-    vi.stubGlobal("document", {
-      createElement: () => ({ href: "", download: "", click, remove }),
-      body: { append: vi.fn() },
-    });
-    vi.stubGlobal("URL", { createObjectURL: vi.fn(() => "blob:test"), revokeObjectURL: vi.fn() });
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-    vi.unstubAllGlobals();
-  });
-
   it("writes encrypted exports to the selected Android folder", async () => {
-    const writeFile = vi.fn(async () => ({ uri: "content://saved" }));
-    Object.assign(window, { LocatStorage: { writeFile } });
-    localStorage.setItem("locat-storage-mode", "user-folder");
-    localStorage.setItem("locat-storage-tree", "content://tree/primary%3ALocat");
+    const saveSelected = vi.fn(async () => true);
+    const fixture = testDependencies(saveSelected);
 
-    await expect(downloadBlob(new Blob(["secret"], { type: "application/json" }), "backup.locat"))
-      .resolves.toBe("selected-folder");
-    expect(writeFile).toHaveBeenCalledWith(expect.objectContaining({
-      name: "backup.locat", mime: "application/json", dataB64: "c2VjcmV0",
-    }));
-    expect(click).not.toHaveBeenCalled();
+    await expect(downloadBlob(
+      new Blob(["secret"], { type: "application/json" }),
+      "backup.locat",
+      fixture.dependencies,
+    )).resolves.toBe("selected-folder");
+    expect(saveSelected).toHaveBeenCalledWith("backup.locat", "application/json", "c2VjcmV0");
+    expect(fixture.click).not.toHaveBeenCalled();
   });
 
   it("uses browser downloads when no Android folder is selected", async () => {
-    await expect(downloadBlob(new Blob(["backup"]), "backup.locat")).resolves.toBe("browser");
-    expect(click).toHaveBeenCalledOnce();
-    expect(remove).toHaveBeenCalledOnce();
+    const fixture = testDependencies(vi.fn(async () => false));
+
+    await expect(downloadBlob(new Blob(["backup"]), "backup.locat", fixture.dependencies))
+      .resolves.toBe("browser");
+    expect(fixture.link.download).toBe("backup.locat");
+    expect(fixture.click).toHaveBeenCalledOnce();
+    expect(fixture.remove).toHaveBeenCalledOnce();
+    expect(fixture.revokeObjectURL).not.toHaveBeenCalled();
+    fixture.runScheduled();
+    expect(fixture.revokeObjectURL).toHaveBeenCalledWith("blob:test");
   });
 
   it("fails closed when selected-folder access is revoked", async () => {
-    Object.assign(window, { LocatStorage: { writeFile: vi.fn(async () => { throw new Error("revoked"); }) } });
-    localStorage.setItem("locat-storage-mode", "user-folder");
-    localStorage.setItem("locat-storage-tree", "content://tree/revoked");
+    const fixture = testDependencies(vi.fn(async () => { throw new Error("revoked"); }));
 
-    await expect(downloadBlob(new Blob(["backup"]), "backup.locat"))
+    await expect(downloadBlob(new Blob(["backup"]), "backup.locat", fixture.dependencies))
       .rejects.toThrow("choose the folder again");
-    expect(click).not.toHaveBeenCalled();
+    expect(fixture.click).not.toHaveBeenCalled();
   });
 });

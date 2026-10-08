@@ -10,23 +10,55 @@ async function blobBase64(blob: Blob): Promise<string> {
 
 export type DownloadDestination = "selected-folder" | "browser";
 
+type DownloadLink = {
+  href: string;
+  download: string;
+  click(): void;
+  remove(): void;
+};
+
+export type DownloadDependencies = {
+  saveSelected: typeof saveToSelectedFolder;
+  createObjectURL(blob: Blob): string;
+  revokeObjectURL(url: string): void;
+  createLink(): DownloadLink;
+  appendLink(link: DownloadLink): void;
+  schedule(callback: () => void, delayMs: number): unknown;
+};
+
+function browserDependencies(): DownloadDependencies {
+  return {
+    saveSelected: saveToSelectedFolder,
+    createObjectURL: (blob) => URL.createObjectURL(blob),
+    revokeObjectURL: (url) => URL.revokeObjectURL(url),
+    createLink: () => document.createElement("a"),
+    appendLink: (link) => document.body.append(link as HTMLAnchorElement),
+    schedule: (callback, delayMs) => setTimeout(callback, delayMs),
+  };
+}
+
 /** Save to the Android folder when selected, otherwise use the browser download manager. */
-export async function downloadBlob(blob: Blob, filename: string): Promise<DownloadDestination> {
+export async function downloadBlob(
+  blob: Blob,
+  filename: string,
+  overrides: Partial<DownloadDependencies> = {},
+): Promise<DownloadDestination> {
+  const dependencies = { ...browserDependencies(), ...overrides };
   try {
-    if (await saveToSelectedFolder(filename, blob.type, await blobBase64(blob)))
+    if (await dependencies.saveSelected(filename, blob.type, await blobBase64(blob)))
       return "selected-folder";
   } catch {
     throw new Error(
       "Locat could not write to the selected Android folder. Open Settings & backups, choose the folder again, then retry. No browser copy was created.",
     );
   }
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
+  const url = dependencies.createObjectURL(blob);
+  const link = dependencies.createLink();
   link.href = url;
   link.download = filename;
-  document.body.append(link);
+  dependencies.appendLink(link);
   link.click();
   link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  dependencies.schedule(() => dependencies.revokeObjectURL(url), 60_000);
   return "browser";
 }

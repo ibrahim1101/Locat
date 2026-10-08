@@ -31,14 +31,14 @@ it("supports browsers without ImageBitmap and reports a decode error with cleanu
   expect(revoke).toHaveBeenCalledWith("blob:broken");
 });
 
-it("keeps a download URL alive until the mobile download manager can consume it", () => {
+it("keeps a download URL alive until the mobile download manager can consume it", async () => {
   vi.useFakeTimers();
   const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
   vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:download");
   let attached = false;
   const link = { href: "", download: "", click: vi.fn(() => expect(attached).toBe(true)), remove: vi.fn() };
   vi.stubGlobal("document", { createElement: () => link, body: { append: () => { attached = true; } } });
-  downloadBlob(new Blob(["photo"]), "profile.jpg");
+  await downloadBlob(new Blob(["photo"]), "profile.jpg");
   expect(link.download).toBe("profile.jpg"); expect(link.click).toHaveBeenCalled();
   vi.advanceTimersByTime(1000); expect(revoke).not.toHaveBeenCalled();
   vi.advanceTimersByTime(59_000); expect(revoke).toHaveBeenCalledWith("blob:download");
