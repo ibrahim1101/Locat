@@ -43,3 +43,36 @@ gh run list -R ibrahim1101/Locat -b feat/locat-1.0 -L 8
 cd /opt/locat
 npm run doctor
 ```
+
+
+## Approved dual sign-in architecture (2026-10-09)
+
+User approved **both** methods. Product-facing names: **Recovery Key** and **Link Device**; keep username/password as fallback.
+
+### Recovery Key
+- 256-bit random `LQ1` credential; client derives domain-separated verifier and independent AES-GCM wrapping key; raw key and unencrypted PKCS#8 never go to server.
+- Provision only after password reauthentication, and only from a device with an unlocked, matching local ECDH identity; verify public-key correspondence before writing backup.
+- Rotate/revoke transactionally. Prevent race between rotation and sign-in by locking credential record and validating revocation before session issuance. Use uniform authentication failures and IP/global throttling.
+- Treat verifier as a bearer credential: possession of verifier alone would authorize login if directly submitted. **Protocol must protect against server/database theft and replay**, e.g. a challenge-response proof of possession (server-stored verifier must not be sufficient to authenticate). Avoid enabling a naive `login(verifier)` endpoint.
+- Return encrypted backup only after successful authentication. Require confirmation before replacing existing local identity and validate restored public key.
+- Maintain a revocation and session-invalidating policy; explicitly warn users that a stolen recovery key compromises both login and encrypted identity.
+
+### Link Device (temporary short code)
+- New device creates a cryptographically random pending pairing request with ephemeral ECDH key, expiry <=5 minutes and unique request ID. Display six-digit code and fingerprint on new device.
+- Existing **already authenticated** device must explicitly approve the pending request; show requesting device fingerprint, request age and warning against unsolicited prompts.
+- The six-digit code is an identification/confirmation factor **only**, never a standalone login credential. Match with strict attempt limits and server-side atomic one-time consumption.
+- Use ephemeral ECDH plus HKDF and authenticated AEAD to transfer an identity key encrypted for the requesting device; bind ciphertext to request ID, both ephemeral public keys and a human-confirmed safety comparison to resist relay/MITM attacks.
+- Issue new session only after approval and proof of possession of new-device ephemeral key; revoke pairing request on expiry, rejection or successful consumption.
+- Never send private identity key, session tokens, password or recovery key in plaintext through server relays or URLs.
+
+### Required prerequisite: per-device sessions
+- Current `api/authRouter.ts` deletes all sessions on password login. Multi-device linking must not silently log out the approving device.
+- Introduce device-scoped sessions and delivery acknowledgements first, with logout-current-device and revoke-device controls.
+- Audit message queue and push subscription semantics before permitting simultaneous accounts: delivery must not be acknowledged by only one device if the other still needs its encrypted envelope.
+- Maintain backwards compatibility for existing single-session clients until multi-device sync is proven.
+
+### Acceptance tests
+- Recovery key: creation, correct login, wrong key, tampered ciphertext, disabled account, revoke, rotate, simultaneous replay, database compromise model, new-device restore.
+- Device link: valid approval, wrong code, expired, consumed, replay, approval denial, fingerprint mismatch, rogue request, MITM relay, concurrent requests, approving-device offline.
+- Android: Tailscale offline/online, HTTPS origin, background resume, local key persistence, service-worker/browser parity where applicable.
+- All changes must pass TypeScript, lint, unit/integration tests and Android build before release.
