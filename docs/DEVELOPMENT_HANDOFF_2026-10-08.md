@@ -462,3 +462,10 @@ npm run doctor
 - Commit `4630405`: added authenticated `recoveryCredentialList` and `recoveryCredentialRevoke` procedures to `api/authRouter.ts`.
 - List returns record IDs and creation timestamps only. Revocation requires a session, filters by account owner and active state, and is rate-limited.
 - No recovery credential enrollment or passwordless login is enabled. This update has not been confirmed by CI at the time of writing.
+
+
+### Recovery ownership regression guard (2026-10-09)
+- `23852b0`: introduced shared active and revocable credential owner filters.
+- `c4f271c`: applied shared filters to authenticated credential inventory and revocation endpoints.
+- `a6454d1`: added SQL-compilation regression tests verifying owner, active-only and credential-ID conditions. These are query-shape tests, not end-to-end authorization tests against MariaDB.
+- CI verification pending. Passwordless enrollment and login remain disabled.
