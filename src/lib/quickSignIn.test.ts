@@ -47,6 +47,15 @@ describe("Quick Sign-In Key cryptography", () => {
     expect(a).not.toBe(b);
   });
 
+  it("rejects oversized and malformed encrypted backup envelopes", async () => {
+    const code = generateQuickSignInKey();
+    await expect(unwrapQuickSignInIdentity("A".repeat(24_001), code)).rejects.toThrow("too large");
+    const oversized = btoa(JSON.stringify({ version: 1, salt: btoa("1234567890123456"), iv: btoa("123456789012"), ciphertext: "A".repeat(24_001) }));
+    await expect(unwrapQuickSignInIdentity(oversized, code)).rejects.toThrow("too large");
+    const malformed = btoa(JSON.stringify({ version: 1, salt: null, iv: 4, ciphertext: [] }));
+    await expect(unwrapQuickSignInIdentity(malformed, code)).rejects.toThrow("Invalid");
+  });
+
   it("rejects modified ciphertext", async () => {
     const identity = await generateIdentity();
     const code = generateQuickSignInKey();
