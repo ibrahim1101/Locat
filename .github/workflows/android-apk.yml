@@ -51,6 +51,26 @@ jobs:
       - name: Install Locat Android storage bridge
         run: node scripts/install-android-storage-plugin.mjs
       - run: npx cap sync android
+      - name: Configure Firebase for Android
+        env:
+          LOCAT_FIREBASE_CONFIG_BASE64: ${{ secrets.LOCAT_FIREBASE_CONFIG_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "$LOCAT_FIREBASE_CONFIG_BASE64" ]; then
+            echo "::error::Missing LOCAT_FIREBASE_CONFIG_BASE64 repository secret"
+            exit 1
+          fi
+          printf '%s' "$LOCAT_FIREBASE_CONFIG_BASE64" | base64 --decode > android/app/google-services.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          config = json.loads(Path("android/app/google-services.json").read_text())
+          expected = "com.shaikibrahim.locat"
+          packages = [client.get("client_info", {}).get("android_client_info", {}).get("package_name") for client in config.get("client", [])]
+          if expected not in packages:
+              raise SystemExit("Firebase Android package does not match " + expected)
+          print("Firebase configuration package validated")
+          PY
       # Rebuild requested to verify stable signing across consecutive APK releases.
       - name: Set monotonic Android version code
         env:
