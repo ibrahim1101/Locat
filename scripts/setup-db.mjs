@@ -86,6 +86,31 @@ try {
   // must not revive a removed contact from its retained chat history.
   if (Number(contactTable.n) === 0) await connection.query("INSERT IGNORE INTO contact_relationships (user_low_id,user_high_id,requested_by_id,status) SELECT LEAST(a.user_id,b.user_id),GREATEST(a.user_id,b.user_id),c.created_by,'accepted' FROM conversations c JOIN conversation_members a ON a.conversation_id=c.id JOIN conversation_members b ON b.conversation_id=c.id AND a.user_id<b.user_id WHERE c.type='direct' AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE (ub.blocker_id=a.user_id AND ub.blocked_id=b.user_id) OR (ub.blocker_id=b.user_id AND ub.blocked_id=a.user_id))");
   await connection.query("INSERT INTO group_keys (conversation_id,user_id,epoch,wrapped_key,wrapper_public_key) SELECT cm.conversation_id,cm.user_id,c.group_epoch,cm.wrapped_key,u.public_key FROM conversation_members cm JOIN conversations c ON c.id=cm.conversation_id JOIN users u ON u.id=cm.wrapped_by WHERE c.type='group' AND cm.wrapped_key IS NOT NULL AND NOT EXISTS (SELECT 1 FROM group_keys g WHERE g.conversation_id=c.id AND g.user_id=cm.user_id AND g.epoch=c.group_epoch)");
+  // Reserved schema for future passwordless sign-in; no login routes are enabled.
+  await connection.query(`CREATE TABLE IF NOT EXISTS recovery_credentials (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    verifier VARCHAR(64) NOT NULL UNIQUE,
+    encrypted_identity TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at TIMESTAMP NULL,
+    KEY recovery_credentials_user_idx (user_id),
+    CONSTRAINT recovery_credentials_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`);
+  await connection.query(`CREATE TABLE IF NOT EXISTS device_link_requests (
+    id VARCHAR(128) PRIMARY KEY,
+    code_hash VARCHAR(64) NOT NULL,
+    requester_public_key TEXT NOT NULL,
+    approver_public_key TEXT NULL,
+    approved_by BIGINT UNSIGNED NULL,
+    encrypted_identity TEXT NULL,
+    state ENUM('pending','approved','consumed','rejected') NOT NULL DEFAULT 'pending',
+    attempts INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    KEY device_link_requests_expires_idx (expires_at),
+    CONSTRAINT device_link_requests_approver_fk FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE CASCADE
+  )`);
   console.log("Locat database ready. Existing accounts and messages were preserved.");
 } finally {
   if (locked) await connection.query("SELECT RELEASE_LOCK('locat_schema_setup')");
