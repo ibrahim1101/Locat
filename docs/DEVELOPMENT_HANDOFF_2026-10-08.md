@@ -509,3 +509,10 @@ npm run doctor
 - `f8cb559`: added Obsidian Olive and Classic Teal to appearance preferences.
 - `6c0458a`: updated appearance regression tests for new default and legacy settings.
 - Stage 1 foundation only: full redesign phases 2–6 are pending. No crypto, delivery, storage or backend files changed. CI and visual device QA pending at time of writing.
+
+
+### Obsidian Olive phase 2 — authentication presentation (2026-10-09)
+- Confirmed phase 1 CI run 37842415374 succeeded; Android APK build 37842400186 succeeded for preceding appearance tests.
+- `6d98628`: redesigned login, registration, and identity-restore presentation in `src/pages/Login.tsx`: olive brand treatment, responsive centered panel, clearer headings, accessible password visibility toggle, account action pressed state, explicit restore password label, and alert semantics. Existing auth functions and crypto flows unchanged.
+- `3699b3d`: added a subtle static Obsidian auth background effect to `src/index.css`.
+- Pending: CI and device/browser visual acceptance for phase 2. No passwordless recovery or link-device UI enabled.
