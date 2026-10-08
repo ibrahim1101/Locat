@@ -19,16 +19,15 @@ if ($LASTEXITCODE -ne 0) { throw "Run 'gh auth login' first." }
 & $Adb -s $Device get-state
 if ($LASTEXITCODE -ne 0) { throw "ADB device '$Device' is not available." }
 
-$runsJson = & gh run list -R $Repo -w "android-apk.yml" -b $Branch -s success -L 10 --json databaseId,headSha,createdAt
-if ($LASTEXITCODE -ne 0) { throw "Could not list GitHub Actions runs." }
-$runs = @(ConvertFrom-Json -InputObject ($runsJson -join "`n"))
-if ($runs.Count -eq 0) { throw "No successful Android build found on $Branch." }
-$run = @($runs | Sort-Object createdAt -Descending)[0]
-$runId = [string]$run.databaseId
+# Ask gh to return a single scalar ID; avoid PowerShell JSON array unrolling.
+$runId = (& gh run list -R $Repo -w "android-apk.yml" -b $Branch -s success -L 1 --json databaseId --jq '.[0].databaseId' | Out-String).Trim()
+if ($LASTEXITCODE -ne 0 -or $runId -notmatch '^\d+$') {
+  throw "Could not determine the latest successful Android workflow run."
+}
 $work = Join-Path $env:TEMP ("locat-emulator-" + $runId)
 if (Test-Path $work) { Remove-Item -LiteralPath $work -Recurse -Force }
 New-Item -ItemType Directory -Path $work -Force | Out-Null
-Write-Host "Downloading run $runId (commit $($run.headSha))..."
+Write-Host "Downloading run $runId..."
 & gh run download $runId -R $Repo -n "locat-android-release" -D $work
 if ($LASTEXITCODE -ne 0) { throw "APK artifact download failed (run $($run.databaseId)). See the gh error above." }
 $apk = Get-ChildItem -Path $work -Filter "locat-release.apk" -Recurse -File | Select-Object -First 1
