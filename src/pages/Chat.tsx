@@ -741,14 +741,15 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
 
   // ── layout ──
   const sidebar = (
-    <div className="flex h-full flex-col border-r bg-[hsl(var(--sidebar-background))]">
+    <div className="flex h-full flex-col border-r border-border/70 bg-[hsl(var(--sidebar-background))]">
       <div className="flex min-h-16 shrink-0 items-center gap-2 border-b px-3 py-2 pt-safe sm:gap-3 sm:px-4">
         <button type="button" onClick={() => setProfileOpen(true)} aria-label="Open my profile"
           title="My profile" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full hover:ring-2 sm:h-11 sm:w-11 hover:ring-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           <Avatar avatar={user.avatar} name={user.displayName} id={user.id} size={36} />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{user.displayName}</p>
+          <p className="truncate text-sm font-semibold">Locat</p>
+          <p className="truncate text-xs text-foreground/80">{user.displayName}</p>
           <p className="micro-label truncate normal-case tracking-normal" title={`@${user.username} · ${userCode(user.lcCode)}`}>
             @{user.username} · {userCode(user.lcCode)}
           </p>
@@ -799,7 +800,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
           placeholder="Search chats…"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+          className="smoked-glass min-h-11 w-full rounded-xl px-3 py-2 text-sm"
         />
       </div>
       {deliveryWarning && (
