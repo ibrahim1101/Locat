@@ -59,8 +59,8 @@
   .shadow-super { box-shadow: 0 24px 80px rgb(0 0 0 / 0.25); }
 }
 
-.obsidian-auth-shell { position: relative; isolation: isolate; overflow: hidden; }
-.obsidian-auth-shell::before { content: ""; position: absolute; z-index: -1; pointer-events: none; width: min(70vw, 620px); height: min(70vw, 620px); top: -24%; right: -12%; border-radius: 50%; background: radial-gradient(circle, hsl(var(--primary) / 0.055), transparent 68%); }
+.locat-auth-shell { position: relative; isolation: isolate; overflow: hidden; }
+.locat-auth-shell::before { content: ""; position: absolute; z-index: -1; pointer-events: none; width: min(70vw, 620px); height: min(70vw, 620px); top: -24%; right: -12%; border-radius: 50%; background: radial-gradient(circle, hsl(var(--primary) / 0.055), transparent 68%); }
 .app-height { height: var(--app-height, 100dvh); }
 /* Android targetSdk 35+ draws WebView behind the system status bar. Reserve
    space in the native shell rather than relying on WebView safe-area env(). */
