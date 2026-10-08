@@ -107,7 +107,6 @@ export function ChatWindow({
   const [recording, setRecording] = useState(false);
   const [recordingMs, setRecordingMs] = useState(0);
   const [recordingError, setRecordingError] = useState("");
-  const [downloadError, setDownloadError] = useState("");
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordingStarted = useRef(0);
   const recordingTimer = useRef<number | null>(null);
@@ -517,6 +516,7 @@ function MessageBubble({
   const [menu, setMenu] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [downloadError, setDownloadError] = useState("");
   const img = useMemo(() => imageUrl(m.payload), [m.payload]);
   const voice = useMemo(() => voiceUrl(m.payload), [m.payload]);
   useEffect(() => {
