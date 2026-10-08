@@ -469,3 +469,10 @@ npm run doctor
 - `c4f271c`: applied shared filters to authenticated credential inventory and revocation endpoints.
 - `a6454d1`: added SQL-compilation regression tests verifying owner, active-only and credential-ID conditions. These are query-shape tests, not end-to-end authorization tests against MariaDB.
 - CI verification pending. Passwordless enrollment and login remain disabled.
+
+
+### Recovery backup parsing hardening (2026-10-09)
+- Verified CI run #302 succeeded for recovery credential ownership SQL tests.
+- `2d6a343`: bounded encrypted backup and ciphertext sizes and checked envelope field types before PBKDF2/decryption to avoid oversized/malformed input processing.
+- `303643f`: added regression tests for oversized and malformed envelopes.
+- These are cryptographic input-hardening changes only; enrollment and passwordless authentication remain disabled. CI for these commits not yet verified.
