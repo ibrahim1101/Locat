@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  debug-apk:
+  release-apk:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -51,16 +51,54 @@ jobs:
       - name: Install Locat Android storage bridge
         run: node scripts/install-android-storage-plugin.mjs
       - run: npx cap sync android
-      - name: Build debug APK
+      - name: Set monotonic Android version code
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re
+          path = pathlib.Path("android/app/build.gradle")
+          source = path.read_text()
+          source, count = re.subn(r"(?m)^(\s*versionCode\s+)\d+", lambda m: m.group(1) + os.environ["RUN_NUMBER"], source, count=1)
+          if count != 1:
+              raise SystemExit("Unable to find Android versionCode")
+          path.write_text(source)
+          PY
+      - name: Build unsigned release APK
         working-directory: android
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleRelease
+      - name: Sign and verify release APK
+        env:
+          LOCAT_KEYSTORE_BASE64: ${{ secrets.LOCAT_KEYSTORE_BASE64 }}
+          LOCAT_KEYSTORE_PASSWORD: ${{ secrets.LOCAT_KEYSTORE_PASSWORD }}
+          LOCAT_KEY_ALIAS: ${{ secrets.LOCAT_KEY_ALIAS }}
+          LOCAT_KEY_PASSWORD: ${{ secrets.LOCAT_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for key in LOCAT_KEYSTORE_BASE64 LOCAT_KEYSTORE_PASSWORD LOCAT_KEY_ALIAS LOCAT_KEY_PASSWORD; do
+            if [ -z "${!key}" ]; then echo "::error::Missing required signing secret: $key"; exit 1; fi
+          done
+          keystore="$RUNNER_TEMP/locat-release.jks"
+          printf '%s' "$LOCAT_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          chmod 600 "$keystore"
+          sdk_root="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          apksigner="$(find "$sdk_root/build-tools" -mindepth 2 -maxdepth 2 -name apksigner | sort -V | tail -1)"
+          if [ -z "$apksigner" ]; then echo "::error::Android apksigner not found"; exit 1; fi
+          unsigned="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          signed="android/app/build/outputs/apk/release/locat-release.apk"
+          test -s "$unsigned"
+          "$apksigner" sign --ks "$keystore" --ks-key-alias "$LOCAT_KEY_ALIAS" \
+            --ks-pass env:LOCAT_KEYSTORE_PASSWORD --key-pass env:LOCAT_KEY_PASSWORD \
+            --out "$signed" "$unsigned"
+          "$apksigner" verify --verbose "$signed"
+          rm -f "$keystore"
       - name: Record APK checksum
-        run: sha256sum android/app/build/outputs/apk/debug/app-debug.apk | tee android/app/build/outputs/apk/debug/app-debug.apk.sha256
+        run: sha256sum android/app/build/outputs/apk/release/locat-release.apk | tee android/app/build/outputs/apk/release/locat-release.apk.sha256
       - uses: actions/upload-artifact@v4
         with:
-          name: locat-android-debug
+          name: locat-android-release
           path: |
-            android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/debug/app-debug.apk.sha256
+            android/app/build/outputs/apk/release/locat-release.apk
+            android/app/build/outputs/apk/release/locat-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
