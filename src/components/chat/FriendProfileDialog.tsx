@@ -16,13 +16,13 @@ export function FriendProfileDialog({ userId, onClose }: { userId: number; onClo
       <DialogHeader><DialogTitle>{person?.displayName ?? "Profile"}</DialogTitle>
         <DialogDescription>Profile information shared with you.</DialogDescription></DialogHeader>
       {profile.isPending && <p role="status">Loading profile…</p>}
-      {profile.error && <p role="alert">{profile.error.message}</p>}
+      {profile.error && <div role="alert" className="space-y-2"><p className="text-sm text-destructive">Could not load profile: {profile.error.message}</p><Button variant="outline" size="sm" onClick={() => void profile.refetch()}>Retry</Button></div>}
       {person && <>
         {person.avatar ? <img src={person.avatar} alt={`${person.displayName} profile picture`}
           className="mx-auto h-48 w-48 rounded-2xl object-cover" draggable={false} />
           : <div className="mx-auto"><Avatar name={person.displayName} id={person.id} size={96} /></div>}
         {person.username && <p className="text-center text-sm text-secondary">@{person.username}</p>}
-        <p className="text-center font-mono text-sm">{userCode(person.lcCode)}</p>
+        <div className="flex items-center justify-center gap-2"><p className="font-mono text-sm">{userCode(person.lcCode)}</p><Button size="sm" variant="outline" aria-label="Copy friend LC code" onClick={() => void navigator.clipboard.writeText(userCode(person.lcCode)).then(() => setFeedback("LC code copied.")).catch(() => setFeedback("Copy unavailable. Select the LC code above."))}>Copy</Button></div>
         <div className="rounded-xl border p-4"><p className="mb-2 text-sm font-medium">Bio</p>
           <p className="whitespace-pre-wrap break-words text-sm text-secondary">{person.bio || "No bio shared with you."}</p></div>
         {person.avatar && person.allowAvatarDownload && <Button disabled={download.isPending}
