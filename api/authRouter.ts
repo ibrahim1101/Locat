@@ -11,6 +11,7 @@ import { sessionCookie } from "./context";
 
 import { limit } from "./rateLimit";
 import { activeRecoveryCredentialScope, revocableRecoveryCredentialScope } from "./recoveryCredentialScope";
+import { verifyRecoveryEnrollmentPassword } from "./recoveryEnrollmentGate";
 
 const SESSION_TTL_DAYS = 30;
 
@@ -160,10 +161,8 @@ export const authRouter = createRouter({
       const account = await db.query.users.findFirst({
         where: eq(users.id, ctx.user!.id),
       });
-      if (!account || account.disabled || !(await verifyPassword(input.password, account.passwordHash))) {
-        throw new TRPCError({ code: "UNAUTHORIZED", message: "Unable to verify account credentials" });
-      }
-      return { verified: true, publicKey: account.publicKey };
+      const publicKey = await verifyRecoveryEnrollmentPassword(account, input.password);
+      return { verified: true, publicKey };
     }),
 
   recoveryCredentialList: authedQuery.query(async ({ ctx }) => {
