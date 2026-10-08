@@ -98,3 +98,58 @@ C:\platform-tools\adb.exe -s emulator-5554 install -r "C:\platform-tools\locat-r
 ## New-chat kickoff
 
 "Continue Locat development from `docs/DEVELOPMENT_HANDOFF_2026-10-08.md` in `ibrahim1101/Locat` branch `feat/locat-1.0`. Emulator updater works, Pi deployment works, Firefox push works, accepted-friends search visible. Start with dedicated Friends tab and verify faster presence timing. Make incremental GitHub commits and give exact Pi/emulator testing commands."
+
+
+## Deployment and testing command reference (2026-10-08)
+
+Keep this section updated whenever we introduce or change commands. These are the exact recurring commands supplied during the version-footer, build-ID, and Friends-tab milestones. They are user-run commands; do not mark deployment or testing successful without user confirmation.
+
+### Raspberry Pi: fetch and run branch deployment
+
+```bash
+curl -fL \
+  https://raw.githubusercontent.com/ibrahim1101/Locat/feat/locat-1.0/scripts/deploy-pi.sh \
+  -o /tmp/locat-deploy.sh
+sudo bash /tmp/locat-deploy.sh
+```
+
+### Raspberry Pi: post-deployment diagnostics
+
+```bash
+cd /opt/locat
+npm run doctor
+sudo systemctl status locat.service --no-pager
+```
+
+### Windows PowerShell: download and run Android emulator updater
+
+Wait for the latest successful Android APK workflow before installing.
+
+```powershell
+Invoke-WebRequest \`
+  -Uri "https://raw.githubusercontent.com/ibrahim1101/Locat/feat/locat-1.0/scripts/update-android-emulator.ps1" \`
+  -OutFile "C:\\platform-tools\\update-locat.ps1"
+
+powershell -NoProfile -ExecutionPolicy Bypass \`
+  -File "C:\\platform-tools\\update-locat.ps1"
+```
+
+### Windows PowerShell: ADB commands from earlier emulator debugging
+
+When PowerShell is already in `C:\\platform-tools`, invoke local binaries using `.\\` (plain `adb` is not found unless the directory is on PATH).
+
+```powershell
+cd C:\\platform-tools
+.\\adb.exe devices
+.\\adb.exe logcat -c
+```
+
+### Build identification
+
+- Android GitHub Actions APK build: `GITHUB_RUN_NUMBER` is injected into the UI and used as native Android `versionCode`.
+- Raspberry Pi build: UI shows short Git commit SHA because `GITHUB_RUN_NUMBER` is not set.
+- Footer format: `Locat · Connected · v0.1.0 · Build <identifier>` (connection text varies).
+
+### Documentation rule
+
+For every future milestone, append exact Raspberry Pi, PowerShell, diagnostic, and testing commands used (including failed attempts and corrections), associated commits, observed results, and outstanding verification. Do not store tokens, passwords, keystores, or other secrets.
