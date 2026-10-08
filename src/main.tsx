@@ -9,6 +9,8 @@ import { startAppearance } from "./lib/appearance";
 import { isNativeShell, nativeServerUrl } from "./lib/native";
 import { NativeServerSetup } from "./components/NativeServerSetup";
 
+if (isNativeShell()) document.documentElement.classList.add("locat-native");
+
 const stopAppearance = startAppearance();
 if (import.meta.hot) import.meta.hot.dispose(stopAppearance);
 
