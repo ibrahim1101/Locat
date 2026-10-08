@@ -837,8 +837,8 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
               key={c.id}
               type="button"
               onClick={() => void openConversation(c.id)}
-              className={`flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent ${
-                activeId === c.id ? "bg-accent" : ""
+              className={`flex min-h-16 w-full items-center gap-3 border-b border-border/40 px-4 py-3 text-left transition-colors hover:bg-accent/80 ${
+                activeId === c.id ? "bg-accent/90 shadow-[inset_2px_0_hsl(var(--primary))]" : ""
               }`}
             >
               {c.type === "direct" ? (
@@ -916,7 +916,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       )}
       {/* sidebar: full-screen on mobile, fixed column on desktop */}
       <div
-        className={`${activeId ? "hidden" : "flex"} w-full md:flex md:w-80 md:shrink-0 lg:w-96`}
+        className={`${activeId ? "hidden" : "flex"} w-full border-r border-border/70 md:flex md:w-80 md:shrink-0 lg:w-96`}
       >
         {sidebar}
       </div>
