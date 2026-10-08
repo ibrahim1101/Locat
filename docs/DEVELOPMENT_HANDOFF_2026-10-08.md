@@ -428,3 +428,11 @@ npm run doctor
 - User reported Android `Failed to fetch` and then identified Tailscale offline in the emulator as the network cause; no app code fix required. Preserve device data.
 - Commit `dafd877`: added `src/lib/quickSignIn.test.ts` testing random 256-bit key generation, verifier normalization, malformed inputs, encrypted ECDH identity restore, independent salt/nonce, wrong-key and ciphertext tamper rejection.
 - Tests have **not yet been executed/verified**. Next: check CI or run `npm test -- src/lib/quickSignIn.test.ts` and `npm run check` on a checkout with dependencies. No Pi or APK deployment needed for tests-only commit.
+
+
+### Dual sign-in design approved (2026-10-09)
+- User approved both permanent **Recovery Key** and short-lived **Link Device** methods, with password fallback.
+- `2a9199d`: expanded `docs/QUICK_SIGN_IN_DESIGN.md` with challenge-response requirement, short-code trusted-device approval, ephemeral authenticated encryption, and per-device session/message-delivery prerequisites.
+- `3cf0203`: `src/lib/deviceLink.ts` adds client-only ephemeral P-256 ECDH, HKDF-SHA256 and AES-256-GCM identity transfer bound to request ID and public keys.
+- `19f2848`: `src/lib/deviceLink.test.ts` adds intended-recipient recovery and rejection of wrong recipient, wrong request ID, ciphertext tampering and unsupported version.
+- **Not executed/CI-verified**; no API, database, login UI or APK integration yet. Do not expose device linking to users until trusted-device approval, fingerprint confirmation, anti-replay, multi-device sessions and tests are complete.
