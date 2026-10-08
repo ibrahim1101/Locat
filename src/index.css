@@ -5,34 +5,34 @@
 @layer base {
   :root {
     color-scheme: dark;
-    --background: 222 28% 7%;
-    --foreground: 210 25% 95%;
-    --card: 222 24% 11%;
-    --card-foreground: 210 25% 95%;
-    --popover: 222 24% 11%;
-    --popover-foreground: 210 25% 95%;
-    --primary: 174 76% 48%;
-    --primary-foreground: 222 28% 7%;
-    --secondary: 215 15% 65%;
-    --secondary-foreground: 210 25% 95%;
-    --muted: 222 20% 16%;
-    --muted-foreground: 215 15% 65%;
-    --accent: 222 20% 18%;
-    --accent-foreground: 210 25% 95%;
+    --background: 100 9% 6%;
+    --foreground: 55 27% 93%;
+    --card: 100 10% 11%;
+    --card-foreground: 55 27% 93%;
+    --popover: 100 10% 11%;
+    --popover-foreground: 55 27% 93%;
+    --primary: 82 31% 60%;
+    --primary-foreground: 100 9% 6%;
+    --secondary: 95 9% 68%;
+    --secondary-foreground: 55 27% 93%;
+    --muted: 100 10% 16%;
+    --muted-foreground: 95 9% 68%;
+    --accent: 96 12% 19%;
+    --accent-foreground: 55 27% 93%;
     --destructive: 0 75% 62%;
     --destructive-foreground: 0 0% 100%;
-    --border: 222 18% 21%;
-    --input: 222 18% 24%;
-    --ring: 174 76% 48%;
-    --radius: 0.75rem;
-    --sidebar-background: 222 26% 9%;
-    --sidebar-foreground: 210 25% 95%;
-    --sidebar-primary: 174 76% 48%;
-    --sidebar-primary-foreground: 222 28% 7%;
-    --sidebar-accent: 222 20% 18%;
-    --sidebar-accent-foreground: 210 25% 95%;
-    --sidebar-border: 222 18% 21%;
-    --sidebar-ring: 174 76% 48%;
+    --border: 99 10% 22%;
+    --input: 99 10% 25%;
+    --ring: 82 31% 60%;
+    --radius: 0.875rem;
+    --sidebar-background: 100 10% 8%;
+    --sidebar-foreground: 55 27% 93%;
+    --sidebar-primary: 82 31% 60%;
+    --sidebar-primary-foreground: 100 9% 6%;
+    --sidebar-accent: 96 12% 19%;
+    --sidebar-accent-foreground: 55 27% 93%;
+    --sidebar-border: 99 10% 22%;
+    --sidebar-ring: 82 31% 60%;
   }
   * { @apply border-border; }
   body { @apply m-0 bg-background text-foreground antialiased; font-family: Inter, system-ui, sans-serif; }
@@ -43,6 +43,11 @@
 }
 @layer utilities {
   .surface-2 { background: hsl(var(--card)); }
+  .obsidian-panel { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); box-shadow: 0 16px 48px rgb(0 0 0 / 0.22); }
+  .obsidian-interactive { transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease; }
+  .obsidian-interactive:hover { background: hsl(var(--accent)); }
+  .obsidian-interactive:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+  .obsidian-kicker { color: hsl(var(--primary)); font-size: 0.6875rem; font-weight: 650; letter-spacing: 0.14em; text-transform: uppercase; }
   .surface-3 { background: hsl(var(--accent)); }
   .micro-label { @apply text-[11px] font-medium uppercase tracking-wider text-secondary; }
   .font-mono-ui { font-family: "IBM Plex Mono", monospace; }
@@ -85,6 +90,8 @@ body { overscroll-behavior: none; }
   --sidebar-accent-foreground: var(--accent-foreground);
   --sidebar-border: var(--border);
 }
+:root[data-accent="olive"] { --primary: 82 31% 60%; }
+:root[data-theme="light"][data-accent="olive"] { --primary: 88 40% 29%; }
 :root[data-accent="blue"] { --primary: 210 90% 68%; }
 :root[data-accent="violet"] { --primary: 265 85% 75%; }
 :root[data-accent="rose"] { --primary: 340 85% 73%; }
