@@ -43,9 +43,10 @@ jobs:
       - name: Install isolated Capacitor 8 toolchain
         run: |
           mkdir -p "$RUNNER_TEMP/locat-capacitor"
-          npm install --prefix "$RUNNER_TEMP/locat-capacitor" --package-lock=false --no-save @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8
+          npm install --prefix "$RUNNER_TEMP/locat-capacitor" --package-lock=false --no-save @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8 @capacitor/push-notifications@8
           ln -s "$RUNNER_TEMP/locat-capacitor/node_modules/@capacitor" node_modules/@capacitor
           ln -s "$RUNNER_TEMP/locat-capacitor/node_modules/.bin/cap" node_modules/.bin/cap
+          ln -s "$RUNNER_TEMP/locat-capacitor/node_modules/@capacitor/push-notifications" node_modules/@capacitor/push-notifications
       - run: npm run build:web
       - run: npx cap add android
       - name: Install Locat Android storage bridge
