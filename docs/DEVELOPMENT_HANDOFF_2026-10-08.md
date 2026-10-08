@@ -153,3 +153,11 @@ cd C:\\platform-tools
 ### Documentation rule
 
 For every future milestone, append exact Raspberry Pi, PowerShell, diagnostic, and testing commands used (including failed attempts and corrections), associated commits, observed results, and outstanding verification. Do not store tokens, passwords, keystores, or other secrets.
+
+
+## User verification — Friends tab and build footer (2026-10-08)
+
+- User confirmed the latest updates work after applying them, including the Friends tab workflows and visible version/build footer.
+- Previously pending manual checks for these features are now recorded as **user-reported successful**. No independent automated test run is claimed.
+- Continue with profile improvements, faster presence testing, and Android notification verification.
+- Deployment and PowerShell commands remain recorded in the command reference above; preserve the exact commands for future milestones.
