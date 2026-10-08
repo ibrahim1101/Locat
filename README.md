@@ -1,107 +1,33 @@
-# RelayChat — local-first encrypted messenger
+# Locat — Private, Self-Hosted Messaging
 
-A self-hosted chat app where **your devices are the database** and the server is a
-dumb relay. Built to run on a Raspberry Pi.
+**Locat** is an open-source encrypted messaging project designed for people who want to host their own messaging server, including on a Raspberry Pi.
 
-## How it works
+> **Development status:** Locat 1.0 is actively under development. The current application, installation instructions, Android APK workflow, and engineering documentation are maintained on the [`feat/locat-1.0` development branch](https://github.com/ibrahim1101/Locat/tree/feat/locat-1.0). This `main` branch is not yet the latest deployable release.
 
-| | Device (browser) | Server (your Pi) |
-|---|---|---|
-| Private keys | Generated here, never leave (IndexedDB, non-extractable) | Only a password-encrypted backup blob it cannot open |
-| Chat history & media | Stored decrypted in IndexedDB | **Nothing permanent** — transient encrypted queue, deleted on delivery |
-| Messages | Encrypted with AES-GCM before sending | Sees only opaque `{iv, data}` envelopes |
-| Identity | ECDH P-256 key pair per account | Public-key directory + auth |
+## Explore Locat
 
-- **1:1 chats** — pairwise key from `ECDH(myPrivate, theirPublic)` + HKDF. Both sides
-  derive the same key independently.
-- **Group chats** — a random AES group key, wrapped individually for each member with
-  an ECDH-derived key at creation time.
-- **Offline delivery** — envelopes wait in the queue (encrypted), are pushed instantly
-  to online devices (SSE), and each row is **deleted the moment a recipient acks it**.
-- **Multi-device** — log in on a new device with your password; the encrypted key
-  backup is unwrapped locally. Your own messages echo to your other devices.
-- **Verify contacts** — the shield icon shows key fingerprints ("safety numbers") to
-  compare out-of-band.
+- **[Current project README](https://github.com/ibrahim1101/Locat/blob/feat/locat-1.0/README.md)** — current functionality, limitations and architecture.
+- **[Beginner installation guide](https://github.com/ibrahim1101/Locat/blob/feat/locat-1.0/docs/INSTALLATION.md)** — Raspberry Pi, Linux, Docker and HTTPS setup.
+- **[Development roadmap](https://github.com/ibrahim1101/Locat/blob/feat/locat-1.0/docs/LOCAT-1.0-PLAN.md)** — implementation goals and verification notes.
+- **[Engineering history and handoff](https://github.com/ibrahim1101/Locat/blob/feat/locat-1.0/docs/DEVELOPMENT_HANDOFF_2026-10-08.md)** — progress, tests, failures and fixes.
+- **[Android APK builds](https://github.com/ibrahim1101/Locat/actions/workflows/android-apk.yml)** — GitHub Actions artifacts for the development branch.
 
-## Run it on a Raspberry Pi
+## What Locat is building
 
-### 1. Prerequisites (Raspberry Pi OS 64-bit)
+Locat combines device-side encryption, direct and group conversations, self-hosted accounts, local chat history, profiles, friend management, and optional background notifications. Its Android application is built with Capacitor; native Firebase Cloud Messaging support is **in progress**, not yet verified end to end.
 
-```bash
-# Node.js 20+
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
-sudo apt install -y nodejs mariadb-server
+Messages are encrypted on clients before being sent to the server. The server still handles account and delivery metadata; Locat is **not** a Signal Protocol implementation and does not currently provide Signal-style forward secrecy.
 
-# database
-sudo mysql -e "CREATE DATABASE relaychat; CREATE USER 'relay'@'localhost' IDENTIFIED BY 'pick-a-strong-password'; GRANT ALL ON relaychat.* TO 'relay'@'localhost';"
-```
+## Getting started
 
-### 2. Deploy the code
+**Do not deploy this outdated `main` branch as the current Locat server.** Follow the development branch's [installation guide](https://github.com/ibrahim1101/Locat/blob/feat/locat-1.0/docs/INSTALLATION.md) and its explicit branch-selection instructions.
 
-Download/export this project, copy it to the Pi, then:
+## Development and releases
 
-```bash
-cd relaychat
-npm install
+The `feat/locat-1.0` branch is used for ongoing implementation and testing. The default branch will be brought in sync with application code when the release is ready and validated. Until then, links above point to the maintained source of truth.
 
-cat > .env <<EOF
-DATABASE_URL=mysql://relay:pick-a-strong-password@localhost:3306/relaychat
-APP_ID=selfhosted
-APP_SECRET=selfhosted
-NODE_ENV=production
-PORT=3000
-EOF
+## License
 
-npm run db:push   # create tables
-npm run build
-npm start         # serves UI + API on :3000
-```
+The active Locat development branch uses the **GNU General Public License v3.0 (GPL-3.0-only)**. See its [LICENSE](https://github.com/ibrahim1101/Locat/blob/feat/locat-1.0/LICENSE) file.
 
-### 3. Run as a service
-
-```bash
-sudo tee /etc/systemd/system/relaychat.service <<EOF
-[Unit]
-Description=RelayChat
-After=network.target mariadb.service
-
-[Service]
-WorkingDirectory=/home/pi/relaychat
-ExecStart=/usr/bin/npm start
-Restart=always
-Environment=NODE_ENV=production
-
-[Install]
-WantedBy=multi-user.target
-EOF
-sudo systemctl enable --now relaychat
-```
-
-### 4. HTTPS — **required, not optional**
-
-WebCrypto (the browser encryption API) only works in a **secure context**.
-`http://pi.local:3000` will not work outside localhost. Pick one:
-
-- **Tailscale (easiest, free):** `sudo apt install tailscale && sudo tailscale up`,
-  then `tailscale serve --bg 3000` → you get `https://<pi>.<tailnet>.ts.net`,
-  reachable from your phone/laptop anywhere, end-to-end encrypted by WireGuard.
-- **Caddy + a domain:** point a DNS record at your home IP, forward ports 80/443,
-  `caddy reverse-proxy --from chat.example.com --to localhost:3000` — automatic
-  Let's Encrypt certificates.
-
-### 5. Invite people
-
-Share the HTTPS URL. Everyone creates an account (username + password) — the user
-directory lets them find each other by name.
-
-## Honest limitations (v1)
-
-- No forward secrecy / double-ratchet (Signal protocol) — keys are long-lived per
-  account. Rotating your identity is supported (new-device screen → "fresh identity").
-- Group membership is fixed at creation; adding/removing members requires key
-  rotation, which is not implemented yet.
-- Delivery acknowledgements are trusted (a malicious client could skip acking and
-  leave envelopes in the queue). An admin can purge with a cron `DELETE` if desired.
-- Media: images only, downscaled to 1600px before encryption (~4MB cap).
-- The relay operator can see metadata (who talks to whom, when, message sizes) —
-  but never content.
+Copyright © 2026 Shaik Ibrahim.
