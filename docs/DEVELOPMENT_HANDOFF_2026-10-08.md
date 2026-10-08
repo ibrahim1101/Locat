@@ -209,3 +209,36 @@ gh run list -R ibrahim1101/Locat -w android-apk.yml -b feat/locat-1.0 -L 8
 ```
 
 If package ID differs from `com.locat.app`, use `& "C:\\platform-tools\\adb.exe" -s emulator-5554 shell pm list packages | Select-String locat` first. Check build workflow success before rerunning the existing updater; never uninstall the app just to fix a version mismatch.
+
+
+## Android Copy button resolution and presence tuning (2026-10-08)
+
+- User confirmed the friend-profile Copy button now works in Android after installing the latest successful APK. PC browser already passed. Earlier Android absence was observed with build 59; the exact installed replacement build number was not recorded.
+- GitHub Android workflow run `37811925589` failed for the original Copy-button commit, but subsequent workflow `37811936253` succeeded and included the feature. Do not claim the specific failed-run cause was diagnosed.
+- Commit `7c51730`: reduced browser presence refresh interval from 8 seconds to 4 seconds. Android stays at 3 seconds; server heartbeat expiry and sweep remain unchanged. This is a responsiveness experiment, not yet a measured success.
+- Test with two accounts: keep one account visible in PC browser and one in Android; close/reopen Android; time online/offline indicator changes. Note background behavior and browser load; rollback polling if server load or battery impact is unacceptable.
+
+### Raspberry Pi deploy and diagnostics
+
+```bash
+curl -fL \
+  https://raw.githubusercontent.com/ibrahim1101/Locat/feat/locat-1.0/scripts/deploy-pi.sh \
+  -o /tmp/locat-deploy.sh
+sudo bash /tmp/locat-deploy.sh
+cd /opt/locat
+npm run doctor
+sudo systemctl status locat.service --no-pager
+```
+
+### Windows PowerShell Android updater and workflow check
+
+```powershell
+gh run list -R ibrahim1101/Locat -w android-apk.yml -b feat/locat-1.0 -L 8
+Invoke-WebRequest \`
+  -Uri "https://raw.githubusercontent.com/ibrahim1101/Locat/feat/locat-1.0/scripts/update-android-emulator.ps1" \`
+  -OutFile "C:\\platform-tools\\update-locat.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass \`
+  -File "C:\\platform-tools\\update-locat.ps1"
+```
+
+- Only install after a successful workflow containing the target commit. The updater selects the latest *successful* APK, which can lag behind failed/pending commits.
