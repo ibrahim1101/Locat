@@ -436,3 +436,9 @@ npm run doctor
 - `3cf0203`: `src/lib/deviceLink.ts` adds client-only ephemeral P-256 ECDH, HKDF-SHA256 and AES-256-GCM identity transfer bound to request ID and public keys.
 - `19f2848`: `src/lib/deviceLink.test.ts` adds intended-recipient recovery and rejection of wrong recipient, wrong request ID, ciphertext tampering and unsupported version.
 - **Not executed/CI-verified**; no API, database, login UI or APK integration yet. Do not expose device linking to users until trusted-device approval, fingerprint confirmation, anti-replay, multi-device sessions and tests are complete.
+
+
+### Link Device safety-code follow-up (2026-10-09)
+- `1dcdae0`: `linkSafetyCode(requestId, senderPublicKey, recipientPublicKey)` produces a 40-bit human-readable SHA-256-derived comparison bound to the pending request and both ephemeral keys. It is only a comparison aid, **not** a replacement for authenticated approval or pairing authorization.
+- `d0e8075`: regression tests verify deterministic comparison and changes on request or key changes.
+- CI/tests not yet verified. Do not enable Link Device until backend approval, anti-replay, multi-device sessions and UI are completed.
