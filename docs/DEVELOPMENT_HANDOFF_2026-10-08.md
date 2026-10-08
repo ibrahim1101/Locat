@@ -73,6 +73,14 @@ C:\platform-tools\adb.exe -s emulator-5554 install -r "C:\platform-tools\locat-r
 - GitHub write succeeded. Build, Raspberry Pi deployment, and Android emulator installation have **not yet been verified**.
 - Limitation: package version is not a unique build identifier; future work should expose a short commit SHA or build ID for precise APK identification.
 
+## Build identification (2026-10-08)
+
+- `a3238df`: Vite injects `__LOCAT_BUILD_ID__` using `GITHUB_RUN_NUMBER` on GitHub Actions, otherwise the local short Git SHA (`local` fallback).
+- `5569564`: chat footer displays `v<package version> · Build <build identifier>` beside connection status.
+- Android release workflow already sets native Android `versionCode` from `github.run_number`; its web build receives the same run number.
+- Pi deploy builds outside GitHub Actions and therefore displays a Git SHA instead of a numeric build number.
+- Changes committed; CI success, Pi deployment and emulator testing are not yet confirmed.
+
 ## Next priorities
 
 1. Measure real offline detection latency after recent presence changes; check false offline/flicker while clients remain open, and distinguish normal close, background, and force-stop. Target ~12–20 seconds, not yet verified.
