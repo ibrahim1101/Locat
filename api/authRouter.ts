@@ -151,6 +151,21 @@ export const authRouter = createRouter({
 
   me: authedQuery.query(({ ctx }) => publicProfile(ctx.user!)),
 
+  /** Password reauthentication gate for future recovery enrollment; issues no credential. */
+  recoveryEnrollmentPreflight: authedQuery
+    .input(z.object({ password: z.string().min(1).max(PASSWORD_MAX_CODE_UNITS) }))
+    .mutation(async ({ ctx, input }) => {
+      limit(`recovery-preflight:${ctx.user!.id}`, 5, 15 * 60_000);
+      const db = getDb();
+      const account = await db.query.users.findFirst({
+        where: eq(users.id, ctx.user!.id),
+      });
+      if (!account || account.disabled || !(await verifyPassword(input.password, account.passwordHash))) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Unable to verify account credentials" });
+      }
+      return { verified: true, publicKey: account.publicKey };
+    }),
+
   recoveryCredentialList: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
     return db.select({
