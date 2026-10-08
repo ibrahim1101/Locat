@@ -61,6 +61,7 @@
 
 .locat-auth-shell { position: relative; isolation: isolate; overflow: hidden; }
 .locat-auth-shell::before { content: ""; position: absolute; z-index: -1; pointer-events: none; width: min(70vw, 620px); height: min(70vw, 620px); top: -24%; right: -12%; border-radius: 50%; background: radial-gradient(circle, hsl(var(--primary) / 0.055), transparent 68%); }
+.locat-chat-canvas { background: radial-gradient(ellipse at 95% 100%, rgb(190 199 211 / 0.025), transparent 55%), hsl(var(--background)); }
 .app-height { height: var(--app-height, 100dvh); }
 /* Android targetSdk 35+ draws WebView behind the system status bar. Reserve
    space in the native shell rather than relying on WebView safe-area env(). */
