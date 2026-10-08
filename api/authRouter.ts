@@ -2,7 +2,7 @@ import { randomInt } from "node:crypto";
 import { registrationPasswordError, PASSWORD_MAX_CODE_UNITS } from "@contracts/password";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { createRouter, publicQuery, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { users, sessions, pushSubscriptions, recoveryCredentials } from "@db/schema";
@@ -10,6 +10,7 @@ import { hashPassword, verifyPassword, newSessionToken } from "./crypto";
 import { sessionCookie } from "./context";
 
 import { limit } from "./rateLimit";
+import { activeRecoveryCredentialScope, revocableRecoveryCredentialScope } from "./recoveryCredentialScope";
 
 const SESSION_TTL_DAYS = 30;
 
@@ -155,10 +156,7 @@ export const authRouter = createRouter({
     return db.select({
       id: recoveryCredentials.id,
       createdAt: recoveryCredentials.createdAt,
-    }).from(recoveryCredentials).where(and(
-      eq(recoveryCredentials.userId, ctx.user!.id),
-      isNull(recoveryCredentials.revokedAt),
-    ));
+    }).from(recoveryCredentials).where(activeRecoveryCredentialScope(ctx.user!.id));
   }),
 
   recoveryCredentialRevoke: authedQuery
@@ -168,11 +166,7 @@ export const authRouter = createRouter({
       const db = getDb();
       await db.update(recoveryCredentials)
         .set({ revokedAt: new Date() })
-        .where(and(
-          eq(recoveryCredentials.id, input.id),
-          eq(recoveryCredentials.userId, ctx.user!.id),
-          isNull(recoveryCredentials.revokedAt),
-        ));
+        .where(revocableRecoveryCredentialScope(ctx.user!.id, input.id));
       return { ok: true };
     }),
 
