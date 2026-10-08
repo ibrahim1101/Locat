@@ -390,3 +390,25 @@ npm run doctor
 ```
 
 - No Pi deployment needed for this Android workflow-only change. Avoid installing the APK until build is verified and app-side native notification flow is implemented.
+
+
+## Capacitor push plugin dependency correction (2026-10-09)
+
+- Inspected `.github/workflows/android-apk.yml` and found an invalid duplicate symlink: the entire `node_modules/@capacitor` namespace was already linked from the isolated toolchain, so separately linking `node_modules/@capacitor/push-notifications` would attempt to create a path that already exists.
+- Commit `eb4e20a` removes only the redundant per-plugin symlink. Isolated installation of `@capacitor/push-notifications@8` remains.
+- **Build verification pending**. Do not install an APK until this change passes. Android FCM registration/permission and Pi notification delivery are not yet implemented.
+
+### Windows PowerShell
+
+```powershell
+gh run list -R ibrahim1101/Locat -w android-apk.yml -b feat/locat-1.0 -L 5
+```
+
+### Raspberry Pi
+
+```bash
+cd /opt/locat
+npm run doctor
+```
+
+- No Pi deployment necessary for workflow-only fix.
