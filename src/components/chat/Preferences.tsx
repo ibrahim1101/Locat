@@ -1,3 +1,4 @@
+import { isNativeShell } from "@/lib/native";
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { appearanceEvent, getAppearance, setAppearance, type Theme, type Accent } from '@/lib/appearance';
@@ -40,10 +41,10 @@ export function Preferences() {
         localStorage.setItem('locat-read-receipts', event.target.checked ? 'on' : 'off');
       }} />
     </label>
-    <Button variant="outline" className="w-full" onClick={() => {
+    {!isNativeShell() && <Button variant="outline" className="w-full" onClick={() => {
       if (install) void install.prompt().then(() => install.userChoice).then(() => setInstall(null)).catch(() => setFeedback('Use your browser menu to install Locat.'));
       else setFeedback('Android: browser menu → Install app / Add to Home screen. iPhone: Safari → Share → Add to Home Screen. Load Locat online once before opening offline.');
-    }}>Install Locat on this device</Button>
+    }}>Install Locat on this device</Button>}
     {feedback && <p role="status" className="text-xs text-secondary">{feedback}</p>}
   </div>;
 }
