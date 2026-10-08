@@ -5,34 +5,34 @@
 @layer base {
   :root {
     color-scheme: dark;
-    --background: 100 9% 6%;
-    --foreground: 55 27% 93%;
-    --card: 100 10% 11%;
-    --card-foreground: 55 27% 93%;
-    --popover: 100 10% 11%;
-    --popover-foreground: 55 27% 93%;
-    --primary: 82 31% 60%;
-    --primary-foreground: 100 9% 6%;
-    --secondary: 95 9% 68%;
-    --secondary-foreground: 55 27% 93%;
-    --muted: 100 10% 16%;
-    --muted-foreground: 95 9% 68%;
-    --accent: 96 12% 19%;
-    --accent-foreground: 55 27% 93%;
+    --background: 220 20% 4%;
+    --foreground: 210 14% 95%;
+    --card: 220 16% 9%;
+    --card-foreground: 210 14% 95%;
+    --popover: 220 16% 9%;
+    --popover-foreground: 210 14% 95%;
+    --primary: 215 13% 82%;
+    --primary-foreground: 220 20% 4%;
+    --secondary: 215 9% 67%;
+    --secondary-foreground: 210 14% 95%;
+    --muted: 220 12% 14%;
+    --muted-foreground: 215 9% 67%;
+    --accent: 220 12% 18%;
+    --accent-foreground: 210 14% 95%;
     --destructive: 0 75% 62%;
     --destructive-foreground: 0 0% 100%;
-    --border: 99 10% 22%;
-    --input: 99 10% 25%;
-    --ring: 82 31% 60%;
+    --border: 220 10% 23%;
+    --input: 220 10% 27%;
+    --ring: 215 13% 82%;
     --radius: 0.875rem;
-    --sidebar-background: 100 10% 8%;
-    --sidebar-foreground: 55 27% 93%;
-    --sidebar-primary: 82 31% 60%;
-    --sidebar-primary-foreground: 100 9% 6%;
-    --sidebar-accent: 96 12% 19%;
-    --sidebar-accent-foreground: 55 27% 93%;
-    --sidebar-border: 99 10% 22%;
-    --sidebar-ring: 82 31% 60%;
+    --sidebar-background: 220 18% 6%;
+    --sidebar-foreground: 210 14% 95%;
+    --sidebar-primary: 215 13% 82%;
+    --sidebar-primary-foreground: 220 20% 4%;
+    --sidebar-accent: 220 12% 18%;
+    --sidebar-accent-foreground: 210 14% 95%;
+    --sidebar-border: 220 10% 23%;
+    --sidebar-ring: 215 13% 82%;
   }
   * { @apply border-border; }
   body { @apply m-0 bg-background text-foreground antialiased; font-family: Inter, system-ui, sans-serif; }
@@ -43,7 +43,9 @@
 }
 @layer utilities {
   .surface-2 { background: hsl(var(--card)); }
-  .obsidian-panel { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); box-shadow: 0 16px 48px rgb(0 0 0 / 0.22); }
+  .obsidian-panel { background: linear-gradient(145deg, hsl(var(--card)), hsl(var(--background))); border: 1px solid hsl(var(--border)); box-shadow: inset 0 1px rgb(255 255 255 / 0.055), 0 16px 48px rgb(0 0 0 / 0.36); }
+  .titanium-panel { background: linear-gradient(155deg, hsl(var(--card) / 0.96), hsl(var(--background) / 0.98)); border: 1px solid hsl(var(--border)); box-shadow: inset 0 1px rgb(255 255 255 / 0.055), 0 12px 36px rgb(0 0 0 / 0.25); }
+  .smoked-glass { background: hsl(var(--card) / 0.91); border: 1px solid hsl(var(--border)); box-shadow: inset 0 1px rgb(255 255 255 / 0.07), 0 16px 48px rgb(0 0 0 / 0.35); }
   .obsidian-interactive { transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease; }
   .obsidian-interactive:hover { background: hsl(var(--accent)); }
   .obsidian-interactive:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
@@ -58,7 +60,7 @@
 }
 
 .obsidian-auth-shell { position: relative; isolation: isolate; overflow: hidden; }
-.obsidian-auth-shell::before { content: ""; position: absolute; z-index: -1; pointer-events: none; width: min(70vw, 620px); height: min(70vw, 620px); top: -24%; right: -12%; border-radius: 50%; background: radial-gradient(circle, hsl(var(--primary) / 0.09), transparent 68%); }
+.obsidian-auth-shell::before { content: ""; position: absolute; z-index: -1; pointer-events: none; width: min(70vw, 620px); height: min(70vw, 620px); top: -24%; right: -12%; border-radius: 50%; background: radial-gradient(circle, hsl(var(--primary) / 0.055), transparent 68%); }
 .app-height { height: var(--app-height, 100dvh); }
 /* Android targetSdk 35+ draws WebView behind the system status bar. Reserve
    space in the native shell rather than relying on WebView safe-area env(). */
@@ -92,9 +94,11 @@ body { overscroll-behavior: none; }
   --sidebar-accent-foreground: var(--accent-foreground);
   --sidebar-border: var(--border);
 }
+:root[data-accent="titanium"] { --primary: 215 13% 82%; }
+:root[data-theme="light"][data-accent="titanium"] { --primary: 220 13% 28%; }
 :root[data-accent="teal"] { --primary: 174 76% 48%; }
 :root[data-theme="light"][data-accent="teal"] { --primary: 174 80% 30%; }
-:root[data-accent="olive"] { --primary: 82 31% 60%; }
+:root[data-accent="olive"] { --primary: 215 13% 82%; }
 :root[data-theme="light"][data-accent="olive"] { --primary: 88 40% 29%; }
 :root[data-accent="blue"] { --primary: 210 90% 68%; }
 :root[data-accent="violet"] { --primary: 265 85% 75%; }
