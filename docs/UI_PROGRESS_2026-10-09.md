@@ -17,3 +17,11 @@ Last known green baseline before this run: `d4da2469` (Locat checks and Android 
 
 ## Historical reference
 This supplements `docs/DEVELOPMENT_HANDOFF_2026-10-08.md` until that editable history can be updated safely.
+
+## 04:00 IST continuation
+- Verified green CI: Locat checks for `4e48a4b6` (run 37847806182) and Android APK for `b2bf951a` (run 37847684626).
+- `7c6aa25`: titanium hover treatment for pointer devices.
+- `40c38fc`: restored the preserved legacy Olive theme selection after its value was accidentally overwritten; Titanium remains the new default.
+- `82248ef`: balanced smoked-glass gradient and keyboard focus visibility across links, inputs, selects and buttons.
+- GitHub safety checks blocked changes to `StorageDialog.tsx`, `Preferences.tsx`, `PrivacyCommandCenter.tsx`, and the long historical handoff document. No uncommitted changes should be represented as deployed. The new dashboard remains inaccessible until a safe integration route is available.
+- Current wave CI/Android validation pending; next run should verify it and continue non-invasive responsive design improvements. Existing crypto, account, messaging and local storage logic remain untouched.
