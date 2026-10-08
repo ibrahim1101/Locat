@@ -397,7 +397,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   }, []);
   const reconnectRef = useRef<() => void>(() => {});
   trpc.messages.subscribe.useSubscription(undefined, {
-    enabled: localReady && !isNativeShell(),
+    enabled: localReady,
     onData: (event: RelayEvent) => {
       if (event.type === "presence") {
         setOnline(new Set(event.online));
