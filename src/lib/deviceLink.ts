@@ -84,3 +84,22 @@ export async function decryptLinkedIdentity(
     "pkcs8", pkcs8, { name: "ECDH", namedCurve: "P-256" }, false, ["deriveBits"],
   );
 }
+
+/**
+ * Human-readable safety comparison for both devices. Both devices must show
+ * the same value, and the user must confirm it on the trusted device before
+ * the server accepts an approval. Never auto-approve based on this digest.
+ */
+export async function linkSafetyCode(
+  requestId: string,
+  senderPublicKey: string,
+  recipientPublicKey: string,
+): Promise<string> {
+  if (!/^[a-zA-Z0-9_-]{16,128}$/.test(requestId)) throw new Error("Invalid link request identifier");
+  // Length-prefix every field so concatenation cannot be ambiguous.
+  const parts = [requestId, senderPublicKey, recipientPublicKey];
+  const encoded = te.encode("locat-link-safety-v1:" + parts.map(part => `${part.length}:${part}`).join(""));
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", encoded));
+  // 40-bit fingerprint: manual comparison is a UX guard, not authentication.
+  return Array.from(digest.slice(0, 5), byte => byte.toString(16).padStart(2, "0").toUpperCase()).join("").match(/.{1,5}/g)!.join("-");
+}
