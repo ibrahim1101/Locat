@@ -2,10 +2,10 @@ import { randomInt } from "node:crypto";
 import { registrationPasswordError, PASSWORD_MAX_CODE_UNITS } from "@contracts/password";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { createRouter, publicQuery, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { users, sessions, pushSubscriptions } from "@db/schema";
+import { users, sessions, pushSubscriptions, recoveryCredentials } from "@db/schema";
 import { hashPassword, verifyPassword, newSessionToken } from "./crypto";
 import { sessionCookie } from "./context";
 
@@ -149,6 +149,32 @@ export const authRouter = createRouter({
   }),
 
   me: authedQuery.query(({ ctx }) => publicProfile(ctx.user!)),
+
+  recoveryCredentialList: authedQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    return db.select({
+      id: recoveryCredentials.id,
+      createdAt: recoveryCredentials.createdAt,
+    }).from(recoveryCredentials).where(and(
+      eq(recoveryCredentials.userId, ctx.user!.id),
+      isNull(recoveryCredentials.revokedAt),
+    ));
+  }),
+
+  recoveryCredentialRevoke: authedQuery
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      limit(`recovery-revoke:${ctx.user!.id}`, 12, 60_000);
+      const db = getDb();
+      await db.update(recoveryCredentials)
+        .set({ revokedAt: new Date() })
+        .where(and(
+          eq(recoveryCredentials.id, input.id),
+          eq(recoveryCredentials.userId, ctx.user!.id),
+          isNull(recoveryCredentials.revokedAt),
+        ));
+      return { ok: true };
+    }),
 
   /** Encrypted private-key backup (for restoring identity on a new device). */
   keyBackup: authedQuery.query(async ({ ctx }) => {
