@@ -242,3 +242,16 @@ powershell -NoProfile -ExecutionPolicy Bypass \`
 ```
 
 - Only install after a successful workflow containing the target commit. The updater selects the latest *successful* APK, which can lag behind failed/pending commits.
+
+
+## Presence test results — user verified (2026-10-08)
+
+After the browser presence refresh change in commit `7c51730`, the user reported **PASS** on all five manual checks:
+
+1. Both accounts show online while connected.
+2. Closing/disconnecting Android eventually shows offline on PC.
+3. Reopening Android changes status back to online.
+4. Messages continue arriving correctly.
+5. No noticeable lag or excessive battery use.
+
+Result: **5/5 user-reported PASS**. Exact online/offline transition latency was not measured; do not claim a specific number of seconds. No independent automated test is claimed. Next milestone: Android notification testing (foreground, background, closed app, and permission behavior). This is documentation-only and requires no redeployment.
