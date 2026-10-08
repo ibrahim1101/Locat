@@ -67,6 +67,12 @@ Manual install (only if needed):
 C:\platform-tools\adb.exe -s emulator-5554 install -r "C:\platform-tools\locat-release.apk"
 ```
 
+## 2026-10-08 — In-app version footer
+
+- Commit `aadf4ff`: added package-version display beside the chat sidebar connection status (`Locat · Connected · v0.1.0`). Reads `package.json` at build time, avoiding a hardcoded version string.
+- GitHub write succeeded. Build, Raspberry Pi deployment, and Android emulator installation have **not yet been verified**.
+- Limitation: package version is not a unique build identifier; future work should expose a short commit SHA or build ID for precise APK identification.
+
 ## Next priorities
 
 1. Measure real offline detection latency after recent presence changes; check false offline/flicker while clients remain open, and distinguish normal close, background, and force-stop. Target ~12–20 seconds, not yet verified.
