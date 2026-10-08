@@ -18,7 +18,7 @@ import {
   userBlocks,
   contactRelationships,
 } from "@db/schema";
-import { subscribe as hubSubscribe, emitToUsers, onlineUserIds, visibleOnlineUserIds } from "./hub";
+import { subscribe as hubSubscribe, emitToUsers, onlineUserIds, visibleOnlineUserIds, heartbeat } from "./hub";
 import type { RelayEvent } from "@contracts/types";
 
 /** Envelopes are opaque ciphertext; cap at ~6MB of base64 (≈4MB media). */
@@ -42,6 +42,12 @@ async function requireMembership(conversationId: number, userId: number) {
 }
 
 export const messagesRouter = createRouter({
+  /** Presence heartbeat works over normal authenticated HTTP on Android and web. */
+  presence: authedQuery.query(async ({ ctx }) => {
+    heartbeat(ctx.user!.id);
+    return { online: await visibleOnlineUserIds(ctx.user!.id) };
+  }),
+
   /**
    * Send an encrypted envelope. The relay stores it transiently, pushes it
    * to online recipients immediately, and deletes it once every recipient
