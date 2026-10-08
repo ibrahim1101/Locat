@@ -81,6 +81,12 @@ C:\platform-tools\adb.exe -s emulator-5554 install -r "C:\platform-tools\locat-r
 - Pi deploy builds outside GitHub Actions and therefore displays a Git SHA instead of a numeric build number.
 - Changes committed; CI success, Pi deployment and emulator testing are not yet confirmed.
 
+## Friends tab milestone (2026-10-08)
+
+- Commit `66e8d9a`: Added Friends as default tab in the People and Conversations dialog, separated accepted-contact search from server-wide People search, and added Profile action using the existing `FriendProfileDialog`. Chat and Remove actions remain available.
+- GitHub write succeeded; CI/build, Pi deployment, and Android emulator behavior remain **unverified** until user tests.
+- Test friend search, profile privacy, chat opening, request acceptance, and group creation for regressions. If nested profile dialogs misbehave on Android, revisit modal composition.
+
 ## Next priorities
 
 1. Measure real offline detection latency after recent presence changes; check false offline/flicker while clients remain open, and distinguish normal close, background, and force-stop. Target ~12–20 seconds, not yet verified.
