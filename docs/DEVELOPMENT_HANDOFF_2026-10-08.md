@@ -412,3 +412,13 @@ npm run doctor
 ```
 
 - No Pi deployment necessary for workflow-only fix.
+
+
+## Quick Sign-In Key project started (2026-10-09)
+
+- User approved full single-field Quick Sign-In Key with secure server-side verification and encrypted identity recovery.
+- Reviewed `api/authRouter.ts`, `db/schema.ts`, `src/lib/crypto.ts`, `src/state/auth.tsx`, `src/providers/trpc.tsx`, `scripts/setup-db.mjs`. Existing login has 30-day session and password-encrypted identity backup; Android stores session token in WebView localStorage; existing one-active-session rule must be preserved.
+- Commit `19a5e7b`: new `src/lib/quickSignIn.ts` containing 256-bit secret generation, domain-separated SHA-256 verifier, PBKDF2-SHA256 AES-GCM private-key wrapping/unwrapping. **Unreferenced library module only, not a functional login**.
+- Commit `f212928`: `docs/QUICK_SIGN_IN_DESIGN.md` records threat model, release gates, UI/API/database work and verification plan.
+- Pending: schema/bootstrap migration, server issuance/revocation and login, client UI, crypto/auth automated tests, GitHub CI, Pi and Android physical acceptance.
+- No Pi or APK deployment needed yet; no claim of completed implementation. Existing login unaffected.
