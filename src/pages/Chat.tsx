@@ -61,8 +61,7 @@ import { GroupDialog } from "@/components/chat/GroupDialog";
 import { ProfileDialog } from "@/components/chat/ProfileDialog";
 import { StorageDialog } from "@/components/chat/StorageDialog";
 import { messagePayloadSchema } from "@/lib/archive";
-import { LogOut, MessageSquarePlus, Menu, MessageCircle, Search, UserRound, HardDrive, X, Moon, Sun } from "lucide-react";
-import { appearanceEvent, getAppearance, setAppearance } from "@/lib/appearance";
+import { LogOut, MessageSquarePlus, Menu, MessageCircle, Search, UserRound, HardDrive, X } from "lucide-react";
 import { LocatMark, LocatWordmark } from "@/components/LocatBrand";
 
 export default function Chat() {
@@ -86,8 +85,6 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   const [search, setSearch] = useState("");
   const [navOpen, setNavOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
-  const [drawerAppearance, setDrawerAppearance] = useState(getAppearance);
-  useEffect(() => { const sync = () => setDrawerAppearance(getAppearance()); window.addEventListener(appearanceEvent, sync); return () => window.removeEventListener(appearanceEvent, sync); }, []);
   useEffect(() => { if (!navOpen) return; const close = (event: KeyboardEvent) => { if (event.key === "Escape") setNavOpen(false); }; window.addEventListener("keydown", close); return () => window.removeEventListener("keydown", close); }, [navOpen]);
   const [hiddenIds, setHiddenIds] = useState<Set<number>>(new Set());
   const [showHidden, setShowHidden] = useState(false);
@@ -944,7 +941,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
               <button type="button" onClick={() => { setNavOpen(false); setProfileOpen(true); }} className="emergent-locat-control flex min-h-14 w-full items-center gap-3 rounded-xl px-3 text-left hover:bg-accent"><UserRound className="h-5 w-5 text-primary" /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{user.displayName}</span><span className="block truncate text-xs text-muted-foreground">@{user.username}</span></span></button>
 
               <button type="button" onClick={() => { setNavOpen(false); void logout().catch(() => setArchiveError("Sign out failed. Check your connection and try again.")); }} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground hover:bg-accent"><LogOut className="h-5 w-5" /> Sign out</button>
-              <div className="emergent-locat-control flex rounded-xl p-1" role="group" aria-label="Appearance mode"><button type="button" aria-pressed={drawerAppearance.theme === "light"} onClick={() => setAppearance({ ...drawerAppearance, theme: "light" })} className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg text-sm ${drawerAppearance.theme === "light" ? "bg-accent" : ""}`}><Sun className="h-4 w-4" /> Light</button><button type="button" aria-pressed={drawerAppearance.theme === "dark"} onClick={() => setAppearance({ ...drawerAppearance, theme: "dark" })} className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg text-sm ${drawerAppearance.theme === "dark" ? "bg-accent" : ""}`}><Moon className="h-4 w-4" /> Dark</button></div>
+
             </div>
           </nav>
         </div>
