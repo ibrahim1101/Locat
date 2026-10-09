@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { openDB } from "idb";
 import { beforeEach, describe, expect, it } from "vitest";
-import { applyMessageControl, applyReadReceipt, messageReference, allMessages, cacheConversations, cachedConversations, savePending, pendingMessages, completePending, completePendingControl, deleteLocalMessage, importMessages, kvGet, kvSet, migrateLegacyHistory, storeMessage, wipeAll } from "./localdb";
+import { applyMessageControl, applyReadReceipt, messageReference, allMessages, cacheConversations, cachedConversations, savePending, pendingMessages, completePending, deleteLocalMessage, importMessages, kvGet, kvSet, migrateLegacyHistory, storeMessage, wipeAll } from "./localdb";
 import type { LocalMessage } from "./localdb";
 import { hiddenConversationIds, setConversationHidden, setMessageHidden, getMessages, latestMessagePerConversation } from "./localdb";
 
@@ -110,17 +110,30 @@ describe("durable outbox", () => {
     expect((await allMessages(1)).map(m => m.mid).sort()).toEqual([7, 8]);
   });
 
-  it("removes acknowledged encrypted controls without creating a visible chat message", async () => {
-    const control = { clientMessageId: "control-ack", conversationId: 10, senderId: 1,
-      senderName: "Alice", payload: message.payload, envelope: "encrypted-control", createdAt: 1000 };
-    const unrelated = { ...control, clientMessageId: "still-pending", envelope: "other-control" };
-    await savePending(1, control);
+  it("atomically applies a confirmed edit and clears only its own pending outbox entry", async () => {
+    await storeMessage(1, message);
+    const pending = { clientMessageId: "edit-confirmed", conversationId: 10, senderId: 1,
+      senderName: "Alice", payload: message.payload, envelope: "encrypted-edit", createdAt: 1000 };
+    const unrelated = { ...pending, clientMessageId: "unrelated-send", envelope: "other" };
+    await savePending(1, pending);
     await savePending(1, unrelated);
-    await completePendingControl(1, control.clientMessageId);
-    await completePendingControl(1, control.clientMessageId);
+    await applyMessageControl(1, 10, 1, { action: "edit", target: messageReference(message), text: "updated" }, 9, 2000, pending.clientMessageId);
     expect(await pendingMessages(1)).toEqual([unrelated]);
-    expect(await allMessages(1)).toEqual([]);
+    expect((await getMessages(1, 10))[0].payload).toEqual({ type: "text", text: "updated" });
+    expect((await allMessages(1))).toHaveLength(1);
     expect(await pendingMessages(2)).toEqual([]);
+  });
+
+  it("atomically applies a read receipt and removes its pending entry", async () => {
+    await storeMessage(1, message);
+    const pending = { clientMessageId: "read-confirmed", conversationId: 10, senderId: 1,
+      senderName: "Alice", payload: message.payload, envelope: "encrypted-read", createdAt: 1000 };
+    await savePending(1, pending);
+    await applyReadReceipt(1, 10, 2, messageReference(message), pending.clientMessageId);
+    await applyReadReceipt(1, 10, 2, messageReference(message), pending.clientMessageId);
+    expect(await pendingMessages(1)).toEqual([]);
+    expect((await getMessages(1, 10))[0].readBy).toEqual([2]);
+    expect((await allMessages(1))).toHaveLength(1);
   });
 
   it("handles a server echo arriving before send confirmation", async () => {
