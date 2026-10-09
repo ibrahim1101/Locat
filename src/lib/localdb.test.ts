@@ -136,6 +136,21 @@ describe("durable outbox", () => {
     expect((await allMessages(1))).toHaveLength(1);
   });
 
+  it("rejects an unpersistable delivery without leaving a partially archived message", async () => {
+    // IndexedDB cannot structured-clone functions. A simulated storage failure
+    // must reject, so the caller must not include the message in its ack batch.
+    const unpersistable = {
+      ...message, mid: 801,
+      payload: { ...message.payload, corrupt: () => "cannot clone" },
+    } as unknown as LocalMessage;
+    await expect(storeMessage(1, unpersistable)).rejects.toThrow();
+    expect((await allMessages(1)).some(row => row.mid === 801)).toBe(false);
+    // The same delivery can be replayed once storage is healthy.
+    expect(await storeMessage(1, { ...message, mid: 801 })).toBe(true);
+    expect(await storeMessage(1, { ...message, mid: 801 })).toBe(false);
+    expect((await allMessages(1)).filter(row => row.mid === 801)).toHaveLength(1);
+  });
+
   it("handles a server echo arriving before send confirmation", async () => {
     await savePending(1, { clientMessageId: "echo", conversationId: 10, senderId: 1,
       senderName: "Alice", payload: message.payload, envelope: "ciphertext", createdAt: 1000 });
