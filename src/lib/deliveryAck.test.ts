@@ -36,4 +36,27 @@ describe("relay acknowledgement fault recovery", () => {
     expect(await acknowledgeArchivedDeliveries(ids, acknowledge)).toBe(true);
     expect(calls.map(batch => batch[0])).toEqual([1, 501, 1001, 1, 501, 1001]);
   });
+  it("does not retry an already successful batch within the same acknowledgement pass", async () => {
+    const seen: number[][] = [];
+    const acknowledge = vi.fn(async (ids: number[]) => {
+      seen.push(ids);
+      if (ids[0] === 501) throw new Error("relay temporarily unavailable");
+    });
+    const ids = Array.from({ length: 1001 }, (_, index) => index + 1);
+    expect(await acknowledgeArchivedDeliveries(ids, acknowledge)).toBe(false);
+    expect(seen.map(batch => batch[0])).toEqual([1, 501, 1001]);
+    expect(seen.every(batch => batch.length <= 500)).toBe(true);
+  });
+
+  it("treats an acknowledgement transport failure as retryable without discarding IDs", async () => {
+    const failed = vi.fn(async (ids: number[]) => {
+      if (ids.length) throw new Error("offline");
+    });
+    expect(await acknowledgeArchivedDeliveries([19, 19, 20], failed)).toBe(false);
+    expect(failed).toHaveBeenCalledExactlyOnceWith([19, 20]);
+    const recovered = vi.fn(async (ids: number[]) => ids.length);
+    expect(await acknowledgeArchivedDeliveries([19, 19, 20], recovered)).toBe(true);
+    expect(recovered).toHaveBeenCalledExactlyOnceWith([19, 20]);
+  });
+
 });
