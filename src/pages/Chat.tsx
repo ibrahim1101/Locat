@@ -59,7 +59,7 @@ import { GroupDialog } from "@/components/chat/GroupDialog";
 import { ProfileDialog } from "@/components/chat/ProfileDialog";
 import { StorageDialog } from "@/components/chat/StorageDialog";
 import { messagePayloadSchema } from "@/lib/archive";
-import { LogOut, MessageSquarePlus, Settings, Menu, MessageCircle, Search, UserRound, HardDrive, X, Moon, Sun } from "lucide-react";
+import { LogOut, MessageSquarePlus, Menu, MessageCircle, Search, UserRound, HardDrive, X, Moon, Sun } from "lucide-react";
 import { appearanceEvent, getAppearance, setAppearance } from "@/lib/appearance";
 import { LocatMark, LocatWordmark } from "@/components/LocatBrand";
 
