@@ -446,11 +446,22 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       }
       running = true;
       try {
-        // Invalidate cached results so each cycle sends a real presence heartbeat.
-        await utils.messages.presence.invalidate();
-        const presence = await utils.messages.presence.fetch();
-        if (!stopped) setOnline(new Set(presence.online));
-        await utils.conversations.list.fetch();
+        // Presence and conversation refresh are best-effort. Neither should block
+        // durable message delivery when their separate requests fail transiently.
+        try {
+          await utils.messages.presence.invalidate();
+          const presence = await utils.messages.presence.fetch();
+          if (!stopped) setOnline(new Set(presence.online));
+        } catch {
+          // Preserve the last known presence; continue fetching encrypted deliveries.
+        }
+        try {
+          await utils.conversations.list.invalidate();
+          await utils.conversations.list.fetch();
+        } catch {
+          // Cached memberships can still decrypt known conversations.
+          // Unknown conversations remain queued on the relay until refresh succeeds.
+        }
         // Cursor advances past undecryptable envelopes; retry from zero next sweep.
         for (let pages = 0; pages < 20 && !stopped; pages++) {
           // Never treat a cached sync result as a fresh relay delivery check.
