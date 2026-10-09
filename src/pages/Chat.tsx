@@ -82,6 +82,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   const [cached, setCached] = useState<ConversationSummary[]>([]);
   const [search, setSearch] = useState("");
   const [navOpen, setNavOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [drawerAppearance, setDrawerAppearance] = useState(getAppearance);
   useEffect(() => { const sync = () => setDrawerAppearance(getAppearance()); window.addEventListener(appearanceEvent, sync); return () => window.removeEventListener(appearanceEvent, sync); }, []);
   useEffect(() => { if (!navOpen) return; const close = (event: KeyboardEvent) => { if (event.key === "Escape") setNavOpen(false); }; window.addEventListener("keydown", close); return () => window.removeEventListener("keydown", close); }, [navOpen]);
@@ -802,6 +803,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         {showHidden && <p className="mb-3 text-xs text-secondary">Hidden only on this device. This does not lock chats or silence notifications.</p>}
         {!hiddenReady && <p role="status" className="mb-3 text-xs text-secondary">Loading local chat settings. If this persists, check browser storage permissions.</p>}
         <input
+          ref={searchRef}
           aria-label="Search conversations"
           placeholder="Search chats…"
           value={search}
@@ -928,7 +930,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
             <div className="flex min-h-20 items-center justify-between border-b px-2"><h2 className="text-2xl font-semibold">Locat</h2><button type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)} className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-accent"><X className="h-5 w-5" /></button></div>
             <div className="mt-5 space-y-2">
               <button type="button" onClick={() => { setShowHidden(false); setActiveId(null); setNavOpen(false); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl bg-accent px-4 text-left text-sm font-medium"><MessageCircle className="h-5 w-5 text-primary" /> Chats</button>
-              <button type="button" onClick={() => { setActiveId(null); setNavOpen(false); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-4 text-left text-sm hover:bg-accent"><Search className="h-5 w-5" /> Search conversations</button>
+              <button type="button" onClick={() => { setActiveId(null); setNavOpen(false); window.requestAnimationFrame(() => searchRef.current?.focus()); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-4 text-left text-sm hover:bg-accent"><Search className="h-5 w-5" /> Search conversations</button>
               <button type="button" onClick={() => { setNavOpen(false); setNewConvOpen(true); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-4 text-left text-sm hover:bg-accent"><MessageSquarePlus className="h-5 w-5" /> People &amp; requests</button>
               <button type="button" onClick={() => { setNavOpen(false); setStorageOpen(true); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-4 text-left text-sm hover:bg-accent"><HardDrive className="h-5 w-5" /> Storage &amp; backups</button>
             </div>
