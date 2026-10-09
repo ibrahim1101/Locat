@@ -32,8 +32,8 @@ function Shell({ children }: { children: React.ReactNode }) {
 function Brand() {
   return (
     <div className="mb-5 text-center">
-      <div className="locat-icon-shell mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[26px] border border-primary/20"><LocatMark className="h-14 w-14 text-foreground" /></div>
-      <h1><LocatWordmark className="text-3xl" /></h1>
+      <div className="locat-icon-shell mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[20px] border border-primary/15"><LocatMark className="h-11 w-11 text-foreground" /></div>
+      <h1><LocatWordmark className="text-2xl" /></h1>
 
     </div>
   );
