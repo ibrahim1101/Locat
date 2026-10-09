@@ -784,7 +784,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
 
   // ── layout ──
   const sidebar = (
-    <div className="flex h-full flex-col border-r border-border/70 bg-[hsl(var(--sidebar-background))]">
+    <div className="flex h-full w-full min-w-0 flex-col border-r border-border/70 bg-[hsl(var(--sidebar-background))]">
       <div className="flex min-h-16 shrink-0 items-center gap-2 border-b px-3 py-2 pt-safe sm:gap-3 sm:px-4">
         <button type="button" aria-label="Open navigation" aria-expanded={navOpen} onClick={() => setNavOpen(true)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border bg-card/70 hover:bg-accent"><Menu className="h-5 w-5" /></button>
         <button type="button" onClick={() => setProfileOpen(true)} aria-label="Open my profile"
@@ -851,7 +851,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
               key={c.id}
               type="button"
               onClick={() => void openConversation(c.id)}
-              className={`flex min-h-16 w-full items-center gap-3 border-b border-border/40 px-4 py-3 text-left transition-colors hover:bg-accent/80 ${
+              className={`emergent-locat-control flex min-h-16 w-full items-center gap-3 border-x-0 border-t-0 border-b border-border/40 px-4 py-3 text-left transition-colors hover:bg-accent/80 ${
                 activeId === c.id ? "bg-accent/90 shadow-[inset_2px_0_hsl(var(--primary))]" : ""
               }`}
             >
