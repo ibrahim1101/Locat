@@ -583,3 +583,8 @@ npm run doctor
 - Build regression from prior login cleanup: JSX contained `<div <div` in `src/pages/Login.tsx`, causing Vite/TypeScript and Docker smoke failures. Fixed in `a47aad4`. CI checks and Android APK both passed on `2e0bb2e` after notification capability/service-worker readiness tests were added.
 - `588a647`: expanded durable outbox regression coverage for offline retry chronological ordering, ciphertext stability, duplicate confirmation idempotency and independence of pending sends. No production messaging behavior changed. Pending CI verification for this commit.
 - Existing design: IndexedDB outbox stores original encrypted envelope and stable clientMessageId; relay send receipts prevent duplicate retries for seven days; UI stops ambiguous retries older than seven days. Next steps: integration-test offline server delivery and ack under MariaDB; investigate Firefox mobile and native push reliability.
+
+
+### Offline relay replay/ack integration coverage (2026-10-09)
+- `07a086e`: added MariaDB-backed integration regression scenario verifying offline encrypted envelopes replay with stable message IDs until recipient acknowledgement, sender-first acknowledgement cannot prematurely delete offline recipient deliveries, duplicate acknowledgement IDs are harmless, partial ack leaves only the remaining delivery, and final ack purges transient envelopes. No UI changes or production API changes.
+- Prior checks on `ca35ccc` succeeded; latest integration scenario awaits new GitHub checks. Android build is unnecessary for test-only code, though workflow may run automatically.
