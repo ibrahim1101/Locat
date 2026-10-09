@@ -110,7 +110,7 @@ describe("encrypted relay delivery recovery boundaries", () => {
     const key = await generateGroupKey();
     const ack = vi.fn(async (ids: number[]) => ids.length);
     const encrypted = await encryptPayload(key, { type: "control", version: 1,
-      action: "edit", target: "reference-95", text: "corrected" });
+      action: "edit", target: "legacy:950", text: "corrected" });
     const deliverEdit = async () => {
       const control = await decryptPayload(key, encrypted);
       if (control.type !== "control") throw new Error("Expected encrypted control");
@@ -120,7 +120,7 @@ describe("encrypted relay delivery recovery boundaries", () => {
     await deliverEdit();
     await storeMessage(95, { mid: 950, conversationId: 15, senderId: 7,
       senderName: "Peer", outgoing: false,
-      payload: { type: "text", text: "original", messageRef: "reference-95" }, createdAt: 1000 });
+      payload: { type: "text", text: "original", messageRef: "legacy:950" }, createdAt: 1000 });
     await deliverEdit();
     const rows = await allMessages(95);
     expect(rows).toHaveLength(1);
@@ -133,9 +133,9 @@ describe("encrypted relay delivery recovery boundaries", () => {
     const ack = vi.fn(async (ids: number[]) => ids.length);
     await storeMessage(95, { mid: 952, conversationId: 16, senderId: 95,
       senderName: "Me", outgoing: true,
-      payload: { type: "text", text: "sent", messageRef: "read-target" }, createdAt: 1000 });
+      payload: { type: "text", text: "sent", messageRef: "legacy:952" }, createdAt: 1000 });
     const encrypted = await encryptPayload(key, { type: "control", version: 1,
-      action: "read", target: "read-target" });
+      action: "read", target: "legacy:952" });
     for (let retry = 0; retry < 2; retry++) {
       const control = await decryptPayload(key, encrypted);
       if (control.type !== "control" || control.action !== "read") throw new Error("Expected read receipt");
