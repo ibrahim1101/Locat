@@ -5,6 +5,14 @@ const r = 8;
 const p = 1;
 const KEYLEN = 64;
 
+// Valid scrypt hash with fixed non-secret salt, used to equalize missing-account login work.
+const DUMMY_PASSWORD_HASH = `scrypt${N}${r}${p}$AAAAAAAAAAAAAAAAAAAAAA==${"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="}`;
+
+export async function verifyLoginPassword(password: string, storedHash?: string): Promise<boolean> {
+  const matches = await verifyPassword(password, storedHash ?? DUMMY_PASSWORD_HASH);
+  return storedHash !== undefined && matches;
+}
+
 /** Hash a password as scrypt$N$r$p$saltB64$hashB64 using Node's crypto. */
 export function hashPassword(password: string): Promise<string> {
   return new Promise((resolve, reject) => {
