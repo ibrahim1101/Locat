@@ -634,3 +634,11 @@ npm run doctor
 - Added `docs/README.md` documentation index and linked from root README.
 - Verified `ff9395a6` Locat checks SUCCESS and `27d0500b` Android APK SUCCESS before documentation changes; do not extrapolate those results to new commits.
 - Branch listing did not show `feat/emergent-ui` at time of check; Emergent work is external and unmerged. No Raspberry Pi deployment.
+
+
+### 2026-10-09 — Encrypted recovery regression harness (new chat)
+- New chat resumed from all four documentation handoffs and checked live branch; `feat/locat-1.0` was at `ae296072`, with Locat checks SUCCESS (run 37926422170). Android APK prior verified success: run 37925661829 on `27d0500b`. Later CI must be checked separately.
+- GitHub branches observed: `main`, `feat/locat-1.0`, `fix/locat-install-mobile-foundation`. Emergent `feat/emergent-ui` branch still not visible; **no merge performed**. UI agent remains isolated.
+- Audited `src/pages/Chat.tsx`: decrypt and validate before IndexedDB archive; acknowledge only after successful `storeMessage` or durable control projection; SSE/poll processing serialized. Missing key/decrypt/storage errors are caught and not acked. Outbox/relay semantics were not rewritten.
+- Commit `ad6f3bc` adds `src/lib/deliveryRecovery.test.ts`: real WebCrypto plus fake IndexedDB fault scenarios for malformed/wrong-key ciphertext, deferred group key, failed structured cloning, concurrent duplicate replay, and interruption between successful archive and relay acknowledgement. These tests enforce recovery ordering, but are **unit-level harness regressions**, not Android or MariaDB end-to-end fault injection.
+- No UI files, crypto primitives, database schema, or Raspberry Pi deployment changed. CI outcome not yet verified at the time of this record; follow up with GitHub Actions, repair any failures, and investigate recovery of missing historical group-key epochs and idempotent control replay.
