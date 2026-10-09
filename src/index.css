@@ -279,3 +279,7 @@ body { overscroll-behavior: none; }
   mix-blend-mode: normal;
   background: transparent;
 }
+
+/* Fixed overlays are viewport-relative, not relative to #root padding.
+   Keep the drawer close button below Android's status-bar touch region. */
+.locat-native .locat-nav-overlay { top: 32px; }
