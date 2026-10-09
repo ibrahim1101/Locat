@@ -620,3 +620,9 @@ npm run doctor
 - `33f275a`: wired existing Chat acknowledgement path to helper without UI or backend changes.
 - `690973e`, `d484b3c`: added Vitest fault-injection tests for empty queues, duplicate IDs, >1000 deliveries, first-batch network failure and successful subsequent reconnect replay; corrected test mock argument typing.
 - Tests are simulation of acknowledgement API failures, not a real browser or Android offline run. Await GitHub CI result; do not deploy to Pi.
+
+
+### Local persistence failure regression (2026-10-09)
+- Previous failed lint workflow was repaired: commit `dcc3f5e` passed Locat checks and Android APK build.
+- `27d0500`: added fake IndexedDB structured-clone failure injection for incoming delivery storage. Verifies the storage promise rejects, leaves no partially archived message, and allows an idempotent replay when valid data is subsequently delivered. This is a local persistence regression test, not a full end-to-end relay acknowledgement test. Await CI before marking validated.
+- No UI branch edits and no Raspberry Pi deployment.
