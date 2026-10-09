@@ -23,6 +23,13 @@ describe("mobile navigation and dialog accessibility guards", () => {
     expect(source).toContain('event.preventDefault(); first.focus()');
   });
 
+  it("preserves the official transparent logo without blend-mode hacks", () => {
+    expect(css).toContain(".locat-official-mark {");
+    expect(css).toContain("mix-blend-mode: normal;");
+    expect(css).not.toContain("mix-blend-mode: screen;");
+    expect(css).not.toContain(".locat-official-mark { mix-blend-mode: multiply; }");
+  });
+
   it("keeps the Android drawer close control tappable below the status bar", () => {
     expect(source).toContain('className="locat-nav-overlay fixed inset-0 z-50 flex"');
     expect(source).toContain('ref={navCloseRef} type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)}');
