@@ -455,6 +455,9 @@ export function ChatWindow({
                   if (
                     e.key === "Enter" &&
                     !e.shiftKey &&
+                    !e.ctrlKey &&
+                    !e.altKey &&
+                    !e.metaKey &&
                     !e.nativeEvent.isComposing &&
                     window.matchMedia("(min-width: 768px)").matches
                   ) {
