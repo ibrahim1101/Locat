@@ -536,3 +536,10 @@ npm run doctor
 - User supplied Brainwave charcoal navigation drawer reference beside current Locat Android inbox screenshot and requested the first image's navigation style. Preserve product name Locat and existing Liquid Titanium + Smoked Glass palette; do not reproduce Brainwave branding or subscription UI.
 - `abe26e3`: added responsive overlay drawer opened from inbox, with real Chats, Search conversations, People & requests, Storage & backups, profile and settings/data actions; drawer uses smoked glass and rounded titanium navigation rows. Search navigation currently returns to inbox search, not automatic input focus. No changes to messaging/crypto logic.
 - Pending CI and Android emulator review for drawer focus behavior, screen-reader modal semantics, Android back behavior, and responsiveness. Further work: drawer conversation list, appearance controls, polished profile/footer and full matching reference layout.
+
+
+### Reference navigation drawer — second iteration (2026-10-09)
+- Verified prior drawer's GitHub Locat checks succeeded on `6ea25ba5` (run 37906544146) and Android APK succeeded on `abe26e32` (run 37906531724).
+- `29890e7`: drawer now contains real filtered conversation entries with live unread counts, selectable chats, profile footer and appearance light/dark toggle; uses existing appearance state and event rather than a second theme store. Escape closes the drawer.
+- `ad55904`: drawer Search action returns to inbox and focuses the real conversation search input.
+- No changes to E2EE or message delivery. Pending CI, Android visual QA, focus containment/return and native Back behavior. Later: dedicated account privacy area and fuller drawer polish.
