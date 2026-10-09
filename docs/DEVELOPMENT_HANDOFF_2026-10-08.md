@@ -568,3 +568,11 @@ npm run doctor
 - `e008dad`: changed PWA background and theme color to #0A0B0D to align with Liquid Titanium. Existing PWA PNG icon files remain unchanged.
 - `4ccca0b`: after Capacitor sync, Android APK workflow generates a project-original vector silver cat drawable and dark titanium adaptive launcher XML for both square and round launcher resources. No stock reference image copied. Android project is transient in CI, so this must be generated in the workflow.
 - Pending: Android Gradle compilation, launcher appearance check on emulator, older pre-API26 launcher raster resources and full native splash logo treatment. This is not a claim that native splash icon or PWA PNGs have been replaced yet.
+
+
+### Android emulator screenshot feedback — UI duplication and oversizing (2026-10-09)
+- User provided actual Android screenshot showing oversized cat/wordmark, tall login card, duplicated account action controls, and reported duplicate options in main interface. This is a visual regression relative to the reference; earlier CI success did not establish visual acceptance.
+- `3b76f14`: removed login's top Sign in/Create account segmented control and extra security disclaimer; retained a single working submit action plus bottom account-mode switch. Preserved registration, password visibility, validation and key restore.
+- `b4e044b`: removed duplicate conversation list from overlay navigation and redundant inbox header buttons; retained inbox list, functional drawer navigation, profile, storage and appearance controls, and moved Sign out into drawer. `2330198`: cleaned unused icon import.
+- `025f8ef`: reduced oversized login icon and wordmark for small mobile screens.
+- Pending CI and user emulator screenshot verification. Potential follow-up: dedicated profile/settings destination, cleaner drawer spacing, original logo refinement. No crypto or delivery behavior changed.
