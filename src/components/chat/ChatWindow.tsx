@@ -556,7 +556,7 @@ function MessageBubble({
           </button>
         </div>
         {menu && (
-          <div className="mb-2 flex flex-wrap gap-2 rounded-xl border bg-card p-2 text-xs">
+          <div className="mb-2 flex flex-wrap gap-2 rounded-xl border bg-card p-2 text-xs [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:px-3 [&_button]:touch-manipulation [&_button]:hover:bg-accent [&_button]:focus-visible:outline [&_button]:focus-visible:outline-2 [&_button]:focus-visible:outline-ring">
             {!m.tempId && <button className="min-h-11 p-2" onClick={() => { onToggleHidden(m); setMenu(false); }}>
               {m.hidden ? "Restore message" : "Hide on this device"}
             </button>}
