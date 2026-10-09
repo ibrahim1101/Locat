@@ -29,7 +29,7 @@ if (Test-Path $work) { Remove-Item -LiteralPath $work -Recurse -Force }
 New-Item -ItemType Directory -Path $work -Force | Out-Null
 Write-Host "Downloading run $runId..."
 & gh run download $runId -R $Repo -n "locat-android-release" -D $work
-if ($LASTEXITCODE -ne 0) { throw "APK artifact download failed (run $($run.databaseId)). See the gh error above." }
+if ($LASTEXITCODE -ne 0) { throw "APK artifact download failed (run $runId). See the gh error above." }
 $apk = Get-ChildItem -Path $work -Filter "locat-release.apk" -Recurse -File | Select-Object -First 1
 if (-not $apk) { throw "Artifact contains no locat-release.apk." }
 $checksum = Get-ChildItem -Path $work -Filter "locat-release.apk.sha256" -Recurse -File | Select-Object -First 1
@@ -43,3 +43,5 @@ if ($LASTEXITCODE -ne 0) {
   throw "Install failed. If the signing key changed, do not uninstall without backing up app data."
 }
 Write-Host "Locat updated successfully on $Device. App data should be retained."
+Write-Host "Android UI validation: open Locat, check navigation drawer, settings, privacy center, people, groups and security dialogs."
+Write-Host "To capture the current emulator screen: & `"$Adb`" -s $Device exec-out screencap -p > locat-screen.png"
