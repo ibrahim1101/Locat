@@ -46,3 +46,11 @@ User provided a **wide landscape collage** titled “Locat Final Design Liquid T
 
 ## Status at handoff
 **UI agent working externally; screenshot review pending.** No confirmed Emergent code commit, UI branch or merge at time of this entry. ChatGPT's current commits affect messaging reliability/tests, not the Emergent UI.
+
+## 2026-10-09 Emergent export compatibility audit
+
+- Source export: `ibrahim1101/locat-ui` (private), branch `main`.
+- Export is an Expo SDK 57 / React Native 0.86 starter, **not** the React/Vite/Capacitor Locat client. `frontend/app/index.tsx` currently renders only `assets/images/app-image.png` as a full-screen static image; there are no implemented login, chat, or navigation screens in that entrypoint. `frontend/src/theme.ts` is still a generic light-theme template.
+- Export's Python FastAPI/MongoDB backend only exposes sample status endpoints. It must NOT replace Locat's encrypted Node/tRPC/MariaDB relay or identity/key storage.
+- Safe integration plan: request/export the actual editable design screens and assets; translate design into Locat's existing React client with visual and functional regression tests. Do not transplant Expo backend, database, authentication, or generated mobile package identifier. Static screenshot can be used as visual reference but is not functional UI.
+- No app merge or Raspberry Pi deployment was performed in this audit.
