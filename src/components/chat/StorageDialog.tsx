@@ -47,7 +47,7 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
     if (!next) { setPassword(""); setFeedback(""); setView("settings"); }
     onOpenChange(next);
   }}>
-    <DialogContent className="smoked-glass max-h-[90dvh] overflow-y-auto rounded-2xl sm:max-w-lg">
+    <DialogContent className="emergent-locat-surface max-h-[90dvh] w-[calc(100vw-1.5rem)] overflow-x-hidden overflow-y-auto rounded-2xl sm:max-w-lg">
       {view === "privacy" ? <PrivacyCommandCenter onBack={() => setView("settings")} /> : <>
       <DialogHeader><DialogTitle>Settings & backups</DialogTitle>
         <DialogDescription>Your chat history lives on this device. Keep a backup before clearing browser data or changing phones.</DialogDescription>
@@ -57,10 +57,10 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
       </Button>
       <Preferences />
       <Notifications />
-      <div className="space-y-3 rounded-xl border p-4">
+      <div className="emergent-locat-surface space-y-3 rounded-xl p-4">
         <div><p className="font-medium">Downloads & encrypted exports</p>
           <p className="text-xs text-secondary">Choose where attachments and encrypted history backups are saved. Identity keys, login sessions and Locat's private runtime data always remain in protected app storage.</p></div>
-        <div className="rounded-lg bg-muted/40 p-3 text-sm">
+        <div className="emergent-locat-control rounded-lg p-3 text-sm">
           <p className="font-medium">{destination.mode === "user-folder" ? "User-selected Android folder" : "Browser downloads"}</p>
           {destination.mode === "user-folder" && destination.label && <p className="mt-1 break-all text-xs text-secondary">{destination.label}</p>}
         </div>
@@ -90,7 +90,7 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
           value={password} onChange={(e) => setPassword(e.target.value)} disabled={busy} placeholder="At least 8 characters" />
         <p className="text-xs text-secondary">Backups are encrypted. Keep this password safe; Locat cannot recover it. Files contain history and images, not your identity keys.</p>
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button className="flex-1" disabled={busy || password.length < 8} onClick={() => void perform(async () => {
           const text = await encodeArchive(account, await allMessages(user.id), password);
           const saved = await downloadBlob(new Blob([text], { type: "application/json" }), `Locat-${user.username}-${new Date().toISOString().slice(0, 10)}.locat`);
