@@ -59,7 +59,8 @@ import { GroupDialog } from "@/components/chat/GroupDialog";
 import { ProfileDialog } from "@/components/chat/ProfileDialog";
 import { StorageDialog } from "@/components/chat/StorageDialog";
 import { messagePayloadSchema } from "@/lib/archive";
-import { LogOut, MessageSquarePlus, Settings, Menu, MessageCircle, Search, UserRound, HardDrive, X } from "lucide-react";
+import { LogOut, MessageSquarePlus, Settings, Menu, MessageCircle, Search, UserRound, HardDrive, X, Moon, Sun } from "lucide-react";
+import { appearanceEvent, getAppearance, setAppearance } from "@/lib/appearance";
 
 export default function Chat() {
   const { state } = useAuth();
@@ -81,6 +82,9 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   const [cached, setCached] = useState<ConversationSummary[]>([]);
   const [search, setSearch] = useState("");
   const [navOpen, setNavOpen] = useState(false);
+  const [drawerAppearance, setDrawerAppearance] = useState(getAppearance);
+  useEffect(() => { const sync = () => setDrawerAppearance(getAppearance()); window.addEventListener(appearanceEvent, sync); return () => window.removeEventListener(appearanceEvent, sync); }, []);
+  useEffect(() => { if (!navOpen) return; const close = (event: KeyboardEvent) => { if (event.key === "Escape") setNavOpen(false); }; window.addEventListener("keydown", close); return () => window.removeEventListener("keydown", close); }, [navOpen]);
   const [hiddenIds, setHiddenIds] = useState<Set<number>>(new Set());
   const [showHidden, setShowHidden] = useState(false);
   const [hiddenReady, setHiddenReady] = useState(false);
@@ -928,9 +932,23 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
               <button type="button" onClick={() => { setNavOpen(false); setNewConvOpen(true); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-4 text-left text-sm hover:bg-accent"><MessageSquarePlus className="h-5 w-5" /> People &amp; requests</button>
               <button type="button" onClick={() => { setNavOpen(false); setStorageOpen(true); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-4 text-left text-sm hover:bg-accent"><HardDrive className="h-5 w-5" /> Storage &amp; backups</button>
             </div>
+            <div className="mt-5 min-h-0 flex-1 overflow-y-auto border-t border-border/60 pt-4">
+              <p className="px-3 pb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">Chat list</p>
+              {sortedConversations.length === 0 && <p className="px-3 py-3 text-xs text-muted-foreground">No conversations in this view.</p>}
+              {sortedConversations.map(conv => {
+                const title = conversationTitle(conv, user.id).title;
+                const count = unread.get(conv.id) ?? 0;
+                return <button key={conv.id} type="button" onClick={() => { setNavOpen(false); void openConversation(conv.id); }} className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left hover:bg-accent ${activeId === conv.id ? "bg-accent" : ""}`}>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-semibold text-foreground">{title.slice(0, 1).toUpperCase()}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm">{title}</span>
+                  {count > 0 && <span className="rounded-lg bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">{count}</span>}
+                </button>;
+              })}
+            </div>
             <div className="mt-auto space-y-3 border-t pt-4">
               <button type="button" onClick={() => { setNavOpen(false); setProfileOpen(true); }} className="flex min-h-14 w-full items-center gap-3 rounded-xl border bg-card/70 px-3 text-left hover:bg-accent"><UserRound className="h-5 w-5 text-primary" /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{user.displayName}</span><span className="block truncate text-xs text-muted-foreground">@{user.username}</span></span></button>
               <button type="button" onClick={() => { setNavOpen(false); setStorageOpen(true); }} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm hover:bg-accent"><Settings className="h-5 w-5" /> Settings &amp; data</button>
+              <div className="flex rounded-xl border border-border/70 bg-background/70 p-1" role="group" aria-label="Appearance mode"><button type="button" aria-pressed={drawerAppearance.theme === "light"} onClick={() => setAppearance({ ...drawerAppearance, theme: "light" })} className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg text-sm ${drawerAppearance.theme === "light" ? "bg-accent" : ""}`}><Sun className="h-4 w-4" /> Light</button><button type="button" aria-pressed={drawerAppearance.theme === "dark"} onClick={() => setAppearance({ ...drawerAppearance, theme: "dark" })} className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg text-sm ${drawerAppearance.theme === "dark" ? "bg-accent" : ""}`}><Moon className="h-4 w-4" /> Dark</button></div>
             </div>
           </nav>
         </div>
