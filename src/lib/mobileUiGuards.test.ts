@@ -55,6 +55,13 @@ describe("mobile navigation and dialog accessibility guards", () => {
     expect(chatWindow).toContain('aria-label="Message"');
   });
 
+  it("keeps message action controls accessible on touch screens", () => {
+    expect(chatWindow).toContain('aria-label="Message actions"');
+    expect(chatWindow).toContain("aria-expanded={menu}");
+    expect(chatWindow).toContain("onClick={() => setMenu(!menu)}");
+    expect(chatWindow).toContain("flex h-11 w-11 touch-manipulation items-center justify-center");
+  });
+
   it("prevents modified Enter from accidentally sending chat messages", () => {
     expect(chatWindow).toContain('e.key === "Enter"');
     expect(chatWindow).toContain("!e.shiftKey");
