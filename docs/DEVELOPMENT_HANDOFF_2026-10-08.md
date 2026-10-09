@@ -603,3 +603,8 @@ npm run doctor
 - `18da184c`, `474beb7d`: removed redundant post-application deletion in Chat and redundant helper from localdb; rely on existing atomic behavior so a crash cannot separate application from outbox cleanup.
 - `2cf7563f`, `5dcf88ab`: replaced weaker cleanup-only test with explicit atomic edit/read tests (including idempotent read receipt and unrelated pending message preservation), corrected control schema in test.
 - Emergent handles UI separately. No Raspberry Pi deployment. Await latest CI verification before claiming checks passed.
+
+
+### Sync resilience: independent presence and membership refresh (2026-10-09)
+- `65dd0d3`: previously a transient failure in `messages.presence` or `conversations.list` aborted the entire message sync cycle before encrypted delivery retrieval. Both refresh operations are now best-effort; known conversations continue syncing even when presence or membership refresh fails. Unknown conversations remain queued on the relay until membership refresh recovers. Conversation list cache is explicitly invalidated before refresh to avoid stale reads.
+- Follow-up: verify CI and APK; exercise degraded presence/membership API in a real test environment. Emergent UI untouched; Pi deployment untouched.
