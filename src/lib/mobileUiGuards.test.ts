@@ -47,6 +47,14 @@ describe("mobile navigation and dialog accessibility guards", () => {
     expect(source).toContain("focus-visible:outline-[#c7d2e0] active:bg-white/[0.12]");
   });
 
+  it("retains mobile composer keyboard assistance without changing send semantics", () => {
+    expect(chatWindow).toContain('autoComplete="off"');
+    expect(chatWindow).toContain('autoCorrect="on"');
+    expect(chatWindow).toContain("spellCheck={true}");
+    expect(chatWindow).toContain('enterKeyHint="enter"');
+    expect(chatWindow).toContain('aria-label="Message"');
+  });
+
   it("prevents modified Enter from accidentally sending chat messages", () => {
     expect(chatWindow).toContain('e.key === "Enter"');
     expect(chatWindow).toContain("!e.shiftKey");
