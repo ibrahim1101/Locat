@@ -220,21 +220,14 @@ body { overscroll-behavior: none; }
   --locat-muted: #596576;
   --locat-steel: #406887;
 }
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]):not([data-theme="light"]) {
-    --locat-background: #f5f7fa;
-    --locat-secondary: #f1f3f6;
-    --locat-elevated: #ffffff;
-    --locat-glass: #e9edf2;
-    --locat-border: #cbd2dc;
-    --locat-text: #202833;
-    --locat-muted: #596576;
-    --locat-steel: #406887;
-  }
-}
 :root[data-theme="light"] .emergent-locat-surface {
   box-shadow: inset 0 1px rgb(255 255 255 / .8), 0 8px 28px rgb(30 40 55 / .10);
 }
 :root[data-theme="light"] .emergent-locat-drawer {
   box-shadow: inset -1px 0 rgb(255 255 255 / .8), 12px 0 36px rgb(30 40 55 / .14);
 }
+
+/* The appearance controller resolves System to data-theme=light/dark. */
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+.emergent-locat-composer .emergent-locat-input::placeholder { color: var(--locat-muted); }
