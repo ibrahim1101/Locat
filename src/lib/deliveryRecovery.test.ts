@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { acknowledgeArchivedDeliveries } from "./deliveryAck";
 import { decryptPayload, encryptPayload, generateGroupKey } from "./crypto";
 import { allMessages, storeMessage, wipeAll } from "./localdb";
@@ -10,6 +10,7 @@ import "fake-indexeddb/auto";
  * This tests the required order independently from the React view lifecycle.
  */
 describe("encrypted relay delivery recovery boundaries", () => {
+  beforeEach(async () => { await Promise.all([91, 92, 93].map(wipeAll)); });
   it("keeps malformed and wrong-key envelopes unacknowledged until recovered", async () => {
     await wipeAll(91);
     const key = await generateGroupKey();
