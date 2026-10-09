@@ -116,3 +116,33 @@ body { overscroll-behavior: none; }
 
 /* Liquid Titanium: subtle hover polish without costly full-screen blur. */
 @media (hover: hover) { .titanium-panel:hover { border-color: hsl(var(--primary) / 0.25); } }
+
+
+/* Emergent Liquid Titanium UI kit: isolated visual primitives.
+   These styles do not modify authentication, crypto or existing chat components. */
+:root {
+  --locat-background: #0A0B0D;
+  --locat-secondary: #111317;
+  --locat-elevated: #17191D;
+  --locat-glass: #202329;
+  --locat-border: #343840;
+  --locat-text: #F1F3F5;
+  --locat-muted: #9DA4AF;
+  --locat-titanium: #D3D8DF;
+  --locat-steel: #8FB6D6;
+}
+.bg-steel { background-color: hsl(var(--steel)); }
+.emergent-locat-surface {
+  background: linear-gradient(155deg, var(--locat-elevated), var(--locat-secondary));
+  border: 1px solid var(--locat-border);
+  box-shadow: inset 0 1px rgb(255 255 255 / 0.055), 0 12px 36px rgb(0 0 0 / 0.25);
+}
+.emergent-locat-control {
+  background: var(--locat-glass);
+  border: 1px solid var(--locat-border);
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+.emergent-locat-control:active { transform: scale(0.985); }
+@media (prefers-reduced-motion: reduce) {
+  .emergent-locat-control { transition: none; }
+}
