@@ -275,11 +275,7 @@ body { overscroll-behavior: none; }
   border-color: rgb(189 208 232 / .6);
 }
 .locat-official-mark {
-  /* The approved source contains a dark square background. Screen compositing
-     removes black on dark surfaces without replacing or regenerating the cat. */
-  mix-blend-mode: screen;
-}
-:root[data-theme="light"] .locat-official-mark { mix-blend-mode: multiply; }
-@media (prefers-reduced-transparency: reduce) {
-  .locat-official-mark { mix-blend-mode: normal; }
+  /* Official transparent PNG: preserve its alpha channel on every theme. */
+  mix-blend-mode: normal;
+  background: transparent;
 }
