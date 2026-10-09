@@ -588,3 +588,11 @@ npm run doctor
 ### Offline relay replay/ack integration coverage (2026-10-09)
 - `07a086e`: added MariaDB-backed integration regression scenario verifying offline encrypted envelopes replay with stable message IDs until recipient acknowledgement, sender-first acknowledgement cannot prematurely delete offline recipient deliveries, duplicate acknowledgement IDs are harmless, partial ack leaves only the remaining delivery, and final ack purges transient envelopes. No UI changes or production API changes.
 - Prior checks on `ca35ccc` succeeded; latest integration scenario awaits new GitHub checks. Android build is unnecessary for test-only code, though workflow may run automatically.
+
+
+### Encrypted control outbox cleanup (2026-10-09)
+- Inspected `src/pages/Chat.tsx` transmit path and found successful control sends returned before deleting their durable outbox entry. This could repeatedly resend accepted edit/delete/read controls on reconnect (server receipts mitigate duplicates for seven days but the local outbox remained).
+- `6e7082a`: introduced `completePendingControl(userId, clientMessageId)` for account-scoped IndexedDB outbox cleanup without creating a message bubble.
+- `20fd4d5`: calls cleanup after successfully applying confirmed control locally and before returning from transmit.
+- `1d5ad23`: added regression test for idempotent cleanup, unrelated pending entry preservation, account separation, and no phantom chat messages.
+- CI and Android APK status must be checked before declaring validation; production Pi deployment not performed. UI work remains delegated to Emergent.
