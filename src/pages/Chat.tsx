@@ -798,12 +798,12 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
 
   // ── layout ──
   const sidebar = (
-    <div className="flex h-full w-full min-w-0 flex-col border-r border-white/10 bg-[#111318] text-[#edf0f4]">
+    <div className="locat-titanium-canvas flex h-full w-full min-w-0 flex-col border-r border-white/10 text-[#edf0f4]">
       <div className="flex min-h-20 shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3 pt-safe sm:px-5">
         <button ref={navTriggerRef} type="button" aria-label="Open navigation" aria-expanded={navOpen} onClick={() => setNavOpen(true)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-[#e9ebef] hover:bg-white/10"><Menu className="h-5 w-5" /></button>
         <button type="button" onClick={() => setProfileOpen(true)} aria-label="Open my profile"
-          title="My profile" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full hover:ring-2 sm:h-11 sm:w-11 hover:ring-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-          <Avatar avatar={user.avatar} name={user.displayName} id={user.id} size={36} />
+          title="My profile" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          <LocatMark className="h-11 w-11" />
         </button>
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold tracking-tight"><LocatWordmark className="text-xl" /></p>
@@ -827,7 +827,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
           placeholder="Search chats…"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="min-h-12 w-full rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 text-sm text-[#eef0f4] placeholder:text-[#858d9a] outline-none focus:border-[#a7b2c4]/50"
+          className="locat-titanium-field min-h-12 w-full rounded-2xl px-4 py-3 text-sm text-[#eef0f4] placeholder:text-[#858d9a] outline-none focus:border-[#a7b2c4]/50"
         />
       </div>
       {deliveryWarning && (
@@ -865,7 +865,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
               key={c.id}
               type="button"
               onClick={() => void openConversation(c.id)}
-              className={`flex min-h-[76px] w-full items-center gap-3 border-x-0 border-t-0 border-b border-white/[0.07] bg-transparent px-4 py-3 text-left text-[#eef0f4] transition-colors hover:bg-white/[0.07] ${
+              className={`locat-titanium-conversation flex min-h-[76px] w-full items-center gap-3 px-4 py-3 text-left text-[#eef0f4] transition-colors hover:bg-white/[0.07] ${
                 activeId === c.id ? "bg-white/[0.10] shadow-[inset_3px_0_#b7c0cd]" : ""
               }`}
             >
@@ -945,15 +945,15 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       {navOpen && (
         <div className="fixed inset-0 z-50 flex">
           <button type="button" className="absolute inset-0 bg-black/70" aria-label="Close navigation" onClick={() => setNavOpen(false)} />
-          <nav aria-label="Locat navigation" aria-modal="true" role="dialog" className="relative flex h-full max-h-[100dvh] w-[min(86vw,340px)] min-w-0 flex-col overflow-x-hidden overflow-y-auto overscroll-contain rounded-r-[28px] border-r border-white/10 bg-[#16181e] px-4 pb-safe pt-safe text-[#eef0f4] shadow-2xl">
+          <nav aria-label="Locat navigation" aria-modal="true" role="dialog" className="locat-titanium-drawer relative flex h-full max-h-[100dvh] w-[min(86vw,340px)] min-w-0 flex-col overflow-x-hidden overflow-y-auto overscroll-contain rounded-r-[28px] border-r border-white/10 px-4 pb-safe pt-safe text-[#eef0f4] shadow-2xl">
             <div className="flex min-h-20 items-center justify-between border-b border-white/10 px-2"><h2 className="flex items-center gap-2"><LocatMark className="h-9 w-9" /><LocatWordmark className="text-2xl" /></h2><button ref={navCloseRef} type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)} className="flex h-11 w-11 items-center justify-center rounded-xl text-[#cbd0d8] hover:bg-white/10"><X className="h-5 w-5" /></button></div>
             <div className="mt-5 space-y-2.5">
-              <button type="button" onClick={() => { setShowHidden(false); setActiveId(null); setNavOpen(false); }} className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/10 px-4 text-left text-sm font-medium hover:bg-white/15"><MessageCircle className="h-5 w-5 text-primary" /> Chats</button>
-              <button type="button" onClick={() => { setActiveId(null); setNavOpen(false); window.requestAnimationFrame(() => searchRef.current?.focus()); }} className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.035] px-4 text-left text-sm text-[#d5d9e0] hover:bg-white/10"><Search className="h-5 w-5" /> Search conversations</button>
+              <button type="button" onClick={() => { setShowHidden(false); setActiveId(null); setNavOpen(false); }} className="locat-titanium-action locat-titanium-action-active flex min-h-14 w-full items-center gap-3 rounded-2xl px-4 text-left text-sm font-medium"><MessageCircle className="h-5 w-5 text-primary" /> Chats</button>
+              <button type="button" onClick={() => { setActiveId(null); setNavOpen(false); window.requestAnimationFrame(() => searchRef.current?.focus()); }} className="locat-titanium-action flex min-h-14 w-full items-center gap-3 rounded-2xl px-4 text-left text-sm text-[#d5d9e0]"><Search className="h-5 w-5" /> Search conversations</button>
               <button type="button" onClick={() => { setNavOpen(false); setNewConvOpen(true); }} className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.035] px-4 text-left text-sm text-[#d5d9e0] hover:bg-white/10"><MessageSquarePlus className="h-5 w-5" /> People &amp; requests</button>
               <button type="button" onClick={() => { setNavOpen(false); setStorageOpen(true); }} className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.035] px-4 text-left text-sm text-[#d5d9e0] hover:bg-white/10"><HardDrive className="h-5 w-5" /> Storage &amp; backups</button>
             </div>
-            <div className="min-h-0 flex-1" />
+            <div className="min-h-8 flex-1" />
             <div className="mt-auto space-y-3 border-t border-white/10 pt-4">
               <button type="button" onClick={() => { setNavOpen(false); setProfileOpen(true); }} className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.05] px-3 text-left hover:bg-white/10"><UserRound className="h-5 w-5 text-primary" /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{user.displayName}</span><span className="block truncate text-xs text-muted-foreground">@{user.username}</span></span></button>
 
