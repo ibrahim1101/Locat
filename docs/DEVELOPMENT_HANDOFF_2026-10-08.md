@@ -626,3 +626,11 @@ npm run doctor
 - Previous failed lint workflow was repaired: commit `dcc3f5e` passed Locat checks and Android APK build.
 - `27d0500`: added fake IndexedDB structured-clone failure injection for incoming delivery storage. Verifies the storage promise rejects, leaves no partially archived message, and allows an idempotent replay when valid data is subsequently delivered. This is a local persistence regression test, not a full end-to-end relay acknowledgement test. Await CI before marking validated.
 - No UI branch edits and no Raspberry Pi deployment.
+
+
+### 2026-10-09 — New-chat preparation and dedicated docs section
+- Added `docs/NEW_CHAT_HANDOFF_2026-10-09.md` (recent commits, verified checks, next work, emulator commands, safe operations).
+- Added `docs/EMERGENT_UI_HANDOFF_2026-10-09.md` (Liquid Titanium + Smoked Glass brief, original reference, 7 Emergent questions, unconfirmed UI branch, merge gate).
+- Added `docs/README.md` documentation index and linked from root README.
+- Verified `ff9395a6` Locat checks SUCCESS and `27d0500b` Android APK SUCCESS before documentation changes; do not extrapolate those results to new commits.
+- Branch listing did not show `feat/emergent-ui` at time of check; Emergent work is external and unmerged. No Raspberry Pi deployment.
