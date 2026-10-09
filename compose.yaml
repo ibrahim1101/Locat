@@ -1,6 +1,6 @@
 services:
   db:
-    image: mariadb:11.4
+    image: ${LOCAT_DB_IMAGE:-mariadb:11.4}
     restart: unless-stopped
     environment:
       MARIADB_DATABASE: locat

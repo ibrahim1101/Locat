@@ -4,7 +4,8 @@ import { getDb } from "../queries/connection";
 import { integrationTokens, incidents, incidentEvents } from "@db/schema";
 import { hashToken, scopeAllows } from "./tokens";
 import { normalizeWebhook, maxSeverity, WEBHOOK_FORMATS, type WebhookFormat, type NormalizedIncident } from "./adapters";
-import { MAX_WEBHOOK_BODY_BYTES, exceedsByteLimit, parseContentLength } from "./limits";
+import { MAX_WEBHOOK_BODY_BYTES, parseContentLength } from "./limits";
+import { readBoundedWebhookBody, WebhookBodyTooLargeError } from "./readBody";
 import { notifyUsers } from "../push";
 import { limit } from "../rateLimit";
 
@@ -45,8 +46,13 @@ export async function handleSentinelWebhook(c: Context): Promise<Response> {
   // multibyte payloads and let them slip past the limit).
   const declared = parseContentLength(c.req.header("content-length"));
   if (declared !== null && declared > MAX_WEBHOOK_BODY_BYTES) return c.json({ error: "Payload too large" }, 413);
-  const raw = await c.req.text();
-  if (exceedsByteLimit(raw, MAX_WEBHOOK_BODY_BYTES)) return c.json({ error: "Payload too large" }, 413);
+  let raw: string;
+  try {
+    raw = await readBoundedWebhookBody(c.req.raw, MAX_WEBHOOK_BODY_BYTES);
+  } catch (error) {
+    if (error instanceof WebhookBodyTooLargeError) return c.json({ error: "Payload too large" }, 413);
+    return c.json({ error: "Unable to read request body" }, 400);
+  }
   let body: unknown;
   try {
     body = raw ? JSON.parse(raw) : {};
