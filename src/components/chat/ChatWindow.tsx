@@ -319,7 +319,7 @@ export function ChatWindow({
             el.scrollHeight - el.scrollTop - el.clientHeight < 120;
           setAtBottom(nearBottom.current);
         }}
-        className="locat-chat-canvas scroll-slim min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6"
+        className="locat-chat-canvas scroll-slim min-h-0 flex-1 overscroll-contain overflow-y-auto px-3 py-4 sm:px-6"
       >
         {visibleMessages.length === 0 && (
           <div className="flex h-full items-center justify-center">
@@ -465,7 +465,7 @@ export function ChatWindow({
                 placeholder={composer.canType ? "Message…" : "Direct contact is blocked"}
                 aria-describedby={composer.unavailableReason ? "composer-unavailable-reason" : undefined}
                 rows={1}
-                className="emergent-locat-input max-h-36 min-h-11 min-w-0 flex-1 resize-none rounded-xl px-3 py-2.5 text-sm outline-none placeholder:text-secondary focus-visible:ring-1 focus-visible:ring-ring"
+                className="emergent-locat-input max-h-36 min-h-11 min-w-0 flex-1 resize-none rounded-xl px-3 py-2.5 text-base leading-6 outline-none placeholder:text-secondary focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
               />}
               <button
                 type="button"
