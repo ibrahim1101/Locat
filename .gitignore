@@ -38,3 +38,9 @@ build/
 # Test coverage
 coverage/
 .nyc_output/
+.env.*
+*.env
+credentials.json
+*.pem
+*.key
+.credentials
