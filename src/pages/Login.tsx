@@ -78,7 +78,7 @@ function AuthForm({
   return (
     <Shell>
       <Brand />
-      <div className="rounded-[22px] border border-border/60 bg-card/65 p-5 shadow-super sm:p-7">
+      <div className="emergent-locat-auth-card rounded-[22px] p-5 shadow-super sm:p-7">
         <div className="mb-5"><h2 className="text-xl font-semibold tracking-tight">{mode === "login" ? "Welcome back" : "Create your private space"}</h2><p className="mt-1 text-sm text-muted-foreground">{mode === "login" ? "Sign in to continue your conversations." : "Your identity and messages stay protected."}</p></div>
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">
@@ -91,7 +91,7 @@ function AuthForm({
               autoCapitalize="none"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="h-12 rounded-xl border-input bg-background/70"
+              className="emergent-locat-auth-input h-12 rounded-xl"
               required
               minLength={3}
             />
@@ -105,7 +105,7 @@ function AuthForm({
                 id="displayName"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="h-11 border-input bg-background"
+                className="emergent-locat-auth-input h-11 rounded-xl"
                 placeholder="How others see you"
               />
             </div>
@@ -120,7 +120,7 @@ function AuthForm({
               autoComplete={mode === "login" ? "current-password" : "new-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="h-12 rounded-xl border-input bg-background/70 pr-12"
+              className="emergent-locat-auth-input h-12 rounded-xl pr-12"
               required
               maxLength={PASSWORD_MAX_CODE_UNITS}
               aria-describedby={mode === "register" ? "password-help" : undefined}
@@ -138,7 +138,7 @@ function AuthForm({
               <Label htmlFor="password-confirm">Confirm password</Label>
               <Input id="password-confirm" type="password" autoComplete="new-password"
                 value={confirmation} onChange={e => setConfirmation(e.target.value)} required
-                maxLength={PASSWORD_MAX_CODE_UNITS} className="h-11 border-input bg-background" />
+                maxLength={PASSWORD_MAX_CODE_UNITS} className="emergent-locat-auth-input h-11 rounded-xl" />
             </div>
           )}
 
@@ -147,7 +147,7 @@ function AuthForm({
           <Button
             type="submit"
             disabled={busy}
-            className="locat-metal-button h-12 w-full rounded-xl font-semibold active:scale-[0.98]"
+            className="locat-metal-button emergent-locat-auth-submit h-12 w-full rounded-xl font-semibold active:scale-[0.98]"
           >
             {busy ? "Working…" : mode === "login" ? "Sign in" : "Create account"}
           </Button>
@@ -189,7 +189,7 @@ function KeyRestore({
   return (
     <Shell>
       <Brand />
-      <div className="smoked-glass rounded-[22px] p-6 shadow-super">
+      <div className="emergent-locat-auth-card rounded-[22px] p-6 shadow-super">
         <div className="mb-3 flex items-center gap-2 text-primary"><LockKeyhole className="h-5 w-5" aria-hidden="true" /><p className="text-xs font-semibold text-primary">Restore encrypted identity</p></div>
         <h2 className="mb-2 text-xl font-semibold">Welcome to your new device</h2>
         <p className="mb-5 text-sm text-secondary">
@@ -205,14 +205,14 @@ function KeyRestore({
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="h-11 border-input bg-background"
+            className="emergent-locat-auth-input h-11 rounded-xl"
             required
           />
           {error && <p className="text-sm text-destructive">{error}</p>}
           <Button
             type="submit"
             disabled={busy}
-            className="h-11 w-full bg-primary font-semibold text-primary-foreground hover:bg-primary/90 active:scale-[0.98]"
+            className="locat-metal-button emergent-locat-auth-submit h-11 w-full rounded-xl font-semibold active:scale-[0.98]"
           >
             {busy ? "Unlocking…" : "Unlock keys"}
           </Button>
