@@ -596,3 +596,10 @@ npm run doctor
 - `20fd4d5`: calls cleanup after successfully applying confirmed control locally and before returning from transmit.
 - `1d5ad23`: added regression test for idempotent cleanup, unrelated pending entry preservation, account separation, and no phantom chat messages.
 - CI and Android APK status must be checked before declaring validation; production Pi deployment not performed. UI work remains delegated to Emergent.
+
+
+### Atomic acknowledgement hardening (2026-10-09)
+- Reviewed `applyMessageControl` and `applyReadReceipt`: both already delete their own `pendingId` inside the same IndexedDB readwrite transaction as the local control application.
+- `18da184c`, `474beb7d`: removed redundant post-application deletion in Chat and redundant helper from localdb; rely on existing atomic behavior so a crash cannot separate application from outbox cleanup.
+- `2cf7563f`, `5dcf88ab`: replaced weaker cleanup-only test with explicit atomic edit/read tests (including idempotent read receipt and unrelated pending message preservation), corrected control schema in test.
+- Emergent handles UI separately. No Raspberry Pi deployment. Await latest CI verification before claiming checks passed.
