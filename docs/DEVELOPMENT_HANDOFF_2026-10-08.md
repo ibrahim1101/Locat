@@ -644,3 +644,5 @@ npm run doctor
 - No UI files, crypto primitives, database schema, or Raspberry Pi deployment changed. CI outcome not yet verified at the time of this record; follow up with GitHub Actions, repair any failures, and investigate recovery of missing historical group-key epochs and idempotent control replay.
 
 - Follow-up `f1d046d`: added per-test IndexedDB account cleanup (`beforeEach`) to the new recovery suite, avoiding stale local state between retries/reruns. Prior APK run 37926744123 succeeded on `ad6f3bc`; checks for later commits remain independently pending. No Pi deployment or UI changes.
+
+- 2026-10-09 follow-up: GitHub checks run 37927410772 and Android APK run 37927410714 both passed on commit 6dea258. Added `src/lib/deliveryAck.test.ts` cases for partial ACK batch outages and retry after transport recovery (commit ddff810); these new cases await fresh CI validation. Emergent UI and Raspberry Pi deployment untouched.
