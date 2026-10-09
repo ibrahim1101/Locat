@@ -61,6 +61,7 @@ import { StorageDialog } from "@/components/chat/StorageDialog";
 import { messagePayloadSchema } from "@/lib/archive";
 import { LogOut, MessageSquarePlus, Settings, Menu, MessageCircle, Search, UserRound, HardDrive, X, Moon, Sun } from "lucide-react";
 import { appearanceEvent, getAppearance, setAppearance } from "@/lib/appearance";
+import { LocatMark, LocatWordmark } from "@/components/LocatBrand";
 
 export default function Chat() {
   const { state } = useAuth();
@@ -755,7 +756,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
           <Avatar avatar={user.avatar} name={user.displayName} id={user.id} size={36} />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">Locat</p>
+          <p className="truncate"><LocatWordmark className="text-lg" /></p>
           <p className="truncate text-xs text-foreground/80">{user.displayName}</p>
           <p className="micro-label truncate normal-case tracking-normal" title={`@${user.username} · ${userCode(user.lcCode)}`}>
             @{user.username} · {userCode(user.lcCode)}
@@ -927,7 +928,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         <div className="fixed inset-0 z-50 flex">
           <button type="button" className="absolute inset-0 bg-black/70" aria-label="Close navigation" onClick={() => setNavOpen(false)} />
           <nav aria-label="Locat navigation" className="smoked-glass relative flex h-full w-[min(86vw,340px)] flex-col rounded-r-3xl border-r px-4 pb-safe pt-safe shadow-2xl">
-            <div className="flex min-h-20 items-center justify-between border-b px-2"><h2 className="text-2xl font-semibold">Locat</h2><button type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)} className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-accent"><X className="h-5 w-5" /></button></div>
+            <div className="flex min-h-20 items-center justify-between border-b px-2"><h2 className="flex items-center gap-2"><LocatMark className="h-9 w-9" /><LocatWordmark className="text-2xl" /></h2><button type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)} className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-accent"><X className="h-5 w-5" /></button></div>
             <div className="mt-5 space-y-2">
               <button type="button" onClick={() => { setShowHidden(false); setActiveId(null); setNavOpen(false); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl bg-accent px-4 text-left text-sm font-medium"><MessageCircle className="h-5 w-5 text-primary" /> Chats</button>
               <button type="button" onClick={() => { setActiveId(null); setNavOpen(false); window.requestAnimationFrame(() => searchRef.current?.focus()); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-4 text-left text-sm hover:bg-accent"><Search className="h-5 w-5" /> Search conversations</button>
