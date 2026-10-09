@@ -608,3 +608,8 @@ npm run doctor
 ### Sync resilience: independent presence and membership refresh (2026-10-09)
 - `65dd0d3`: previously a transient failure in `messages.presence` or `conversations.list` aborted the entire message sync cycle before encrypted delivery retrieval. Both refresh operations are now best-effort; known conversations continue syncing even when presence or membership refresh fails. Unknown conversations remain queued on the relay until membership refresh recovers. Conversation list cache is explicitly invalidated before refresh to avoid stale reads.
 - Follow-up: verify CI and APK; exercise degraded presence/membership API in a real test environment. Emergent UI untouched; Pi deployment untouched.
+
+
+### Relay acknowledgement recovery hardening (2026-10-09)
+- `9f17aafb`: `Chat.tsx` now deduplicates locally archived delivery IDs, batches acknowledgement requests into groups of <=500 (matching server validation), and isolates failed acknowledgement batches so remaining batches still attempt to complete. Failed acknowledgements leave relay deliveries intact for idempotent replay on the next sync poll; connection status indicates reconnecting until a subsequent successful poll.
+- No UI redesign, encryption change, database migration or Pi deployment. Automated checks and Android build must be verified; no manual network fault-injection test has been performed yet.
