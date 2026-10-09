@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { createRouter, publicQuery, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { users, sessions, pushSubscriptions, recoveryCredentials } from "@db/schema";
-import { hashPassword, verifyPassword, newSessionToken } from "./crypto";
+import { hashPassword, verifyLoginPassword, newSessionToken } from "./crypto";
 import { sessionCookie } from "./context";
 
 import { limit } from "./rateLimit";
@@ -105,7 +105,8 @@ export const authRouter = createRouter({
       const user = await db.query.users.findFirst({
         where: eq(users.username, input.username.toLowerCase()),
       });
-      if (!user || user.disabled || !(await verifyPassword(input.password, user.passwordHash))) {
+      const passwordValid = await verifyLoginPassword(input.password, user && !user.disabled ? user.passwordHash : undefined);
+      if (!user || user.disabled || !passwordValid) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "Invalid username or password",
