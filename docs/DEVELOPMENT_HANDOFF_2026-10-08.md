@@ -553,3 +553,11 @@ npm run doctor
 - `27d9170`: reused branding in inbox and drawer headers.
 - `7469e97`: brand wordmark letterspacing and subtle titanium icon shell.
 - Prior latest GitHub checks `a9cab976` succeeded and Android APK `ad559047` succeeded; new branding changes awaiting CI. No E2EE/auth/relay logic touched. Remaining: actual launcher icons and splash, 7-screen styling review, emulator verification.
+
+
+### Active branding/login reference pass (2026-10-09)
+- User explicitly stopped hourly Locat automation and requested active, interactive GitHub-only development. The Locat UI Implementation automation was disabled; no other project schedules changed.
+- Reference target: original silver cat mark and plain **Locat** wordmark, compact centered sign-in, dark smoked-glass controls, silver titanium action button, optional monochrome light theme. Preserve username-based login and registration; do not imply email sign-in or password recovery are supported.
+- `09be44a`: compact centered auth panel and cat icon, titanium sign-in/register buttons, consistent input shapes and key restore panel. No auth handler changes.
+- `f4272a2`: silver-gradient button utility and monochrome light-theme palette replacing teal defaults, preserving legacy accent overrides.
+- Last verified CI before this pass: Locat checks successful on `f2d239bf`, Android APK successful on `7469e974`. New changes require fresh CI and Android visual testing. Remaining: native launcher icon/splash asset replacement, UI reference QA, security panel and navigation polish.
