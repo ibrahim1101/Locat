@@ -80,7 +80,7 @@ export function NewConversationDialog({ open, onOpenChange, onCreated }: {
   function reset() { setTab("friends"); setQuery(""); setFriendQuery(""); setSelected([]); setGroupName(""); setError(null); }
 
   return <Dialog open={open} onOpenChange={value => { onOpenChange(value); if (!value) reset(); }}>
-    <DialogContent className="surface-2 border sm:max-w-lg">
+    <DialogContent className="emergent-locat-surface max-h-[90dvh] w-[calc(100vw-1.5rem)] overflow-x-hidden overflow-y-auto rounded-2xl sm:max-w-lg">
       <DialogHeader><DialogTitle>People and conversations</DialogTitle></DialogHeader>
       <div className="grid grid-cols-4 gap-1 rounded-lg border bg-background p-1" role="tablist" aria-label="Conversation options">
         {(["friends", "people", "requests", "group"] as const).map(item => <button key={item} type="button" role="tab" aria-selected={tab === item}
