@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { acknowledgeArchivedDeliveries } from "./deliveryAck";
 import { decryptPayload, encryptPayload, generateGroupKey } from "./crypto";
-import { allMessages, storeMessage, wipeAll } from "./localdb";
+import { allMessages, applyMessageControl, applyReadReceipt, storeMessage, wipeAll } from "./localdb";
 import type { LocalMessage } from "./localdb";
 import "fake-indexeddb/auto";
 
@@ -10,7 +10,7 @@ import "fake-indexeddb/auto";
  * This tests the required order independently from the React view lifecycle.
  */
 describe("encrypted relay delivery recovery boundaries", () => {
-  beforeEach(async () => { await Promise.all([91, 92, 93, 94].map(wipeAll)); });
+  beforeEach(async () => { await Promise.all([91, 92, 93, 94, 95].map(wipeAll)); });
   it("keeps malformed and wrong-key envelopes unacknowledged until recovered", async () => {
     await wipeAll(91);
     const key = await generateGroupKey();
@@ -104,6 +104,46 @@ describe("encrypted relay delivery recovery boundaries", () => {
     await replay();
     expect(ack).toHaveBeenCalledTimes(2);
     expect(await allMessages(94)).toHaveLength(1);
+  });
+
+  it("replays an encrypted edit before its message arrives without duplicate mutations", async () => {
+    const key = await generateGroupKey();
+    const ack = vi.fn(async (ids: number[]) => ids.length);
+    const encrypted = await encryptPayload(key, { type: "control", version: 1,
+      action: "edit", target: "reference-95", text: "corrected" });
+    const deliverEdit = async () => {
+      const control = await decryptPayload(key, encrypted);
+      if (control.type !== "control") throw new Error("Expected encrypted control");
+      await applyMessageControl(95, 15, 7, control, 951, 2000);
+      await acknowledgeArchivedDeliveries([951], ack);
+    };
+    await deliverEdit();
+    await storeMessage(95, { mid: 950, conversationId: 15, senderId: 7,
+      senderName: "Peer", outgoing: false,
+      payload: { type: "text", text: "original", messageRef: "reference-95" }, createdAt: 1000 });
+    await deliverEdit();
+    const rows = await allMessages(95);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].payload).toMatchObject({ text: "corrected" });
+    expect(ack).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps encrypted read receipt replay idempotent after durable processing", async () => {
+    const key = await generateGroupKey();
+    const ack = vi.fn(async (ids: number[]) => ids.length);
+    await storeMessage(95, { mid: 952, conversationId: 16, senderId: 95,
+      senderName: "Me", outgoing: true,
+      payload: { type: "text", text: "sent", messageRef: "read-target" }, createdAt: 1000 });
+    const encrypted = await encryptPayload(key, { type: "control", version: 1,
+      action: "read", target: "read-target" });
+    for (let retry = 0; retry < 2; retry++) {
+      const control = await decryptPayload(key, encrypted);
+      if (control.type !== "control" || control.action !== "read") throw new Error("Expected read receipt");
+      await applyReadReceipt(95, 16, 7, control.target);
+      await acknowledgeArchivedDeliveries([953], ack);
+    }
+    expect((await allMessages(95))[0].readBy).toEqual([7]);
+    expect(ack).toHaveBeenCalledTimes(2);
   });
 
 });
