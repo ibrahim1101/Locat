@@ -546,9 +546,11 @@ function MessageBubble({
         )}
         <div className="flex items-center gap-2 justify-end">
           <button
+            type="button"
             aria-label="Message actions"
+            aria-expanded={menu}
             onClick={() => setMenu(!menu)}
-            className="h-8 w-8 text-secondary"
+            className="flex h-11 w-11 touch-manipulation items-center justify-center rounded-xl text-secondary hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
           >
             <MoreHorizontal className="h-4 w-4" />
           </button>
