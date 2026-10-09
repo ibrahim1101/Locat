@@ -10,7 +10,7 @@ export function LocatMark({ className = "h-10 w-10", ...props }: Omit<ImgHTMLAtt
   if (failed) {
     return <span className={`inline-flex shrink-0 items-center justify-center rounded-xl bg-[#1a1c21] text-[#e8e9ed] font-bold ${className}`} aria-label="Locat">L</span>;
   }
-  return <img src="/locat-official-logo.png" alt="" aria-hidden="true" decoding="async" className={`shrink-0 object-contain ${className}`} onError={() => setFailed(true)} {...props} />;
+  return <img src="/locat-official-logo.png" alt="" aria-hidden="true" decoding="async" className={`locat-official-mark shrink-0 object-contain ${className}`} onError={() => setFailed(true)} {...props} />;
 }
 
 export function LocatWordmark({ className = "" }: { className?: string }) {
