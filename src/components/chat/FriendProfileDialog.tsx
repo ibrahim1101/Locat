@@ -12,7 +12,7 @@ export function FriendProfileDialog({ userId, onClose }: { userId: number; onClo
   const [feedback, setFeedback] = useState("");
   const person = profile.data;
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-    <DialogContent className="surface-2 max-h-[90dvh] overflow-y-auto sm:max-w-md">
+    <DialogContent className="emergent-locat-surface max-h-[90dvh] w-[calc(100vw-1.5rem)] overflow-x-hidden overflow-y-auto rounded-2xl sm:max-w-md">
       <DialogHeader><DialogTitle>{person?.displayName ?? "Profile"}</DialogTitle>
         <DialogDescription>Profile information shared with you.</DialogDescription></DialogHeader>
       {profile.isPending && <p role="status">Loading profile…</p>}
@@ -23,7 +23,7 @@ export function FriendProfileDialog({ userId, onClose }: { userId: number; onClo
           : <div className="mx-auto"><Avatar name={person.displayName} id={person.id} size={96} /></div>}
         {person.username && <p className="text-center text-sm text-secondary">@{person.username}</p>}
         <div className="flex items-center justify-center gap-2"><p className="font-mono text-sm">{userCode(person.lcCode)}</p><Button size="sm" variant="outline" aria-label="Copy friend LC code" onClick={() => void navigator.clipboard.writeText(userCode(person.lcCode)).then(() => setFeedback("LC code copied.")).catch(() => setFeedback("Copy unavailable. Select the LC code above."))}>Copy</Button></div>
-        <div className="rounded-xl border p-4"><p className="mb-2 text-sm font-medium">Bio</p>
+        <div className="emergent-locat-surface rounded-xl p-4"><p className="mb-2 text-sm font-medium">Bio</p>
           <p className="whitespace-pre-wrap break-words text-sm text-secondary">{person.bio || "No bio shared with you."}</p></div>
         {person.avatar && person.allowAvatarDownload && <Button disabled={download.isPending}
           onClick={() => void download.mutateAsync({ userId }).then(({ avatar, filename }) => {
