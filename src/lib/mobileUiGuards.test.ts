@@ -8,6 +8,7 @@ const dialog = readFileSync(fileURLToPath(new URL("../components/ui/dialog.tsx",
 const css = readFileSync(fileURLToPath(new URL("../index.css", import.meta.url)), "utf8");
 const brand = readFileSync(fileURLToPath(new URL("../components/LocatBrand.tsx", import.meta.url)), "utf8");
 const login = readFileSync(fileURLToPath(new URL("../pages/Login.tsx", import.meta.url)), "utf8");
+const chatWindow = readFileSync(fileURLToPath(new URL("../components/chat/ChatWindow.tsx", import.meta.url)), "utf8");
 
 describe("mobile navigation and dialog accessibility guards", () => {
   it("exposes a modal navigation landmark and an accessible close action", () => {
@@ -44,6 +45,16 @@ describe("mobile navigation and dialog accessibility guards", () => {
     expect(source).toContain('aria-current={activeId === c.id ? "true" : undefined}');
     expect(source).toContain('aria-label={`${title}${n > 0 ? `, ${n} unread message${n === 1 ? "" : "s"}` : ""}`}');
     expect(source).toContain("focus-visible:outline-[#c7d2e0] active:bg-white/[0.12]");
+  });
+
+  it("prevents modified Enter from accidentally sending chat messages", () => {
+    expect(chatWindow).toContain('e.key === "Enter"');
+    expect(chatWindow).toContain("!e.shiftKey");
+    expect(chatWindow).toContain("!e.ctrlKey");
+    expect(chatWindow).toContain("!e.altKey");
+    expect(chatWindow).toContain("!e.metaKey");
+    expect(chatWindow).toContain("!e.nativeEvent.isComposing");
+    expect(chatWindow).toContain('window.matchMedia("(min-width: 768px)").matches');
   });
 
   it("keeps the Android drawer close control tappable below the status bar", () => {
