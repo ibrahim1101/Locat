@@ -40,6 +40,12 @@ describe("mobile navigation and dialog accessibility guards", () => {
     expect(brand).not.toContain("data:image/svg+xml");
   });
 
+  it("announces unread counts and provides touch and keyboard feedback for live chats", () => {
+    expect(source).toContain('aria-current={activeId === c.id ? "true" : undefined}');
+    expect(source).toContain('aria-label={`${title}${n > 0 ? `, ${n} unread message${n === 1 ? "" : "s"}` : ""}`}');
+    expect(source).toContain("focus-visible:outline-[#c7d2e0] active:bg-white/[0.12]");
+  });
+
   it("keeps the Android drawer close control tappable below the status bar", () => {
     expect(source).toContain('className="locat-nav-overlay fixed inset-0 z-50 flex"');
     expect(source).toContain('ref={navCloseRef} type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)}');
