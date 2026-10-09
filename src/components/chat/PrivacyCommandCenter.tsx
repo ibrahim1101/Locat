@@ -53,9 +53,9 @@ export function PrivacyCommandCenter({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
         {tiles.map(({ title, description, status, Icon }) => (
-          <section key={title} className="titanium-panel flex min-h-44 min-w-0 flex-col rounded-2xl p-3 sm:p-4" aria-label={title}>
+          <section key={title} className="titanium-panel flex min-h-0 min-w-0 flex-col rounded-2xl p-4 min-[420px]:min-h-44" aria-label={title}>
             <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-border/80 bg-background/80" aria-hidden="true">
               <Icon className="h-5 w-5 text-foreground" />
             </div>
