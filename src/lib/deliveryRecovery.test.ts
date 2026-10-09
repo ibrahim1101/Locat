@@ -16,7 +16,7 @@ describe("encrypted relay delivery recovery boundaries", () => {
     const key = await generateGroupKey();
     const wrongKey = await generateGroupKey();
     const sealed = await encryptPayload(key, { type: "text", text: "recoverable" });
-    const ack = vi.fn(async (_ids: number[]) => undefined);
+    const ack = vi.fn(async (...ids: number[][]) => ids.length);
     const process = async (envelope: string, decryptionKey: CryptoKey) => {
       const payload = await decryptPayload(decryptionKey, envelope);
       if (payload.type === "control") throw new Error("Unexpected control");
