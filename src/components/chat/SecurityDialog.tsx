@@ -50,7 +50,7 @@ export function SecurityDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="smoked-glass max-h-[85dvh] overflow-y-auto rounded-2xl sm:max-w-lg">
+      <DialogContent className="emergent-locat-surface max-h-[85dvh] w-[calc(100vw-1.5rem)] overflow-x-hidden overflow-y-auto rounded-2xl sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-xl tracking-tight">Privacy Command Center</DialogTitle>
         </DialogHeader>
