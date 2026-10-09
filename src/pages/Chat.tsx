@@ -1,3 +1,4 @@
+import { acknowledgeArchivedDeliveries } from "../lib/deliveryAck";
 import packageInfo from "../../package.json";
 
 declare const __LOCAT_BUILD_ID__: string;
@@ -388,16 +389,10 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       // or prevent subsequent batches from being acknowledged. Unacknowledged
       // envelopes remain on the relay and are safely replayed on the next poll.
       if (acked.length > 0 && alive.current) {
-        const uniqueIds = [...new Set(acked)];
-        let acknowledgementFailed = false;
-        for (let index = 0; index < uniqueIds.length; index += 500) {
-          try {
-            await ackMut.mutateAsync({ messageIds: uniqueIds.slice(index, index + 500) });
-          } catch {
-            acknowledgementFailed = true;
-          }
-        }
-        if (acknowledgementFailed && alive.current)
+        const acknowledged = await acknowledgeArchivedDeliveries(
+          acked, messageIds => ackMut.mutateAsync({ messageIds })
+        );
+        if (!acknowledged && alive.current)
           setConnection("Reconnecting…");
       }
     },
