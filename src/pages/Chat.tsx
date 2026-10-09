@@ -321,7 +321,21 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
             conv.type === "group"
               ? readGroupEpoch(item.envelope)
               : undefined;
-          const key = await keyFor(conv, epoch);
+          // A rotation may have happened since this conversation summary was cached.
+          // Retry the same epoch after refreshing membership; never fall back to
+          // the current epoch or acknowledge an envelope without decryption.
+          let key: CryptoKey;
+          try {
+            key = await keyFor(conv, epoch);
+          } catch (error) {
+            if (conv.type !== "group") throw error;
+            const refreshed = await utils.conversations.list.fetch();
+            convsRef.current = refreshed as ConversationSummary[];
+            const current = convsRef.current.find(c => c.id === item.conversationId);
+            if (!current || current.type !== "group") throw error;
+            conv = current;
+            key = await keyFor(current, epoch);
+          }
           const payload = relayPayloadSchema.parse(
             await decryptPayload(key, item.envelope)
           );
