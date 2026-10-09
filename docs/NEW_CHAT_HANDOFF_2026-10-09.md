@@ -53,3 +53,10 @@ Use `C:\platform-tools\adb.exe -s emulator-5554` when addressing the emulator di
 
 ## New-chat kickoff
 “Continue Locat development from `docs/NEW_CHAT_HANDOFF_2026-10-09.md`, `docs/DEVELOPMENT_HANDOFF_2026-10-08.md` and `docs/EMERGENT_UI_HANDOFF_2026-10-09.md` on GitHub branch `feat/locat-1.0`. Verify latest CI, then implement the next non-UI messaging recovery tests with real commits. Emergent handles UI separately. Do not deploy to Raspberry Pi without my approval. Keep the journals updated and provide emulator commands when testing is needed.”
+
+
+## Active continuation — 2026-10-09 encrypted delivery recovery
+- Branch verification before writes: `feat/locat-1.0` at `ae296072`; `feat/emergent-ui` absent from reported GitHub branches; not merged.
+- Regression harness committed: `ad6f3bc` (`src/lib/deliveryRecovery.test.ts`). Exercises wrong/corrupt ciphertext, unavailable key, IndexedDB clone failure, duplicate poll/SSE deliveries, and archive-before-ack interruption using WebCrypto and fake IndexedDB.
+- Journal updated: `docs/DEVELOPMENT_HANDOFF_2026-10-08.md` in `8cd3911`.
+- No UI modifications and no Raspberry Pi deployment. CI needs checking for these new commits. Emulator updater remains available after an APK workflow succeeds.
