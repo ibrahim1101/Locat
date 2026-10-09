@@ -945,7 +945,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       {navOpen && (
         <div className="fixed inset-0 z-50 flex">
           <button type="button" className="absolute inset-0 bg-black/70" aria-label="Close navigation" onClick={() => setNavOpen(false)} />
-          <nav aria-label="Locat navigation" aria-modal="true" role="dialog" className="emergent-locat-drawer smoked-glass relative flex h-full w-[min(86vw,340px)] flex-col rounded-r-3xl border-r px-4 pb-safe pt-safe shadow-2xl">
+          <nav aria-label="Locat navigation" aria-modal="true" role="dialog" className="emergent-locat-drawer smoked-glass relative flex h-full max-h-[100dvh] w-[min(86vw,340px)] min-w-0 flex-col overflow-x-hidden overflow-y-auto overscroll-contain rounded-r-3xl border-r px-4 pb-safe pt-safe shadow-2xl">
             <div className="flex min-h-20 items-center justify-between border-b px-2"><h2 className="flex items-center gap-2"><LocatMark className="h-9 w-9" /><LocatWordmark className="text-2xl" /></h2><button ref={navCloseRef} type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)} className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-accent"><X className="h-5 w-5" /></button></div>
             <div className="mt-5 space-y-2">
               <button type="button" onClick={() => { setShowHidden(false); setActiveId(null); setNavOpen(false); }} className="emergent-locat-control flex min-h-12 w-full items-center gap-3 rounded-xl bg-accent px-4 text-left text-sm font-medium"><MessageCircle className="h-5 w-5 text-primary" /> Chats</button>
