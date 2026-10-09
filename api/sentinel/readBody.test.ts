@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readBoundedWebhookBody, WebhookBodyTooLargeError } from "./readBody";
 
-function request(chunks: Uint8Array[], headers?: HeadersInit): Request {
+function request(chunks: Uint8Array[], headers?: Record<string, string>): Request {
   let index = 0;
   return new Request("https://localhost/api/sentinel/webhook", {
     method: "POST", headers, duplex: "half",
