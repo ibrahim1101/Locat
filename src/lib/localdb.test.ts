@@ -80,6 +80,36 @@ describe("durable outbox", () => {
     expect(await pendingMessages(1)).toEqual([]);
     expect(await allMessages(1)).toHaveLength(1);
   });
+  it("keeps multiple offline retries in chronological order with stable ciphertext", async () => {
+    const later = { clientMessageId: "offline-later", conversationId: 10, senderId: 1,
+      senderName: "Alice", payload: message.payload, envelope: "encrypted-later", createdAt: 2000 };
+    const earlier = { ...later, clientMessageId: "offline-earlier", envelope: "encrypted-earlier", createdAt: 1000 };
+    await savePending(1, later);
+    await savePending(1, earlier);
+    expect((await pendingMessages(1)).map(p => p.clientMessageId)).toEqual(["offline-earlier", "offline-later"]);
+    expect((await pendingMessages(1)).map(p => p.envelope)).toEqual(["encrypted-earlier", "encrypted-later"]);
+    await completePending(1, earlier.clientMessageId, message);
+    expect(await pendingMessages(1)).toEqual([later]);
+    expect(await allMessages(1)).toHaveLength(1);
+  });
+
+  it("treats repeated confirmations as idempotent without removing unrelated pending sends", async () => {
+    const first = { clientMessageId: "first", conversationId: 10, senderId: 1,
+      senderName: "Alice", payload: message.payload, envelope: "ciphertext-first", createdAt: 1000 };
+    const second = { ...first, clientMessageId: "second", envelope: "ciphertext-second", createdAt: 2000 };
+    await savePending(1, first);
+    await savePending(1, second);
+    await Promise.all([
+      completePending(1, first.clientMessageId, message),
+      completePending(1, first.clientMessageId, message),
+    ]);
+    expect(await pendingMessages(1)).toEqual([second]);
+    expect(await allMessages(1)).toHaveLength(1);
+    await completePending(1, second.clientMessageId, { ...message, mid: 8 });
+    expect(await pendingMessages(1)).toEqual([]);
+    expect((await allMessages(1)).map(m => m.mid).sort()).toEqual([7, 8]);
+  });
+
   it("handles a server echo arriving before send confirmation", async () => {
     await savePending(1, { clientMessageId: "echo", conversationId: 10, senderId: 1,
       senderName: "Alice", payload: message.payload, envelope: "ciphertext", createdAt: 1000 });
