@@ -35,11 +35,11 @@ export function ProfileDialog({ user, open, onOpenChange }: {
   });
   const busy = preparing || savePicture.isPending || update.isPending;
   return <Dialog open={open} onOpenChange={next => { if (!busy) onOpenChange(next); }}>
-    <DialogContent className="surface-2 max-h-[90dvh] overflow-y-auto sm:max-w-md">
+    <DialogContent className="smoked-glass max-h-[90dvh] w-[calc(100vw-1.5rem)] overflow-x-hidden overflow-y-auto rounded-2xl sm:max-w-md">
       <DialogHeader><DialogTitle>My profile</DialogTitle>
         <DialogDescription>Control which profile details other people can see using the privacy settings below.</DialogDescription>
       </DialogHeader>
-      <div className="flex items-center gap-4 rounded-xl border p-4">
+      <div className="titanium-panel flex min-w-0 items-center gap-4 rounded-2xl p-4">
         <Avatar avatar={avatar} name={displayName || user.displayName} id={user.id} size={56} />
         <div className="min-w-0"><p className="truncate font-semibold">{displayName || user.displayName}</p>
           <p className="text-sm text-secondary">@{user.username}</p></div>
@@ -67,7 +67,7 @@ export function ProfileDialog({ user, open, onOpenChange }: {
       <div className="space-y-2"><Label htmlFor="profile-username-visibility">Who can see my login username?</Label>
         <select id="profile-username-visibility" value={usernameVisibility} disabled={busy}
           onChange={event => setUsernameVisibility(event.target.value as typeof usernameVisibility)}
-          className="h-11 w-full rounded-md border bg-background px-3 text-sm">
+          className="min-h-11 w-full rounded-xl border bg-background/80 px-3 text-sm">
           <option value="everyone">Everyone on this server</option>
           <option value="contacts">Accepted contacts</option>
           <option value="nobody">Nobody</option>
@@ -104,7 +104,7 @@ export function ProfileDialog({ user, open, onOpenChange }: {
       <p className="text-xs text-secondary">Turning this off removes Locat’s download option. People who can view your picture can still take screenshots or save it through their browser.</p>
       <div className="space-y-2"><Label htmlFor="profile-bio">Bio</Label>
         <textarea id="profile-bio" value={bio} maxLength={280} disabled={busy} onChange={e => setBio(e.target.value)}
-          className="min-h-24 w-full resize-y rounded-md border bg-background p-3 text-sm" placeholder="A little about you" />
+          className="min-h-24 w-full resize-y rounded-xl border bg-background/80 p-3 text-sm" placeholder="A little about you" />
         <p className="text-xs text-secondary" aria-live="polite">{bio.length}/280 characters</p>
       </div>
       <Button disabled={busy || !displayName.trim()} onClick={() => void (async () => {
