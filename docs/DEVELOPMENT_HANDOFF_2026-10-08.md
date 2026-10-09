@@ -543,3 +543,13 @@ npm run doctor
 - `29890e7`: drawer now contains real filtered conversation entries with live unread counts, selectable chats, profile footer and appearance light/dark toggle; uses existing appearance state and event rather than a second theme store. Escape closes the drawer.
 - `ad55904`: drawer Search action returns to inbox and focuses the real conversation search input.
 - No changes to E2EE or message delivery. Pending CI, Android visual QA, focus containment/return and native Back behavior. Later: dedicated account privacy area and fuller drawer polish.
+
+
+### Active design build — cat identity and wordmark (2026-10-09)
+- User explicitly cancelled hourly Locat schedule to work interactively. Disabled automation `Locat UI Implementation` (ID 6ac808eafcdc81919c590d6b1a896611). No change to unrelated project schedules.
+- User approved seven-screen cat-inspired reference, requesting faithful styling with existing features preserved. Source cat reference is stock artwork; new mark is an independently authored SVG approximation, not a copy. Need user visual review and original-asset clearance before shipping.
+- `51b00a2`: new reusable `src/components/LocatBrand.tsx` with original gradient titanium cat SVG and wordmark.
+- `b3b611d`: replaced old two-dot auth mark with new branding.
+- `27d9170`: reused branding in inbox and drawer headers.
+- `7469e97`: brand wordmark letterspacing and subtle titanium icon shell.
+- Prior latest GitHub checks `a9cab976` succeeded and Android APK `ad559047` succeeded; new branding changes awaiting CI. No E2EE/auth/relay logic touched. Remaining: actual launcher icons and splash, 7-screen styling review, emulator verification.
