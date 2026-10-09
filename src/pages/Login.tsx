@@ -23,7 +23,7 @@ export default function Login() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="locat-auth-shell flex min-h-dvh items-center justify-center bg-background px-4 pt-safe pb-safe">
+    <div className="locat-auth-shell locat-titanium-canvas flex min-h-dvh items-center justify-center px-4 pt-safe pb-safe">
       <div className="relative z-10 w-full max-w-sm">{children}</div>
     </div>
   );
@@ -32,7 +32,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 function Brand() {
   return (
     <div className="mb-5 text-center">
-      <div className="locat-icon-shell mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[20px] border border-primary/15"><LocatMark className="h-11 w-11 text-foreground" /></div>
+      <div className="mx-auto mb-4 flex h-32 w-32 items-center justify-center"><LocatMark className="h-32 w-32" /></div>
       <h1><LocatWordmark className="text-2xl" /></h1>
 
     </div>
@@ -78,7 +78,7 @@ function AuthForm({
   return (
     <Shell>
       <Brand />
-      <div className="emergent-locat-auth-card rounded-[22px] p-5 shadow-super sm:p-7">
+      <div className="locat-titanium-auth-card emergent-locat-auth-card rounded-[22px] p-5 shadow-super sm:p-7">
         <div className="mb-5"><h2 className="text-xl font-semibold tracking-tight">{mode === "login" ? "Welcome back" : "Create your private space"}</h2><p className="mt-1 text-sm text-muted-foreground">{mode === "login" ? "Sign in to continue your conversations." : "Your identity and messages stay protected."}</p></div>
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">
@@ -91,7 +91,7 @@ function AuthForm({
               autoCapitalize="none"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="emergent-locat-auth-input h-12 rounded-xl"
+              className="locat-titanium-field emergent-locat-auth-input h-12 rounded-xl"
               required
               minLength={3}
             />
@@ -120,7 +120,7 @@ function AuthForm({
               autoComplete={mode === "login" ? "current-password" : "new-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="emergent-locat-auth-input h-12 rounded-xl pr-12"
+              className="locat-titanium-field emergent-locat-auth-input h-12 rounded-xl pr-12"
               required
               maxLength={PASSWORD_MAX_CODE_UNITS}
               aria-describedby={mode === "register" ? "password-help" : undefined}
