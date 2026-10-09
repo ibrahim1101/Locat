@@ -1,5 +1,8 @@
 # Locat — self-hosted encrypted messaging
 
+**Development records and UI redesign:** [Documentation hub](docs/README.md) · [Next-chat handoff](docs/NEW_CHAT_HANDOFF_2026-10-09.md) · [Emergent UI handoff](docs/EMERGENT_UI_HANDOFF_2026-10-09.md)
+
+
 Locat lets you run a private messaging server on a Raspberry Pi, Linux computer or Docker host. Friends connect using your server's HTTPS address. Content is encrypted on the device before sending; chat history stays on each device. The server stores accounts, public keys, memberships and other metadata, plus encrypted messages waiting for delivery.
 
 **Start here: [complete beginner installation guide](docs/INSTALLATION.md).** It explains where commands go, what each person installs, how to verify setup and how to fix common problems.
