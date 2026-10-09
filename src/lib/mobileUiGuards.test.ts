@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 // Source-level guard for accessibility markup; Android visual QA is separate.
 const source = readFileSync(fileURLToPath(new URL("../pages/Chat.tsx", import.meta.url)), "utf8");
 const dialog = readFileSync(fileURLToPath(new URL("../components/ui/dialog.tsx", import.meta.url)), "utf8");
+const css = readFileSync(fileURLToPath(new URL("../index.css", import.meta.url)), "utf8");
 
 describe("mobile navigation and dialog accessibility guards", () => {
   it("exposes a modal navigation landmark and an accessible close action", () => {
@@ -20,6 +21,13 @@ describe("mobile navigation and dialog accessibility guards", () => {
     expect(source).toContain('event.key !== "Tab"');
     expect(source).toContain('event.preventDefault(); last.focus()');
     expect(source).toContain('event.preventDefault(); first.focus()');
+  });
+
+  it("keeps the Android drawer close control tappable below the status bar", () => {
+    expect(source).toContain('className="locat-nav-overlay fixed inset-0 z-50 flex"');
+    expect(source).toContain('ref={navCloseRef} type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)}');
+    expect(source).toContain("relative z-10 flex h-12 w-12 shrink-0 touch-manipulation");
+    expect(css).toContain(".locat-native .locat-nav-overlay { top: 32px; }");
   });
 
   it("allows the drawer and dialogs to scroll within small viewports", () => {
