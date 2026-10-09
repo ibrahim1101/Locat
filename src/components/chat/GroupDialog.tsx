@@ -65,7 +65,7 @@ export function GroupDialog({
         if (!busy) onOpenChange(value);
       }}
     >
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="emergent-locat-surface max-h-[90dvh] w-[calc(100vw-1.5rem)] overflow-x-hidden overflow-y-auto rounded-2xl sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Group details</DialogTitle>
           <DialogDescription>
