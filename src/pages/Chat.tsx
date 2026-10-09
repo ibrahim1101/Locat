@@ -34,7 +34,6 @@ import {
   pendingMessages,
   savePending,
   completePending,
-  completePendingControl,
   type PendingMessage,
   migrateLegacyHistory,
   kvGet,
@@ -563,8 +562,6 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
           await applyReadReceipt(user.id, item.conversationId, item.senderId, item.control.target, item.clientMessageId);
         else
           await applyMessageControl(user.id, item.conversationId, item.senderId, item.control, messageId, createdAt.getTime(), item.clientMessageId);
-        // The control was applied locally after server confirmation. Remove it so reconnects cannot replay it forever.
-        await completePendingControl(user.id, item.clientMessageId);
         if (alive.current) {
           setArchiveRevision(n => n + 1);
           setLatest(await latestMessagePerConversation(user.id));
