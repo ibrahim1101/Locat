@@ -315,6 +315,27 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     expect(await count("messages")).toBe(0);
   });
 
+  it("replays offline ciphertext until recipient acknowledgement and ignores duplicate acknowledgements", async () => {
+    const first = await alice.messages.send({ conversationId, envelope, clientMessageId: crypto.randomUUID() });
+    const second = await alice.messages.send({ conversationId, envelope, clientMessageId: crypto.randomUUID() });
+    // No SSE connection or online recipient is required: the relay retains both envelopes.
+    const offlinePage = await bob.messages.sync({ after: 0 });
+    expect(offlinePage.items.map(item => item.messageId)).toEqual([first.messageId, second.messageId]);
+    expect(offlinePage.items.every(item => item.envelope === envelope)).toBe(true);
+    // A reconnect before local persistence/ack must replay the same IDs, not create new messages.
+    const replay = await bob.messages.sync({ after: 0 });
+    expect(replay.items.map(item => item.messageId)).toEqual([first.messageId, second.messageId]);
+    // The sender may acknowledge first; the offline recipient still retains its delivery.
+    expect(await alice.messages.ack({ messageIds: [first.messageId, second.messageId] })).toEqual({ purged: 0 });
+    expect((await bob.messages.sync({ after: 0 })).items).toHaveLength(2);
+    expect(await bob.messages.ack({ messageIds: [first.messageId, first.messageId] })).toEqual({ purged: 1 });
+    expect(await bob.messages.ack({ messageIds: [first.messageId] })).toEqual({ purged: 0 });
+    expect((await bob.messages.sync({ after: 0 })).items.map(item => item.messageId)).toEqual([second.messageId]);
+    expect(await bob.messages.ack({ messageIds: [second.messageId] })).toEqual({ purged: 1 });
+    expect((await bob.messages.sync({ after: 0 })).items).toEqual([]);
+    expect(await count("messages")).toBe(0);
+  });
+
   it("deduplicates retries even after the transient message has been deleted", async () => {
     const clientMessageId = crypto.randomUUID();
     const input = { conversationId, envelope, clientMessageId };
