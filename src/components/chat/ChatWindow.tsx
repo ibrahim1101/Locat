@@ -443,6 +443,10 @@ export function ChatWindow({
               ) : <textarea
                 ref={textareaRef}
                 aria-label="Message"
+                autoComplete="off"
+                autoCorrect="on"
+                spellCheck={true}
+                enterKeyHint="enter"
                 disabled={!composer.canType}
                 maxLength={10000}
                 value={draft}
