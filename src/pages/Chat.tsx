@@ -1,4 +1,5 @@
 import { acknowledgeArchivedDeliveries } from "../lib/deliveryAck";
+import { readGroupEpoch } from "../lib/groupEpoch";
 import packageInfo from "../../package.json";
 
 declare const __LOCAT_BUILD_ID__: string;
@@ -318,7 +319,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
           if (!conv) continue;
           const epoch =
             conv.type === "group"
-              ? (JSON.parse(item.envelope).groupEpoch ?? 1)
+              ? readGroupEpoch(item.envelope)
               : undefined;
           const key = await keyFor(conv, epoch);
           const payload = relayPayloadSchema.parse(
