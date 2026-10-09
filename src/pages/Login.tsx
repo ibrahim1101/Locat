@@ -5,22 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/state/auth";
-
-function LocatMark({ className = "h-8 w-8" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 32 32" fill="none" className={className} aria-hidden>
-      <circle cx="7" cy="16" r="3.5" stroke="hsl(var(--primary))" strokeWidth="2" />
-      <circle cx="25" cy="16" r="3.5" stroke="currentColor" strokeWidth="2" />
-      <path
-        d="M11 16h10"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeDasharray="2 3"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
+import { LocatMark, LocatWordmark } from "@/components/LocatBrand";
 
 function errorText(e: unknown): string {
   if (e instanceof Error) return e.message;
@@ -47,9 +32,9 @@ function Shell({ children }: { children: React.ReactNode }) {
 function Brand() {
   return (
     <div className="mb-8 text-center">
-      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[20px] border border-primary/30 bg-primary/10 shadow-[0_0_36px_hsl(var(--primary)/0.08)]"><LocatMark className="h-10 w-10 text-foreground" /></div>
+      <div className="locat-icon-shell mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-[22px] border border-primary/30 bg-primary/10 shadow-[0_0_36px_hsl(var(--primary)/0.08)]"><LocatMark className="h-14 w-14 text-foreground" /></div>
       <p className="text-xs font-medium tracking-wide text-muted-foreground mb-2">Secure messaging</p>
-      <h1 className="text-3xl font-semibold tracking-tight">Locat</h1>
+      <h1><LocatWordmark className="text-3xl" /></h1>
       <p className="mt-2 text-sm text-muted-foreground">End-to-end encrypted conversations, on your terms.</p>
     </div>
   );
