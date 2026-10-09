@@ -19,23 +19,23 @@ export function Preferences() {
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
-  return <div className="smoked-glass space-y-3 rounded-2xl p-4">
-    <label className="flex items-center justify-between gap-4 text-sm">Appearance
-      <select aria-label="Appearance" className="min-h-11 rounded-md border bg-background p-2" value={appearance.theme} onChange={(e) => {
+  return <div className="emergent-locat-surface min-w-0 space-y-3 rounded-2xl p-4">
+    <label className="flex min-w-0 flex-wrap items-center justify-between gap-2 text-sm">Appearance
+      <select aria-label="Appearance" className="emergent-locat-control min-h-11 max-w-full rounded-xl p-2" value={appearance.theme} onChange={(e) => {
         if (!setAppearance({ ...appearance, theme: e.target.value as Theme })) setFeedback('Appearance changed for this session. Browser storage prevented saving it.');
       }}>
         <option value="dark">Dark</option><option value="light">Light</option><option value="system">System</option>
       </select>
     </label>
-    <label className="flex items-center justify-between gap-4 text-sm">Accent color
-      <select aria-label="Accent color" className="min-h-11 rounded-md border bg-background p-2" value={appearance.accent} onChange={e => {
+    <label className="flex min-w-0 flex-wrap items-center justify-between gap-2 text-sm">Accent color
+      <select aria-label="Accent color" className="emergent-locat-control min-h-11 max-w-full rounded-xl p-2" value={appearance.accent} onChange={e => {
         if (!setAppearance({ ...appearance, accent: e.target.value as Accent })) setFeedback('Appearance changed for this session. Browser storage prevented saving it.');
       }}>
         <option value="titanium">Titanium Silver</option><option value="olive">Olive (legacy)</option><option value="teal">Classic Teal</option><option value="blue">Blue</option><option value="violet">Violet</option><option value="rose">Rose</option>
       </select>
     </label>
     <p className="text-xs text-secondary">Saved for this browser. System follows your device appearance even with Settings closed.</p>
-    <label className="flex items-center justify-between gap-4 text-sm">Send read receipts
+    <label className="flex min-w-0 flex-wrap items-center justify-between gap-2 text-sm">Send read receipts
       <input type="checkbox" checked={readReceipts} onChange={(event) => {
         setReadReceipts(event.target.checked);
         localStorage.setItem('locat-read-receipts', event.target.checked ? 'on' : 'off');
