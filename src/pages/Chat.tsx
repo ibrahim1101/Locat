@@ -85,7 +85,24 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   const [search, setSearch] = useState("");
   const [navOpen, setNavOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
-  useEffect(() => { if (!navOpen) return; const close = (event: KeyboardEvent) => { if (event.key === "Escape") setNavOpen(false); }; window.addEventListener("keydown", close); return () => window.removeEventListener("keydown", close); }, [navOpen]);
+  const navCloseRef = useRef<HTMLButtonElement>(null);
+  const navTriggerRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!navOpen) return;
+    navCloseRef.current?.focus();
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setNavOpen(false);
+      if (event.key !== "Tab") return;
+      const nav = navCloseRef.current?.closest("nav");
+      const items = Array.from(nav?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])') ?? []);
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    window.addEventListener("keydown", close);
+    return () => { window.removeEventListener("keydown", close); navTriggerRef.current?.focus(); };
+  }, [navOpen]);
   const [hiddenIds, setHiddenIds] = useState<Set<number>>(new Set());
   const [showHidden, setShowHidden] = useState(false);
   const [hiddenReady, setHiddenReady] = useState(false);
@@ -928,8 +945,8 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       {navOpen && (
         <div className="fixed inset-0 z-50 flex">
           <button type="button" className="absolute inset-0 bg-black/70" aria-label="Close navigation" onClick={() => setNavOpen(false)} />
-          <nav aria-label="Locat navigation" className="emergent-locat-drawer smoked-glass relative flex h-full w-[min(86vw,340px)] flex-col rounded-r-3xl border-r px-4 pb-safe pt-safe shadow-2xl">
-            <div className="flex min-h-20 items-center justify-between border-b px-2"><h2 className="flex items-center gap-2"><LocatMark className="h-9 w-9" /><LocatWordmark className="text-2xl" /></h2><button type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)} className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-accent"><X className="h-5 w-5" /></button></div>
+          <nav aria-label="Locat navigation" aria-modal="true" role="dialog" className="emergent-locat-drawer smoked-glass relative flex h-full w-[min(86vw,340px)] flex-col rounded-r-3xl border-r px-4 pb-safe pt-safe shadow-2xl">
+            <div className="flex min-h-20 items-center justify-between border-b px-2"><h2 className="flex items-center gap-2"><LocatMark className="h-9 w-9" /><LocatWordmark className="text-2xl" /></h2><button ref={navCloseRef} type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)} className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-accent"><X className="h-5 w-5" /></button></div>
             <div className="mt-5 space-y-2">
               <button type="button" onClick={() => { setShowHidden(false); setActiveId(null); setNavOpen(false); }} className="emergent-locat-control flex min-h-12 w-full items-center gap-3 rounded-xl bg-accent px-4 text-left text-sm font-medium"><MessageCircle className="h-5 w-5 text-primary" /> Chats</button>
               <button type="button" onClick={() => { setActiveId(null); setNavOpen(false); window.requestAnimationFrame(() => searchRef.current?.focus()); }} className="emergent-locat-control flex min-h-12 w-full items-center gap-3 rounded-xl px-4 text-left text-sm hover:bg-accent"><Search className="h-5 w-5" /> Search conversations</button>
