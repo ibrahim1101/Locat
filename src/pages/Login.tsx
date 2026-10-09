@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Eye, EyeOff, LockKeyhole, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { registrationPasswordError, PASSWORD_MAX_CODE_UNITS } from "@contracts/password";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,8 +31,8 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 function Brand() {
   return (
-    <div className="mb-7 text-center">
-      <div className="locat-icon-shell mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-[26px] border border-primary/20"><LocatMark className="h-16 w-16 text-foreground" /></div>
+    <div className="mb-5 text-center">
+      <div className="locat-icon-shell mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[26px] border border-primary/20"><LocatMark className="h-14 w-14 text-foreground" /></div>
       <h1><LocatWordmark className="text-3xl" /></h1>
 
     </div>
@@ -78,26 +78,7 @@ function AuthForm({
   return (
     <Shell>
       <Brand />
-      <div className="smoked-glass rounded-[22px] p-5 shadow-super sm:p-7">
-        <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl border bg-background/80 p-1" role="group" aria-label="Account action">
-          {(["login", "register"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => {
-                setMode(m);
-                setError(null);
-              }}
-              aria-pressed={mode === m}
-              className={`h-11 rounded-lg text-sm font-medium transition-colors ${
-                mode === m ? "surface-3 text-foreground" : "text-secondary hover:text-foreground"
-              }`}
-            >
-              {m === "login" ? "Sign in" : "Create account"}
-            </button>
-          ))}
-        </div>
-
+      <div className="rounded-[22px] border border-border/60 bg-card/65 p-5 shadow-super sm:p-7">
         <div className="mb-5"><h2 className="text-xl font-semibold tracking-tight">{mode === "login" ? "Welcome back" : "Create your private space"}</h2><p className="mt-1 text-sm text-muted-foreground">{mode === "login" ? "Sign in to continue your conversations." : "Your identity and messages stay protected."}</p></div>
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">
@@ -172,7 +153,7 @@ function AuthForm({
           </Button>
         </form>
 
-        <div className="mt-6 flex items-start gap-2 border-t pt-4 text-xs leading-relaxed text-muted-foreground"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" /><p>Your messages are encrypted on this device before they ever reach the relay.</p></div>
+        <div <div className="mt-5 border-t border-border/60 pt-4 text-center"><button type="button" className="min-h-11 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }}>{mode === "login" ? "New to Locat? Create account" : "Already have an account? Sign in"}</button></div>
       </div>
     </Shell>
   );
