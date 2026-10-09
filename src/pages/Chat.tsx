@@ -59,7 +59,7 @@ import { GroupDialog } from "@/components/chat/GroupDialog";
 import { ProfileDialog } from "@/components/chat/ProfileDialog";
 import { StorageDialog } from "@/components/chat/StorageDialog";
 import { messagePayloadSchema } from "@/lib/archive";
-import { LogOut, MessageSquarePlus, Settings } from "lucide-react";
+import { LogOut, MessageSquarePlus, Settings, Menu, MessageCircle, Search, UserRound, HardDrive, X } from "lucide-react";
 
 export default function Chat() {
   const { state } = useAuth();
@@ -80,6 +80,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
 
   const [cached, setCached] = useState<ConversationSummary[]>([]);
   const [search, setSearch] = useState("");
+  const [navOpen, setNavOpen] = useState(false);
   const [hiddenIds, setHiddenIds] = useState<Set<number>>(new Set());
   const [showHidden, setShowHidden] = useState(false);
   const [hiddenReady, setHiddenReady] = useState(false);
@@ -743,6 +744,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   const sidebar = (
     <div className="flex h-full flex-col border-r border-border/70 bg-[hsl(var(--sidebar-background))]">
       <div className="flex min-h-16 shrink-0 items-center gap-2 border-b px-3 py-2 pt-safe sm:gap-3 sm:px-4">
+        <button type="button" aria-label="Open navigation" aria-expanded={navOpen} onClick={() => setNavOpen(true)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border bg-card/70 hover:bg-accent"><Menu className="h-5 w-5" /></button>
         <button type="button" onClick={() => setProfileOpen(true)} aria-label="Open my profile"
           title="My profile" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full hover:ring-2 sm:h-11 sm:w-11 hover:ring-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           <Avatar avatar={user.avatar} name={user.displayName} id={user.id} size={36} />
@@ -913,6 +915,24 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
           >
             Dismiss
           </button>
+        </div>
+      )}
+      {navOpen && (
+        <div className="fixed inset-0 z-50 flex">
+          <button type="button" className="absolute inset-0 bg-black/70" aria-label="Close navigation" onClick={() => setNavOpen(false)} />
+          <nav aria-label="Locat navigation" className="smoked-glass relative flex h-full w-[min(86vw,340px)] flex-col rounded-r-3xl border-r px-4 pb-safe pt-safe shadow-2xl">
+            <div className="flex min-h-20 items-center justify-between border-b px-2"><h2 className="text-2xl font-semibold">Locat</h2><button type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)} className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-accent"><X className="h-5 w-5" /></button></div>
+            <div className="mt-5 space-y-2">
+              <button type="button" onClick={() => { setShowHidden(false); setActiveId(null); setNavOpen(false); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl bg-accent px-4 text-left text-sm font-medium"><MessageCircle className="h-5 w-5 text-primary" /> Chats</button>
+              <button type="button" onClick={() => { setActiveId(null); setNavOpen(false); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-4 text-left text-sm hover:bg-accent"><Search className="h-5 w-5" /> Search conversations</button>
+              <button type="button" onClick={() => { setNavOpen(false); setNewConvOpen(true); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-4 text-left text-sm hover:bg-accent"><MessageSquarePlus className="h-5 w-5" /> People &amp; requests</button>
+              <button type="button" onClick={() => { setNavOpen(false); setStorageOpen(true); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-4 text-left text-sm hover:bg-accent"><HardDrive className="h-5 w-5" /> Storage &amp; backups</button>
+            </div>
+            <div className="mt-auto space-y-3 border-t pt-4">
+              <button type="button" onClick={() => { setNavOpen(false); setProfileOpen(true); }} className="flex min-h-14 w-full items-center gap-3 rounded-xl border bg-card/70 px-3 text-left hover:bg-accent"><UserRound className="h-5 w-5 text-primary" /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{user.displayName}</span><span className="block truncate text-xs text-muted-foreground">@{user.username}</span></span></button>
+              <button type="button" onClick={() => { setNavOpen(false); setStorageOpen(true); }} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm hover:bg-accent"><Settings className="h-5 w-5" /> Settings &amp; data</button>
+            </div>
+          </nav>
         </div>
       )}
       {/* sidebar: full-screen on mobile, fixed column on desktop */}
