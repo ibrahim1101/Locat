@@ -2,7 +2,7 @@ name: Locat checks
 
 on:
   push:
-    branches: [main, feat/locat-1.0]
+    branches: [main, feat/locat-1.0, feat/locat-2.0, chore/locat-2.0-quality]
   pull_request:
   workflow_dispatch:
 
@@ -37,6 +37,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Verify approved Locat logo is unchanged
+        run: |
+          git cat-file -e 3b324ef:public/locat-official-logo.png
+          expected=$(git rev-parse 3b324ef:public/locat-official-logo.png)
+          actual=$(git hash-object public/locat-official-logo.png)
+          test "$actual" = "$expected" || { echo 'Approved Locat logo was modified'; exit 1; }
       - run: npm run check
       - run: npm run lint
       - name: Passwordless crypto regression tests
