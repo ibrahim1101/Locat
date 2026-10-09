@@ -24,18 +24,17 @@ export default function Login() {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="locat-auth-shell flex min-h-dvh items-center justify-center bg-background px-4 pt-safe pb-safe">
-      <div className="relative z-10 w-full max-w-md">{children}</div>
+      <div className="relative z-10 w-full max-w-sm">{children}</div>
     </div>
   );
 }
 
 function Brand() {
   return (
-    <div className="mb-8 text-center">
-      <div className="locat-icon-shell mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-[22px] border border-primary/30 bg-primary/10 shadow-[0_0_36px_hsl(var(--primary)/0.08)]"><LocatMark className="h-14 w-14 text-foreground" /></div>
-      <p className="text-xs font-medium tracking-wide text-muted-foreground mb-2">Secure messaging</p>
+    <div className="mb-7 text-center">
+      <div className="locat-icon-shell mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-[26px] border border-primary/20"><LocatMark className="h-16 w-16 text-foreground" /></div>
       <h1><LocatWordmark className="text-3xl" /></h1>
-      <p className="mt-2 text-sm text-muted-foreground">End-to-end encrypted conversations, on your terms.</p>
+
     </div>
   );
 }
@@ -79,7 +78,7 @@ function AuthForm({
   return (
     <Shell>
       <Brand />
-      <div className="titanium-panel rounded-2xl p-5 shadow-super sm:p-7">
+      <div className="smoked-glass rounded-[22px] p-5 shadow-super sm:p-7">
         <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl border bg-background/80 p-1" role="group" aria-label="Account action">
           {(["login", "register"] as const).map((m) => (
             <button
@@ -111,7 +110,7 @@ function AuthForm({
               autoCapitalize="none"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="h-11 border-input bg-background"
+              className="h-12 rounded-xl border-input bg-background/70"
               required
               minLength={3}
             />
@@ -140,7 +139,7 @@ function AuthForm({
               autoComplete={mode === "login" ? "current-password" : "new-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="h-11 border-input bg-background pr-12"
+              className="h-12 rounded-xl border-input bg-background/70 pr-12"
               required
               maxLength={PASSWORD_MAX_CODE_UNITS}
               aria-describedby={mode === "register" ? "password-help" : undefined}
@@ -167,7 +166,7 @@ function AuthForm({
           <Button
             type="submit"
             disabled={busy}
-            className="h-11 w-full bg-primary font-semibold text-primary-foreground hover:bg-primary/90 active:scale-[0.98]"
+            className="locat-metal-button h-12 w-full rounded-xl font-semibold active:scale-[0.98]"
           >
             {busy ? "Working…" : mode === "login" ? "Sign in" : "Create account"}
           </Button>
@@ -209,7 +208,7 @@ function KeyRestore({
   return (
     <Shell>
       <Brand />
-      <div className="surface-2 rounded-lg border p-6 shadow-super">
+      <div className="smoked-glass rounded-[22px] p-6 shadow-super">
         <div className="mb-3 flex items-center gap-2 text-primary"><LockKeyhole className="h-5 w-5" aria-hidden="true" /><p className="text-xs font-semibold text-primary">Restore encrypted identity</p></div>
         <h2 className="mb-2 text-xl font-semibold">Welcome to your new device</h2>
         <p className="mb-5 text-sm text-secondary">
