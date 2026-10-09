@@ -25,6 +25,8 @@ function DashboardHome() {
   const { state, logout } = useAuth();
   const user = state.status === "ready" ? state.user : null;
   const conversationsQ = trpc.conversations.list.useQuery();
+  const sentinelStatsQ = trpc.sentinel.stats.useQuery(undefined, { refetchInterval: 15000 });
+  const openCritical = sentinelStatsQ.data?.openCritical ?? 0;
 
   const liveModules = MODULES.filter((m) => m.status !== "planned" && m.id !== "dashboard");
   const plannedModules = MODULES.filter((m) => m.status === "planned");
@@ -76,7 +78,7 @@ function DashboardHome() {
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {liveModules.map((m) => (
-                <ModuleCard key={m.id} module={m} />
+                <ModuleCard key={m.id} module={m} badge={m.id === "sentinel" && openCritical > 0 ? openCritical : undefined} />
               ))}
             </div>
           </section>
@@ -109,14 +111,17 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   );
 }
 
-function ModuleCard({ module }: { module: LocatModule }) {
+function ModuleCard({ module, badge }: { module: LocatModule; badge?: number }) {
   const Icon = module.icon;
   const planned = module.status === "planned";
   const inner = (
     <>
       <div className="flex items-start justify-between gap-2">
-        <span className={`flex h-11 w-11 items-center justify-center rounded-2xl border ${planned ? "border-border bg-accent text-secondary" : "border-primary/40 bg-primary/10 ember-text"}`}>
+        <span className={`relative flex h-11 w-11 items-center justify-center rounded-2xl border ${planned ? "border-border bg-accent text-secondary" : "border-primary/40 bg-primary/10 ember-text"}`}>
           <Icon className="h-5 w-5" />
+          {badge !== undefined && (
+            <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white" data-testid={`module-badge-${module.id}`}>{badge}</span>
+          )}
         </span>
         {planned ? (
           <span className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-wide text-secondary">{module.milestone}</span>

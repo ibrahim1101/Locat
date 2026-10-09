@@ -5,6 +5,7 @@ import { integrationTokens, incidents, incidentEvents } from "@db/schema";
 import { hashToken, scopeAllows } from "./tokens";
 import { normalizeWebhook, maxSeverity, WEBHOOK_FORMATS, type WebhookFormat, type NormalizedIncident } from "./adapters";
 import { MAX_WEBHOOK_BODY_BYTES, exceedsByteLimit, parseContentLength } from "./limits";
+import { notifyUsers } from "../push";
 import { limit } from "../rateLimit";
 
 function bearer(c: Context): string | undefined {
@@ -130,6 +131,13 @@ export async function handleSentinelWebhook(c: Context): Promise<Response> {
     });
     return { action: "created" as const, incidentId: created.id, status: "open" };
   });
+
+  // Critical/high NEW incidents trigger a notification via the existing Web Push
+  // channel (no-op when push is unconfigured). Fire-and-forget; never blocks the
+  // webhook response or leaks token/body details.
+  if (result.action === "created" && (incident.severity === "critical" || incident.severity === "high")) {
+    void notifyUsers([record.userId]).catch(() => {});
+  }
 
   return c.json({ ok: true, ...result }, result.action === "created" ? 201 : 200);
 }
