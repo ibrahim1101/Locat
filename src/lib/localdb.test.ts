@@ -117,7 +117,7 @@ describe("durable outbox", () => {
     const unrelated = { ...pending, clientMessageId: "unrelated-send", envelope: "other" };
     await savePending(1, pending);
     await savePending(1, unrelated);
-    await applyMessageControl(1, 10, 1, { action: "edit", target: messageReference(message), text: "updated" }, 9, 2000, pending.clientMessageId);
+    await applyMessageControl(1, 10, 1, { type: "control", version: 1, action: "edit", target: messageReference(message), text: "updated" }, 9, 2000, pending.clientMessageId);
     expect(await pendingMessages(1)).toEqual([unrelated]);
     expect((await getMessages(1, 10))[0].payload).toEqual({ type: "text", text: "updated" });
     expect((await allMessages(1))).toHaveLength(1);
