@@ -798,26 +798,26 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
 
   // ── layout ──
   const sidebar = (
-    <div className="flex h-full w-full min-w-0 flex-col border-r border-border/70 bg-[hsl(var(--sidebar-background))]">
-      <div className="flex min-h-16 shrink-0 items-center gap-2 border-b px-3 py-2 pt-safe sm:gap-3 sm:px-4">
-        <button ref={navTriggerRef} type="button" aria-label="Open navigation" aria-expanded={navOpen} onClick={() => setNavOpen(true)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border bg-card/70 hover:bg-accent"><Menu className="h-5 w-5" /></button>
+    <div className="flex h-full w-full min-w-0 flex-col border-r border-white/10 bg-[#111318] text-[#edf0f4]">
+      <div className="flex min-h-20 shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3 pt-safe sm:px-5">
+        <button ref={navTriggerRef} type="button" aria-label="Open navigation" aria-expanded={navOpen} onClick={() => setNavOpen(true)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-[#e9ebef] hover:bg-white/10"><Menu className="h-5 w-5" /></button>
         <button type="button" onClick={() => setProfileOpen(true)} aria-label="Open my profile"
           title="My profile" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full hover:ring-2 sm:h-11 sm:w-11 hover:ring-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           <Avatar avatar={user.avatar} name={user.displayName} id={user.id} size={36} />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="truncate"><LocatWordmark className="text-lg" /></p>
+          <p className="truncate font-semibold tracking-tight"><LocatWordmark className="text-xl" /></p>
           <p className="truncate text-xs text-foreground/80">{user.displayName}</p>
-          <p className="micro-label truncate normal-case tracking-normal" title={`@${user.username} · ${userCode(user.lcCode)}`}>
+          <p className="truncate text-[11px] text-[#9299a6]" title={`@${user.username} · ${userCode(user.lcCode)}`}>
             @{user.username} · {userCode(user.lcCode)}
           </p>
         </div>
       </div>
 
-      <div className="px-4 py-3">
+      <div className="border-b border-white/10 px-4 py-4">
         <div className="mb-3 flex gap-2" role="group" aria-label="Conversation visibility">
-          <button type="button" aria-pressed={!showHidden} onClick={() => { setShowHidden(false); setSearch(""); }} className={`min-h-11 flex-1 rounded-lg border text-sm ${!showHidden ? "bg-accent" : ""}`}>Chats</button>
-          <button type="button" aria-pressed={showHidden} onClick={() => { setShowHidden(true); setSearch(""); }} className={`min-h-11 flex-1 rounded-lg border text-sm ${showHidden ? "bg-accent" : ""}`}>Hidden chats ({conversations.filter(c => hiddenIds.has(c.id)).length})</button>
+          <button type="button" aria-pressed={!showHidden} onClick={() => { setShowHidden(false); setSearch(""); }} className={`min-h-11 flex-1 rounded-xl border border-white/10 text-sm transition-colors ${!showHidden ? "bg-white/15 text-white" : "bg-white/[0.03] text-[#a6acb6]"}`}>Chats</button>
+          <button type="button" aria-pressed={showHidden} onClick={() => { setShowHidden(true); setSearch(""); }} className={`min-h-11 flex-1 rounded-xl border border-white/10 text-sm transition-colors ${showHidden ? "bg-white/15 text-white" : "bg-white/[0.03] text-[#a6acb6]"}`}>Hidden chats ({conversations.filter(c => hiddenIds.has(c.id)).length})</button>
         </div>
         {showHidden && <p className="mb-3 text-xs text-secondary">Hidden only on this device. This does not lock chats or silence notifications.</p>}
         {!hiddenReady && <p role="status" className="mb-3 text-xs text-secondary">Loading local chat settings. If this persists, check browser storage permissions.</p>}
@@ -827,7 +827,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
           placeholder="Search chats…"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="smoked-glass min-h-11 w-full rounded-xl px-3 py-2 text-sm"
+          className="min-h-12 w-full rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 text-sm text-[#eef0f4] placeholder:text-[#858d9a] outline-none focus:border-[#a7b2c4]/50"
         />
       </div>
       {deliveryWarning && (
@@ -865,8 +865,8 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
               key={c.id}
               type="button"
               onClick={() => void openConversation(c.id)}
-              className={`emergent-locat-control flex min-h-16 w-full items-center gap-3 border-x-0 border-t-0 border-b border-border/40 px-4 py-3 text-left transition-colors hover:bg-accent/80 ${
-                activeId === c.id ? "bg-accent/90 shadow-[inset_2px_0_hsl(var(--primary))]" : ""
+              className={`flex min-h-[76px] w-full items-center gap-3 border-x-0 border-t-0 border-b border-white/[0.07] bg-transparent px-4 py-3 text-left text-[#eef0f4] transition-colors hover:bg-white/[0.07] ${
+                activeId === c.id ? "bg-white/[0.10] shadow-[inset_3px_0_#b7c0cd]" : ""
               }`}
             >
               {c.type === "direct" ? (
@@ -882,15 +882,15 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
               )}
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline justify-between gap-2">
-                  <span className="truncate text-sm font-medium">{title}</span>
+                  <span className="truncate text-[14px] font-semibold">{title}</span>
                   {last && (
-                    <span className="micro-label shrink-0">
+                    <span className="shrink-0 text-[10px] uppercase tracking-wide text-[#9099a6]">
                       {listTimeLabel(last.createdAt)}
                     </span>
                   )}
                 </span>
                 <span className="mt-0.5 flex items-center justify-between gap-2">
-                  <span className="truncate text-xs text-secondary">
+                  <span className="truncate text-xs text-[#9ca5b2]">
                     {last
                       ? last.payload.type === "image"
                         ? "🖼 image"
