@@ -268,6 +268,10 @@ export type PendingMessage = {
 export async function savePending(userId: number, message: PendingMessage): Promise<void> {
   await (await db(userId)).put("outbox", message);
 }
+/** Remove an acknowledged control from the durable outbox without inserting a chat bubble. */
+export async function completePendingControl(userId: number, clientMessageId: string): Promise<void> {
+  await (await db(userId)).delete("outbox", clientMessageId);
+}
 export async function pendingMessages(userId: number): Promise<PendingMessage[]> {
   const rows: PendingMessage[] = await (await db(userId)).getAll("outbox");
   return rows.sort((a, b) => a.createdAt - b.createdAt);
