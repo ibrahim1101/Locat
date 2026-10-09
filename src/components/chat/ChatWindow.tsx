@@ -626,8 +626,8 @@ function MessageBubble({
         <div
           className={`emergent-locat-message overflow-hidden rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
             mine
-              ? "rounded-br-md bg-[hsl(var(--muted))] text-foreground border border-border/80"
-              : "surface-2 rounded-bl-md border border-border/70"
+              ? "locat-bubble-out rounded-br-md"
+              : "locat-bubble-in rounded-bl-md"
           } ${m.pending ? "opacity-60" : ""} ${m.failed ? "border-destructive" : ""}`}
         >
           {m.payload.type === "image" && img && (

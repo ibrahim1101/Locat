@@ -61,7 +61,7 @@ import { GroupDialog } from "@/components/chat/GroupDialog";
 import { ProfileDialog } from "@/components/chat/ProfileDialog";
 import { StorageDialog } from "@/components/chat/StorageDialog";
 import { messagePayloadSchema } from "@/lib/archive";
-import { LogOut, MessageSquarePlus, Menu, MessageCircle, Search, UserRound, HardDrive, X } from "lucide-react";
+import { LogOut, MessageSquarePlus, Menu, MessageCircle, Search, UserRound, HardDrive, X, LayoutGrid } from "lucide-react";
 import { LocatMark, LocatWordmark } from "@/components/LocatBrand";
 
 export default function Chat() {
@@ -950,6 +950,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
           <nav aria-label="Locat navigation" aria-modal="true" role="dialog" className="locat-titanium-drawer relative flex h-full max-h-[100dvh] w-[min(86vw,340px)] min-w-0 flex-col overflow-x-hidden overflow-y-auto overscroll-contain rounded-r-[28px] border-r border-white/10 px-4 pb-safe pt-safe text-[#eef0f4] shadow-2xl">
             <div className="flex min-h-20 items-center justify-between border-b border-white/10 px-2"><h2 className="flex items-center gap-2"><LocatMark className="h-9 w-9" /><LocatWordmark className="text-2xl" /></h2><button ref={navCloseRef} type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)} className="relative z-10 flex h-12 w-12 shrink-0 touch-manipulation items-center justify-center rounded-xl text-[#e9edf3] hover:bg-white/10 active:bg-white/15"><X className="h-6 w-6" /></button></div>
             <div className="mt-5 space-y-2.5">
+              <Link to="/" onClick={() => setNavOpen(false)} className="locat-titanium-action flex min-h-14 w-full items-center gap-3 rounded-2xl px-4 text-left text-sm text-[#d5d9e0]"><LayoutGrid className="h-5 w-5 text-primary" /> Ecosystem home</Link>
               <button type="button" onClick={() => { setShowHidden(false); setActiveId(null); setNavOpen(false); }} className="locat-titanium-action locat-titanium-action-active flex min-h-14 w-full items-center gap-3 rounded-2xl px-4 text-left text-sm font-medium"><MessageCircle className="h-5 w-5 text-primary" /> Chats</button>
               <button type="button" onClick={() => { setActiveId(null); setNavOpen(false); window.requestAnimationFrame(() => searchRef.current?.focus()); }} className="locat-titanium-action flex min-h-14 w-full items-center gap-3 rounded-2xl px-4 text-left text-sm text-[#d5d9e0]"><Search className="h-5 w-5" /> Search conversations</button>
               <button type="button" onClick={() => { setNavOpen(false); setNewConvOpen(true); }} className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.035] px-4 text-left text-sm text-[#d5d9e0] hover:bg-white/10"><MessageSquarePlus className="h-5 w-5" /> People &amp; requests</button>
