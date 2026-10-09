@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { openDB } from "idb";
 import { beforeEach, describe, expect, it } from "vitest";
-import { applyMessageControl, applyReadReceipt, messageReference, allMessages, cacheConversations, cachedConversations, savePending, pendingMessages, completePending, deleteLocalMessage, importMessages, kvGet, kvSet, migrateLegacyHistory, storeMessage, wipeAll } from "./localdb";
+import { applyMessageControl, applyReadReceipt, messageReference, allMessages, cacheConversations, cachedConversations, savePending, pendingMessages, completePending, completePendingControl, deleteLocalMessage, importMessages, kvGet, kvSet, migrateLegacyHistory, storeMessage, wipeAll } from "./localdb";
 import type { LocalMessage } from "./localdb";
 import { hiddenConversationIds, setConversationHidden, setMessageHidden, getMessages, latestMessagePerConversation } from "./localdb";
 
@@ -108,6 +108,19 @@ describe("durable outbox", () => {
     await completePending(1, second.clientMessageId, { ...message, mid: 8 });
     expect(await pendingMessages(1)).toEqual([]);
     expect((await allMessages(1)).map(m => m.mid).sort()).toEqual([7, 8]);
+  });
+
+  it("removes acknowledged encrypted controls without creating a visible chat message", async () => {
+    const control = { clientMessageId: "control-ack", conversationId: 10, senderId: 1,
+      senderName: "Alice", payload: message.payload, envelope: "encrypted-control", createdAt: 1000 };
+    const unrelated = { ...control, clientMessageId: "still-pending", envelope: "other-control" };
+    await savePending(1, control);
+    await savePending(1, unrelated);
+    await completePendingControl(1, control.clientMessageId);
+    await completePendingControl(1, control.clientMessageId);
+    expect(await pendingMessages(1)).toEqual([unrelated]);
+    expect(await allMessages(1)).toEqual([]);
+    expect(await pendingMessages(2)).toEqual([]);
   });
 
   it("handles a server echo arriving before send confirmation", async () => {
