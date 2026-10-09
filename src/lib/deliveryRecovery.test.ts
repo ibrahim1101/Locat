@@ -37,7 +37,7 @@ describe("encrypted relay delivery recovery boundaries", () => {
     await wipeAll(92);
     const key = await generateGroupKey();
     const envelope = await encryptPayload(key, { type: "text", text: "durable" });
-    const ack = vi.fn(async (_ids: number[]) => undefined);
+    const ack = vi.fn(async (ids: number[]) => ids.length);
     const replay = async (resolveKey: () => Promise<CryptoKey>, persist: (msg: LocalMessage) => Promise<boolean>) => {
       const payload = await decryptPayload(await resolveKey(), envelope);
       if (payload.type === "control") throw new Error("Unexpected control");
@@ -69,7 +69,7 @@ describe("encrypted relay delivery recovery boundaries", () => {
     const msg: LocalMessage = { mid: 903, conversationId: 12, senderId: 4,
       senderName: "Peer", outgoing: false, payload, createdAt: 1000 };
     expect(await storeMessage(93, msg)).toBe(true);
-    const ack = vi.fn(async (_ids: number[]) => undefined);
+    const ack = vi.fn(async (ids: number[]) => ids.length);
     expect(ack).not.toHaveBeenCalled();
     expect(await storeMessage(93, msg)).toBe(false);
     expect(await acknowledgeArchivedDeliveries([903, 903], ack)).toBe(true);
