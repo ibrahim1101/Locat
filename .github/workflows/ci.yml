@@ -39,8 +39,7 @@ jobs:
       - run: npm ci
       - name: Verify approved Locat logo is unchanged
         run: |
-          git cat-file -e 3b324ef:public/locat-official-logo.png
-          expected=$(git rev-parse 3b324ef:public/locat-official-logo.png)
+          expected=c465d010524032e1ec9f37b1e9b1c2722c7237cc
           actual=$(git hash-object public/locat-official-logo.png)
           test "$actual" = "$expected" || { echo 'Approved Locat logo was modified'; exit 1; }
       - run: npm run check
