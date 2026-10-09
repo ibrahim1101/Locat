@@ -383,8 +383,23 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         }
       }
       if (alive.current) setDeliveryWarning(failedDeliveries.current.size > 0);
-      if (acked.length > 0 && alive.current)
-        await ackMut.mutateAsync({ messageIds: acked });
+      // The relay accepts at most 500 IDs per acknowledgement. A temporary
+      // acknowledgement failure must not discard successfully archived messages
+      // or prevent subsequent batches from being acknowledged. Unacknowledged
+      // envelopes remain on the relay and are safely replayed on the next poll.
+      if (acked.length > 0 && alive.current) {
+        const uniqueIds = [...new Set(acked)];
+        let acknowledgementFailed = false;
+        for (let index = 0; index < uniqueIds.length; index += 500) {
+          try {
+            await ackMut.mutateAsync({ messageIds: uniqueIds.slice(index, index + 500) });
+          } catch {
+            acknowledgementFailed = true;
+          }
+        }
+        if (acknowledgementFailed && alive.current)
+          setConnection("Reconnecting…");
+      }
     },
     // sendReadReceipt is a hoisted operation using the latest outbox/transmit state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
