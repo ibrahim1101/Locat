@@ -158,6 +158,78 @@ try {
     KEY incident_events_incident_idx (incident_id),
     CONSTRAINT incident_events_incident_fk FOREIGN KEY (incident_id) REFERENCES incidents(id) ON DELETE CASCADE
   )`);
+  // ── Locat Link (M2): additive device-pairing + transfer tables ────────────
+  await connection.query(`CREATE TABLE IF NOT EXISTS link_devices (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    name VARCHAR(80) NOT NULL,
+    platform VARCHAR(32) NOT NULL DEFAULT 'web',
+    public_key TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at TIMESTAMP NULL,
+    KEY link_devices_user_idx (user_id),
+    CONSTRAINT link_devices_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`);
+  await connection.query(`CREATE TABLE IF NOT EXISTS link_pairings (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    device_a BIGINT UNSIGNED NOT NULL,
+    device_b BIGINT UNSIGNED NOT NULL,
+    confirmed_a BOOLEAN NOT NULL DEFAULT FALSE,
+    confirmed_b BOOLEAN NOT NULL DEFAULT FALSE,
+    status ENUM('pending','verified','rejected') NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY link_pairings_pair_unique (device_a, device_b),
+    KEY link_pairings_user_idx (user_id),
+    CONSTRAINT link_pairings_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT link_pairings_a_fk FOREIGN KEY (device_a) REFERENCES link_devices(id) ON DELETE CASCADE,
+    CONSTRAINT link_pairings_b_fk FOREIGN KEY (device_b) REFERENCES link_devices(id) ON DELETE CASCADE
+  )`);
+  await connection.query(`CREATE TABLE IF NOT EXISTS link_transfers (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    from_device BIGINT UNSIGNED NOT NULL,
+    to_device BIGINT UNSIGNED NOT NULL,
+    filename VARCHAR(255) NOT NULL,
+    mime VARCHAR(128) NOT NULL DEFAULT 'application/octet-stream',
+    size BIGINT UNSIGNED NOT NULL,
+    chunk_count INT NOT NULL,
+    status ENUM('pending','active','complete','cancelled','failed') NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY link_transfers_user_idx (user_id),
+    KEY link_transfers_to_idx (to_device, status),
+    CONSTRAINT link_transfers_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT link_transfers_from_fk FOREIGN KEY (from_device) REFERENCES link_devices(id) ON DELETE CASCADE,
+    CONSTRAINT link_transfers_to_fk FOREIGN KEY (to_device) REFERENCES link_devices(id) ON DELETE CASCADE
+  )`);
+  await connection.query(`CREATE TABLE IF NOT EXISTS link_transfer_chunks (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    transfer_id BIGINT UNSIGNED NOT NULL,
+    seq INT NOT NULL,
+    iv VARCHAR(32) NOT NULL,
+    data MEDIUMTEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY link_chunk_unique (transfer_id, seq),
+    CONSTRAINT link_chunks_transfer_fk FOREIGN KEY (transfer_id) REFERENCES link_transfers(id) ON DELETE CASCADE
+  )`);
+  await connection.query(`CREATE TABLE IF NOT EXISTS link_messages (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    from_device BIGINT UNSIGNED NOT NULL,
+    to_device BIGINT UNSIGNED NOT NULL,
+    kind ENUM('clipboard','text','url') NOT NULL DEFAULT 'clipboard',
+    iv VARCHAR(32) NOT NULL,
+    data TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    delivered_at TIMESTAMP NULL,
+    KEY link_messages_to_idx (to_device, delivered_at),
+    CONSTRAINT link_messages_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT link_messages_from_fk FOREIGN KEY (from_device) REFERENCES link_devices(id) ON DELETE CASCADE,
+    CONSTRAINT link_messages_to_fk FOREIGN KEY (to_device) REFERENCES link_devices(id) ON DELETE CASCADE
+  )`);
   console.log("Locat database ready. Existing accounts and messages were preserved.");
 } finally {
   if (locked) await connection.query("SELECT RELEASE_LOCK('locat_schema_setup')");

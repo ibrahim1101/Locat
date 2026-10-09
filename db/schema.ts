@@ -294,3 +294,90 @@ export const incidentEvents = mysqlTable("incident_events", {
 export type IntegrationToken = typeof integrationTokens.$inferSelect;
 export type Incident = typeof incidents.$inferSelect;
 export type IncidentEvent = typeof incidentEvents.$inferSelect;
+
+// ─── Locat Link (M2): device pairing + encrypted server-relayed transfer ─────
+// Each device holds its own ECDH P-256 keypair (separate from the messaging
+// identity key). The server stores only device public keys and opaque
+// ciphertext; transfer/clipboard payloads are encrypted client-side with a key
+// derived from ECDH between the two paired devices. All rows are scoped to the
+// owning account. This is SERVER-RELAYED, not direct peer-to-peer (see LINK.md).
+export const linkDevices = mysqlTable("link_devices", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 80 }).notNull(),
+  platform: varchar("platform", { length: 32 }).notNull().default("web"),
+  publicKey: text("public_key").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at").notNull().defaultNow(),
+  revokedAt: timestamp("revoked_at"),
+}, (t) => [
+  index("link_devices_user_idx").on(t.userId),
+]);
+
+export const linkPairings = mysqlTable("link_pairings", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  deviceA: bigint("device_a", { mode: "number", unsigned: true }).notNull()
+    .references(() => linkDevices.id, { onDelete: "cascade" }),
+  deviceB: bigint("device_b", { mode: "number", unsigned: true }).notNull()
+    .references(() => linkDevices.id, { onDelete: "cascade" }),
+  confirmedA: boolean("confirmed_a").notNull().default(false),
+  confirmedB: boolean("confirmed_b").notNull().default(false),
+  status: mysqlEnum("status", ["pending", "verified", "rejected"]).notNull().default("pending"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => [
+  index("link_pairings_user_idx").on(t.userId),
+  uniqueIndex("link_pairings_pair_unique").on(t.deviceA, t.deviceB),
+]);
+
+export const linkTransfers = mysqlTable("link_transfers", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  fromDevice: bigint("from_device", { mode: "number", unsigned: true }).notNull()
+    .references(() => linkDevices.id, { onDelete: "cascade" }),
+  toDevice: bigint("to_device", { mode: "number", unsigned: true }).notNull()
+    .references(() => linkDevices.id, { onDelete: "cascade" }),
+  filename: varchar("filename", { length: 255 }).notNull(),
+  mime: varchar("mime", { length: 128 }).notNull().default("application/octet-stream"),
+  size: bigint("size", { mode: "number", unsigned: true }).notNull(),
+  chunkCount: int("chunk_count").notNull(),
+  status: mysqlEnum("status", ["pending", "active", "complete", "cancelled", "failed"]).notNull().default("pending"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => [
+  index("link_transfers_user_idx").on(t.userId),
+  index("link_transfers_to_idx").on(t.toDevice, t.status),
+]);
+
+export const linkTransferChunks = mysqlTable("link_transfer_chunks", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  transferId: bigint("transfer_id", { mode: "number", unsigned: true }).notNull()
+    .references(() => linkTransfers.id, { onDelete: "cascade" }),
+  seq: int("seq").notNull(),
+  iv: varchar("iv", { length: 32 }).notNull(),
+  data: mediumtext("data").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [uniqueIndex("link_chunk_unique").on(t.transferId, t.seq)]);
+
+export const linkMessages = mysqlTable("link_messages", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  fromDevice: bigint("from_device", { mode: "number", unsigned: true }).notNull()
+    .references(() => linkDevices.id, { onDelete: "cascade" }),
+  toDevice: bigint("to_device", { mode: "number", unsigned: true }).notNull()
+    .references(() => linkDevices.id, { onDelete: "cascade" }),
+  kind: mysqlEnum("kind", ["clipboard", "text", "url"]).notNull().default("clipboard"),
+  iv: varchar("iv", { length: 32 }).notNull(),
+  data: text("data").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  deliveredAt: timestamp("delivered_at"),
+}, (t) => [index("link_messages_to_idx").on(t.toDevice, t.deliveredAt)]);
+
+export type LinkDevice = typeof linkDevices.$inferSelect;
+export type LinkPairing = typeof linkPairings.$inferSelect;
+export type LinkTransfer = typeof linkTransfers.$inferSelect;

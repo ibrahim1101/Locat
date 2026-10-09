@@ -46,7 +46,7 @@ export const MODULES: LocatModule[] = [
   {
     id: "link", name: "Link", tagline: "Secure device transfer",
     description: "Pair your devices and move files, clipboard and actions between them, encrypted.",
-    icon: Radio, route: "/link", status: "planned", milestone: "M2",
+    icon: Radio, route: "/link", status: "available", milestone: "M2",
   },
   {
     id: "vault", name: "Vault", tagline: "Encrypted file storage",

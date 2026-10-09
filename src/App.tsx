@@ -5,6 +5,7 @@ import Chat from "./pages/Chat";
 
 const Admin = lazy(() => import("./pages/Admin"));
 const Sentinel = lazy(() => import("./pages/Sentinel"));
+const LinkPage = lazy(() => import("./pages/Link"));
 
 export default function App() {
   return (
@@ -16,6 +17,14 @@ export default function App() {
         element={
           <Suspense fallback={<p role="status" className="p-6 text-secondary">Opening Sentinel…</p>}>
             <Sentinel />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/link"
+        element={
+          <Suspense fallback={<p role="status" className="p-6 text-secondary">Opening Link…</p>}>
+            <LinkPage />
           </Suspense>
         }
       />

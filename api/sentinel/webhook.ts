@@ -4,9 +4,8 @@ import { getDb } from "../queries/connection";
 import { integrationTokens, incidents, incidentEvents } from "@db/schema";
 import { hashToken, scopeAllows } from "./tokens";
 import { normalizeWebhook, maxSeverity, WEBHOOK_FORMATS, type WebhookFormat, type NormalizedIncident } from "./adapters";
+import { MAX_WEBHOOK_BODY_BYTES, exceedsByteLimit, parseContentLength } from "./limits";
 import { limit } from "../rateLimit";
-
-const MAX_BODY_BYTES = 64 * 1024;
 
 function bearer(c: Context): string | undefined {
   const auth = c.req.header("authorization");
@@ -40,8 +39,13 @@ export async function handleSentinelWebhook(c: Context): Promise<Response> {
     return c.json({ error: "Rate limit exceeded" }, 429);
   }
 
+  // Reject oversized bodies before buffering when the client declares a length,
+  // then enforce the real UTF-8 byte size (string .length would undercount
+  // multibyte payloads and let them slip past the limit).
+  const declared = parseContentLength(c.req.header("content-length"));
+  if (declared !== null && declared > MAX_WEBHOOK_BODY_BYTES) return c.json({ error: "Payload too large" }, 413);
   const raw = await c.req.text();
-  if (raw.length > MAX_BODY_BYTES) return c.json({ error: "Payload too large" }, 413);
+  if (exceedsByteLimit(raw, MAX_WEBHOOK_BODY_BYTES)) return c.json({ error: "Payload too large" }, 413);
   let body: unknown;
   try {
     body = raw ? JSON.parse(raw) : {};

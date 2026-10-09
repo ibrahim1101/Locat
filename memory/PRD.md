@@ -41,24 +41,33 @@ E2EE, authentication and database compatibility. Official logo
   (unchanged), `/sentinel`, `/admin`.
 - Validated: 122 unit tests pass, tsc + eslint clean, production web build green.
 
-### ✅ M1 — Locat Sentinel (this milestone)
+### ✅ M1 — Locat Sentinel
 - Scoped revocable integration tokens (hash-only storage, shown once).
 - Token-authed inbound webhooks (`/api/sentinel/webhook`) — fully separate from
   user sessions. Severity model, incident lifecycle (open/ack/resolved/reopen),
-  fingerprint dedupe + resolve, audit timeline, per-token rate limit, 64KB cap.
+  fingerprint dedupe + resolve, audit timeline, per-token rate limit.
+  Webhook size now enforced in real UTF-8 bytes (Content-Length pre-check +
+  byte-accurate body check) with oversized/multibyte regression tests.
 - Adapters: generic, nScout, PipelineGuard. Full Incidents + Integrations UI.
-- Validated: 137 unit tests pass (15 new), lint clean, tsc clean; live E2E curl
-  confirmed auth rejection (no/bad/session-token), payload validation, dedupe
-  lifecycle, cross-account isolation (other user sees 0 incidents). See
-  `docs/SENTINEL.md`.
+- Validated via live E2E (auth rejection, validation, dedupe, cross-account
+  isolation). See `docs/SENTINEL.md`.
+
+### ✅ M2 — Locat Link
+- Per-device ECDH keys; device registry; pairing with 6-digit SAS verified on
+  both devices (MITM protection, not code-alone). Encrypted chunked file
+  transfer relayed through the server as opaque ciphertext (progress, cancel,
+  recovery, history, purge on completion). Encrypted clipboard + send-to-device.
+- Transparent: server-relayed (not P2P); no LAN/mDNS/Bluetooth (future). Scoped
+  to an account's own devices.
+- Validated: 149 unit tests (12 new), lint/tsc/build clean; live E2E confirmed
+  pre-pair transfer blocked (403), two-sided SAS verify, byte-exact transfer,
+  chunk purge, clipboard delivery, cross-account isolation. See `docs/LINK.md`.
 
 ## Backlog (dependency-ordered, approved scope)
-- **M2 — Link** (next): authenticated device pairing (ephemeral ECDH + verified
-  code + key pinning, not code-alone), device registry, encrypted server-relayed
-  transfers, clipboard sync, send-to-device, history. Document server-assisted
-  vs direct P2P (P2P/mDNS = future).
-- **M3 — Vault**: client-side encrypted files/folders, authorized sharing
-  (reuse group-key wrapping), previews, quotas, recovery design.
+- **M3 — Vault** (next if budget allows): client-side encrypted files/folders,
+  authorized sharing (reuse group-key wrapping), previews, quotas, recovery
+  design. Only start if enough credits remain to finish securely + tested.
+- **Sentinel critical notifications**: alert on arrival of critical incidents.
 - Later (P2): Workspace, Hub, Offline, Secrets, Automate, Search, Calendar,
   Share, Extensions — each ships complete+tested before becoming tappable.
 

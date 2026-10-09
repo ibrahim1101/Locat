@@ -118,6 +118,16 @@ export async function loadIdentity(
 
 }
 
+// ─── Locat Link device keys (M2) ─────────────────────────────────────────────
+// Device identity keypair lives in the account-scoped IndexedDB (structured
+// clone stores CryptoKey objects directly; private key never leaves the device).
+export async function saveDeviceKeys(userId: number, keys: { privateKey: CryptoKey; publicKey: CryptoKey }): Promise<void> {
+  await (await db(userId)).put("identity", keys, "link-device");
+}
+export async function loadDeviceKeys(userId: number): Promise<{ privateKey: CryptoKey; publicKey: CryptoKey } | undefined> {
+  return (await db(userId)).get("identity", "link-device");
+}
+
 // ─── messages ────────────────────────────────────────────────────────────────
 
 export function messageReference(message: LocalMessage): string {
