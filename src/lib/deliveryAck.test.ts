@@ -3,19 +3,19 @@ import { acknowledgeArchivedDeliveries } from "./deliveryAck";
 
 describe("relay acknowledgement fault recovery", () => {
   it("does not make a network request for an empty delivery batch", async () => {
-    const acknowledge = vi.fn(async (..._args: number[][]) => ({ purged: _args.length - 1 }));
+    const acknowledge = vi.fn(async (...args: number[][]) => ({ purged: args.length - 1 }));
     expect(await acknowledgeArchivedDeliveries([], acknowledge)).toBe(true);
     expect(acknowledge).not.toHaveBeenCalled();
   });
 
   it("deduplicates replayed delivery IDs before acknowledging", async () => {
-    const acknowledge = vi.fn(async (..._args: number[][]) => ({ purged: _args.length }));
+    const acknowledge = vi.fn(async (...args: number[][]) => ({ purged: args.length }));
     expect(await acknowledgeArchivedDeliveries([7, 7, 8, 7], acknowledge)).toBe(true);
     expect(acknowledge).toHaveBeenCalledExactlyOnceWith([7, 8]);
   });
 
   it("respects the 500-ID server limit across large offline queues", async () => {
-    const acknowledge = vi.fn(async (..._args: number[][]) => ({ purged: _args.length - 1 }));
+    const acknowledge = vi.fn(async (...args: number[][]) => ({ purged: args.length - 1 }));
     const ids = Array.from({ length: 1001 }, (_, index) => index + 1);
     expect(await acknowledgeArchivedDeliveries(ids, acknowledge)).toBe(true);
     expect(acknowledge.mock.calls.map(([batch]) => batch.length)).toEqual([500, 500, 1]);
