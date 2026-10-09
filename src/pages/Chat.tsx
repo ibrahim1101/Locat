@@ -865,7 +865,9 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
               key={c.id}
               type="button"
               onClick={() => void openConversation(c.id)}
-              className={`locat-titanium-conversation flex min-h-[76px] w-full items-center gap-3 px-4 py-3 text-left text-[#eef0f4] transition-colors hover:bg-white/[0.07] ${
+              aria-current={activeId === c.id ? "true" : undefined}
+              aria-label={`${title}${n > 0 ? `, ${n} unread message${n === 1 ? "" : "s"}` : ""}`}
+              className={`locat-titanium-conversation flex min-h-[76px] w-full items-center gap-3 px-4 py-3 text-left text-[#eef0f4] transition-colors hover:bg-white/[0.07] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#c7d2e0] active:bg-white/[0.12] ${
                 activeId === c.id ? "bg-white/[0.10] shadow-[inset_3px_0_#b7c0cd]" : ""
               }`}
             >
