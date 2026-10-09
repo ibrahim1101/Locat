@@ -636,8 +636,12 @@ function MessageBubble({
               tabIndex={0}
               role="button"
               onKeyDown={e => {
-                if (e.key === "Enter") setExpanded(true);
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setExpanded(true);
+                }
               }}
+              aria-label={`Open image: ${m.payload.name}`}
               src={img}
               alt={m.payload.name}
               className="-mx-1 mb-1 max-h-72 rounded-lg object-cover"
