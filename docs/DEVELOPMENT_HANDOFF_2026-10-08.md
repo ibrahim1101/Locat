@@ -561,3 +561,10 @@ npm run doctor
 - `09be44a`: compact centered auth panel and cat icon, titanium sign-in/register buttons, consistent input shapes and key restore panel. No auth handler changes.
 - `f4272a2`: silver-gradient button utility and monochrome light-theme palette replacing teal defaults, preserving legacy accent overrides.
 - Last verified CI before this pass: Locat checks successful on `f2d239bf`, Android APK successful on `7469e974`. New changes require fresh CI and Android visual testing. Remaining: native launcher icon/splash asset replacement, UI reference QA, security panel and navigation polish.
+
+
+### Native launcher icon implementation (2026-10-09)
+- Previous active styling CI passed (`e9b4a65b`), and Android APK build passed (`f4272a28`).
+- `e008dad`: changed PWA background and theme color to #0A0B0D to align with Liquid Titanium. Existing PWA PNG icon files remain unchanged.
+- `4ccca0b`: after Capacitor sync, Android APK workflow generates a project-original vector silver cat drawable and dark titanium adaptive launcher XML for both square and round launcher resources. No stock reference image copied. Android project is transient in CI, so this must be generated in the workflow.
+- Pending: Android Gradle compilation, launcher appearance check on emulator, older pre-API26 launcher raster resources and full native splash logo treatment. This is not a claim that native splash icon or PWA PNGs have been replaced yet.
