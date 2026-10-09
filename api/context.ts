@@ -14,8 +14,7 @@ export type TrpcContext = {
 const SESSION_COOKIE = "rc_session";
 
 export function sessionCookie(token: string, maxAgeSeconds: number): string {
-  const secure = process.env.COOKIE_SECURE === "true" ||
-    (env.isProduction && process.env.COOKIE_SECURE !== "false");
+  const secure = env.isProduction || process.env.COOKIE_SECURE === "true";
   return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}${secure ? "; Secure" : ""}`;
 }
 
