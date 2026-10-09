@@ -217,7 +217,7 @@ export function ChatWindow({
     .filter(m => !searchOpen || !search || (m.payload.type === "text" && m.payload.text.toLowerCase().includes(search.toLowerCase())));
 
   return (
-    <div className="locat-chat flex h-full min-w-0 flex-col">
+    <div className="locat-chat emergent-locat-chat flex h-full min-w-0 flex-col">
       <div className="flex items-center justify-end gap-2 border-b px-3 py-1">
         <button type="button" aria-pressed={showHiddenMessages} onClick={() => { setShowHiddenMessages(v => !v); setSearch(""); setReply(null); }} className="min-h-11 rounded-md px-3 text-xs hover:bg-accent">
           {showHiddenMessages ? "Back to messages" : `Hidden messages (${messages.filter(m => m.hidden).length})`}
@@ -228,7 +228,7 @@ export function ChatWindow({
         </button>
       </div>
       {/* header */}
-      <header className="smoked-glass flex min-h-16 pt-safe shrink-0 items-center gap-3 border-b px-3 sm:px-4">
+      <header className="smoked-glass emergent-locat-surface flex min-h-16 pt-safe shrink-0 items-center gap-3 border-x-0 border-t-0 border-b px-3 sm:px-4">
         <button
           type="button"
           onClick={onBack}
@@ -615,7 +615,7 @@ function MessageBubble({
           </p>
         )}
         <div
-          className={`overflow-hidden rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+          className={`emergent-locat-message overflow-hidden rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
             mine
               ? "rounded-br-md bg-[hsl(var(--muted))] text-foreground border border-border/80"
               : "surface-2 rounded-bl-md border border-border/70"
