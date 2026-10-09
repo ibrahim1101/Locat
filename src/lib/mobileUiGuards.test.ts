@@ -6,6 +6,8 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(fileURLToPath(new URL("../pages/Chat.tsx", import.meta.url)), "utf8");
 const dialog = readFileSync(fileURLToPath(new URL("../components/ui/dialog.tsx", import.meta.url)), "utf8");
 const css = readFileSync(fileURLToPath(new URL("../index.css", import.meta.url)), "utf8");
+const brand = readFileSync(fileURLToPath(new URL("../components/LocatBrand.tsx", import.meta.url)), "utf8");
+const login = readFileSync(fileURLToPath(new URL("../pages/Login.tsx", import.meta.url)), "utf8");
 
 describe("mobile navigation and dialog accessibility guards", () => {
   it("exposes a modal navigation landmark and an accessible close action", () => {
@@ -28,6 +30,14 @@ describe("mobile navigation and dialog accessibility guards", () => {
     expect(css).toContain("mix-blend-mode: normal;");
     expect(css).not.toContain("mix-blend-mode: screen;");
     expect(css).not.toContain(".locat-official-mark { mix-blend-mode: multiply; }");
+  });
+
+  it("uses the same approved logo asset in login and live chat", () => {
+    expect(brand).toContain('src="/locat-official-logo.png"');
+    expect(brand).toContain('className={`locat-official-mark shrink-0 object-contain ${className}`}');
+    expect(login).toContain("<LocatMark");
+    expect(source).toContain("<LocatMark");
+    expect(brand).not.toContain("data:image/svg+xml");
   });
 
   it("keeps the Android drawer close control tappable below the status bar", () => {
