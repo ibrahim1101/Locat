@@ -800,7 +800,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   const sidebar = (
     <div className="flex h-full w-full min-w-0 flex-col border-r border-border/70 bg-[hsl(var(--sidebar-background))]">
       <div className="flex min-h-16 shrink-0 items-center gap-2 border-b px-3 py-2 pt-safe sm:gap-3 sm:px-4">
-        <button type="button" aria-label="Open navigation" aria-expanded={navOpen} onClick={() => setNavOpen(true)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border bg-card/70 hover:bg-accent"><Menu className="h-5 w-5" /></button>
+        <button ref={navTriggerRef} type="button" aria-label="Open navigation" aria-expanded={navOpen} onClick={() => setNavOpen(true)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border bg-card/70 hover:bg-accent"><Menu className="h-5 w-5" /></button>
         <button type="button" onClick={() => setProfileOpen(true)} aria-label="Open my profile"
           title="My profile" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full hover:ring-2 sm:h-11 sm:w-11 hover:ring-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           <Avatar avatar={user.avatar} name={user.displayName} id={user.id} size={36} />
