@@ -576,3 +576,10 @@ npm run doctor
 - `b4e044b`: removed duplicate conversation list from overlay navigation and redundant inbox header buttons; retained inbox list, functional drawer navigation, profile, storage and appearance controls, and moved Sign out into drawer. `2330198`: cleaned unused icon import.
 - `025f8ef`: reduced oversized login icon and wordmark for small mobile screens.
 - Pending CI and user emulator screenshot verification. Potential follow-up: dedicated profile/settings destination, cleaner drawer spacing, original logo refinement. No crypto or delivery behavior changed.
+
+
+### Feature-only track while Emergent redesigns UI (2026-10-09)
+- Owner explicitly requested suspending UI work here while Emergent handles frontend design. Keep future changes scoped to functionality, reliability, tests and security; do not touch styling or layout without request.
+- Build regression from prior login cleanup: JSX contained `<div <div` in `src/pages/Login.tsx`, causing Vite/TypeScript and Docker smoke failures. Fixed in `a47aad4`. CI checks and Android APK both passed on `2e0bb2e` after notification capability/service-worker readiness tests were added.
+- `588a647`: expanded durable outbox regression coverage for offline retry chronological ordering, ciphertext stability, duplicate confirmation idempotency and independence of pending sends. No production messaging behavior changed. Pending CI verification for this commit.
+- Existing design: IndexedDB outbox stores original encrypted envelope and stable clientMessageId; relay send receipts prevent duplicate retries for seven days; UI stops ambiguous retries older than seven days. Next steps: integration-test offline server delivery and ack under MariaDB; investigate Firefox mobile and native push reliability.
