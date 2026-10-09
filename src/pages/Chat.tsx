@@ -97,8 +97,8 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       const items = Array.from(nav?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])') ?? []);
       if (!items.length) return;
       const first = items[0], last = items[items.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      if (event.shiftKey && (document.activeElement === first || !nav?.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || !nav?.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
     };
     window.addEventListener("keydown", close);
     return () => { window.removeEventListener("keydown", close); navTriggerRef.current?.focus(); };
