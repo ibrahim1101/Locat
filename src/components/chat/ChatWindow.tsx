@@ -393,7 +393,7 @@ export function ChatWindow({
       ) : (
         <>
           {/* composer */}
-          <div className="smoked-glass shrink-0 border-t px-3 py-3 pb-safe sm:px-6">
+          <div className="smoked-glass emergent-locat-composer shrink-0 border-t px-3 py-3 pb-safe sm:px-6">
             <div className="mx-auto flex max-w-3xl items-end gap-2">
               <input
                 ref={fileRef}
@@ -409,7 +409,7 @@ export function ChatWindow({
               <input ref={attachmentRef} type="file" className="hidden"
                 onChange={e => { const f = e.target.files?.[0]; if (f) onSendFile(f); e.target.value = ""; }} />
               <button type="button" onClick={() => attachmentRef.current?.click()} disabled={!composer.canAttach}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border text-secondary transition-colors hover:bg-accent hover:text-foreground"
+                className="emergent-locat-control flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-secondary hover:bg-accent hover:text-foreground"
                 aria-label="Send file" title={composer.canAttach ? "Send file (up to 2.9 MB)" : composer.unavailableReason ?? undefined}
                 aria-describedby={composer.unavailableReason ? "composer-unavailable-reason" : undefined}>
                 <Paperclip className="h-5 w-5" />
@@ -418,7 +418,7 @@ export function ChatWindow({
                 type="button"
                 onClick={() => fileRef.current?.click()}
                 disabled={!composer.canAttach}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border text-secondary transition-colors hover:bg-accent hover:text-foreground"
+                className="emergent-locat-control flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-secondary hover:bg-accent hover:text-foreground"
                 aria-label="Send image"
                 title={composer.canAttach ? "Send image" : composer.unavailableReason ?? undefined}
                 aria-describedby={composer.unavailableReason ? "composer-unavailable-reason" : undefined}
@@ -429,7 +429,7 @@ export function ChatWindow({
                 type="button"
                 onClick={() => recording ? stopRecording() : void startRecording()}
                 disabled={!composer.canAttach}
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-md border transition-colors hover:bg-accent ${recording ? "text-destructive" : "text-secondary"}`}
+                className={`emergent-locat-control flex h-11 w-11 shrink-0 items-center justify-center rounded-xl hover:bg-accent ${recording ? "text-destructive" : "text-secondary"}`}
                 aria-label={recording ? "Stop and send voice message" : "Record voice message"}
                 title={recording ? "Stop and send" : composer.canAttach ? "Voice message" : composer.unavailableReason ?? undefined}
                 aria-describedby={composer.unavailableReason ? "composer-unavailable-reason" : undefined}
@@ -465,13 +465,13 @@ export function ChatWindow({
                 placeholder={composer.canType ? "Message…" : "Direct contact is blocked"}
                 aria-describedby={composer.unavailableReason ? "composer-unavailable-reason" : undefined}
                 rows={1}
-                className="max-h-36 min-h-11 flex-1 resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none placeholder:text-secondary focus-visible:ring-1 focus-visible:ring-ring"
+                className="emergent-locat-input max-h-36 min-h-11 min-w-0 flex-1 resize-none rounded-xl px-3 py-2.5 text-sm outline-none placeholder:text-secondary focus-visible:ring-1 focus-visible:ring-ring"
               />}
               <button
                 type="button"
                 onClick={submit}
                 disabled={!composer.canSend || recording}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.94] disabled:opacity-30"
+                className="emergent-locat-send flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-primary-foreground transition-all active:scale-[0.94] disabled:opacity-30"
                 aria-label={composer.canSend && !recording ? "Send" : recording ? "Finish recording before sending text" : `Send unavailable: ${composer.sendReason}`}
                 title={composer.canSend && !recording ? "Send" : recording ? "Finish recording before sending text" : composer.sendReason ?? undefined}
                 aria-describedby={composer.unavailableReason ? "composer-unavailable-reason" : undefined}
