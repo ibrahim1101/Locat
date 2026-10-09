@@ -10,7 +10,7 @@ import "fake-indexeddb/auto";
  * This tests the required order independently from the React view lifecycle.
  */
 describe("encrypted relay delivery recovery boundaries", () => {
-  beforeEach(async () => { await Promise.all([91, 92, 93].map(wipeAll)); });
+  beforeEach(async () => { await Promise.all([91, 92, 93, 94].map(wipeAll)); });
   it("keeps malformed and wrong-key envelopes unacknowledged until recovered", async () => {
     await wipeAll(91);
     const key = await generateGroupKey();
@@ -76,4 +76,34 @@ describe("encrypted relay delivery recovery boundaries", () => {
     expect(ack).toHaveBeenCalledExactlyOnceWith([903]);
     expect(await allMessages(93)).toHaveLength(1);
   });
+  it("recovers an old group epoch after its wrapped key becomes available on reconnect", async () => {
+    await wipeAll(94);
+    const historicalKey = await generateGroupKey();
+    const currentKey = await generateGroupKey();
+    const envelope = await encryptPayload(historicalKey, { type: "text", text: "old epoch recovered" });
+    const ack = vi.fn(async (ids: number[]) => ids.length);
+    let keyAvailable = false;
+    const resolveHistorical = async () => {
+      if (!keyAvailable) throw new Error("Historical group key unavailable");
+      return historicalKey;
+    };
+    const replay = async () => {
+      const key = await resolveHistorical();
+      const payload = await decryptPayload(key, envelope);
+      if (payload.type === "control") throw new Error("Unexpected control");
+      await storeMessage(94, { mid: 904, conversationId: 14, senderId: 8,
+        senderName: "Member", outgoing: false, payload, createdAt: 1000 });
+      await acknowledgeArchivedDeliveries([904], ack);
+    };
+    await expect(replay()).rejects.toThrow("Historical group key unavailable");
+    await expect(decryptPayload(currentKey, envelope)).rejects.toThrow();
+    expect(ack).not.toHaveBeenCalled();
+    expect(await allMessages(94)).toHaveLength(0);
+    keyAvailable = true;
+    await replay();
+    await replay();
+    expect(ack).toHaveBeenCalledTimes(2);
+    expect(await allMessages(94)).toHaveLength(1);
+  });
+
 });
