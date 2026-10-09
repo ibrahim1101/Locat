@@ -41,7 +41,7 @@ export const MODULES: LocatModule[] = [
   {
     id: "sentinel", name: "Sentinel", tagline: "Security incidents & alerts",
     description: "Token-authed webhooks, severity alerts and incident response for nScout & PipelineGuard.",
-    icon: ShieldAlert, route: "/sentinel", status: "planned", milestone: "M1", primary: true,
+    icon: ShieldAlert, route: "/sentinel", status: "available", milestone: "M1", primary: true,
   },
   {
     id: "link", name: "Link", tagline: "Secure device transfer",

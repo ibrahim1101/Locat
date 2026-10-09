@@ -237,3 +237,60 @@ export const deviceLinkRequests = mysqlTable("device_link_requests", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   expiresAt: timestamp("expires_at").notNull(),
 }, t => [index("device_link_requests_expires_idx").on(t.expiresAt)]);
+
+// ─── Locat Sentinel (M1): incident management ────────────────────────────────
+// Scoped, revocable integration tokens authenticate inbound webhooks from
+// external security tools (nScout, PipelineGuard, custom). Only the sha256 hash
+// of a token is ever stored — the plaintext is shown once at creation time and
+// never logged. Integration-token auth is entirely separate from user sessions.
+export const integrationTokens = mysqlTable("integration_tokens", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 80 }).notNull(),
+  source: varchar("source", { length: 64 }).notNull().default("custom"),
+  scope: varchar("scope", { length: 255 }).notNull().default("incidents:write"),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+  tokenPrefix: varchar("token_prefix", { length: 16 }).notNull(),
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  revokedAt: timestamp("revoked_at"),
+}, (t) => [index("integration_tokens_user_idx").on(t.userId)]);
+
+export const incidents = mysqlTable("incidents", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tokenId: bigint("token_id", { mode: "number", unsigned: true })
+    .references(() => integrationTokens.id, { onDelete: "set null" }),
+  source: varchar("source", { length: 64 }).notNull().default("custom"),
+  severity: mysqlEnum("severity", ["info", "low", "medium", "high", "critical"]).notNull().default("medium"),
+  status: mysqlEnum("status", ["open", "acknowledged", "resolved"]).notNull().default("open"),
+  title: varchar("title", { length: 200 }).notNull(),
+  description: text("description"),
+  fingerprint: varchar("fingerprint", { length: 128 }),
+  externalId: varchar("external_id", { length: 128 }),
+  acknowledgedBy: bigint("acknowledged_by", { mode: "number", unsigned: true }),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  resolvedAt: timestamp("resolved_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => [
+  index("incidents_user_idx").on(t.userId),
+  index("incidents_user_status_idx").on(t.userId, t.status),
+  index("incidents_fingerprint_idx").on(t.userId, t.fingerprint),
+]);
+
+export const incidentEvents = mysqlTable("incident_events", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  incidentId: bigint("incident_id", { mode: "number", unsigned: true }).notNull()
+    .references(() => incidents.id, { onDelete: "cascade" }),
+  action: mysqlEnum("action", ["created", "updated", "acknowledged", "resolved", "reopened", "note"]).notNull(),
+  actorId: bigint("actor_id", { mode: "number", unsigned: true }),
+  detail: varchar("detail", { length: 500 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [index("incident_events_incident_idx").on(t.incidentId)]);
+
+export type IntegrationToken = typeof integrationTokens.$inferSelect;
+export type Incident = typeof incidents.$inferSelect;
+export type IncidentEvent = typeof incidentEvents.$inferSelect;

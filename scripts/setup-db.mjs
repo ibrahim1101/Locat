@@ -111,6 +111,53 @@ try {
     KEY device_link_requests_expires_idx (expires_at),
     CONSTRAINT device_link_requests_approver_fk FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE CASCADE
   )`);
+  // ── Locat Sentinel (M1): additive incident-management tables ──────────────
+  await connection.query(`CREATE TABLE IF NOT EXISTS integration_tokens (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    name VARCHAR(80) NOT NULL,
+    source VARCHAR(64) NOT NULL DEFAULT 'custom',
+    scope VARCHAR(255) NOT NULL DEFAULT 'incidents:write',
+    token_hash VARCHAR(64) NOT NULL UNIQUE,
+    token_prefix VARCHAR(16) NOT NULL,
+    last_used_at TIMESTAMP NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at TIMESTAMP NULL,
+    KEY integration_tokens_user_idx (user_id),
+    CONSTRAINT integration_tokens_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`);
+  await connection.query(`CREATE TABLE IF NOT EXISTS incidents (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    token_id BIGINT UNSIGNED NULL,
+    source VARCHAR(64) NOT NULL DEFAULT 'custom',
+    severity ENUM('info','low','medium','high','critical') NOT NULL DEFAULT 'medium',
+    status ENUM('open','acknowledged','resolved') NOT NULL DEFAULT 'open',
+    title VARCHAR(200) NOT NULL,
+    description TEXT NULL,
+    fingerprint VARCHAR(128) NULL,
+    external_id VARCHAR(128) NULL,
+    acknowledged_by BIGINT UNSIGNED NULL,
+    acknowledged_at TIMESTAMP NULL,
+    resolved_at TIMESTAMP NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY incidents_user_idx (user_id),
+    KEY incidents_user_status_idx (user_id, status),
+    KEY incidents_fingerprint_idx (user_id, fingerprint),
+    CONSTRAINT incidents_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT incidents_token_fk FOREIGN KEY (token_id) REFERENCES integration_tokens(id) ON DELETE SET NULL
+  )`);
+  await connection.query(`CREATE TABLE IF NOT EXISTS incident_events (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    incident_id BIGINT UNSIGNED NOT NULL,
+    action ENUM('created','updated','acknowledged','resolved','reopened','note') NOT NULL,
+    actor_id BIGINT UNSIGNED NULL,
+    detail VARCHAR(500) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY incident_events_incident_idx (incident_id),
+    CONSTRAINT incident_events_incident_fk FOREIGN KEY (incident_id) REFERENCES incidents(id) ON DELETE CASCADE
+  )`);
   console.log("Locat database ready. Existing accounts and messages were preserved.");
 } finally {
   if (locked) await connection.query("SELECT RELEASE_LOCK('locat_schema_setup')");
