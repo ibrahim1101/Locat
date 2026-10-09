@@ -613,3 +613,10 @@ npm run doctor
 ### Relay acknowledgement recovery hardening (2026-10-09)
 - `9f17aafb`: `Chat.tsx` now deduplicates locally archived delivery IDs, batches acknowledgement requests into groups of <=500 (matching server validation), and isolates failed acknowledgement batches so remaining batches still attempt to complete. Failed acknowledgements leave relay deliveries intact for idempotent replay on the next sync poll; connection status indicates reconnecting until a subsequent successful poll.
 - No UI redesign, encryption change, database migration or Pi deployment. Automated checks and Android build must be verified; no manual network fault-injection test has been performed yet.
+
+
+### Automated acknowledgement fault injection (2026-10-09)
+- `c3f57a9`: extracted pure asynchronous `acknowledgeArchivedDeliveries` into `src/lib/deliveryAck.ts`, preserving 500-ID batching, deduplication and best-effort continuation after failed batches.
+- `33f275a`: wired existing Chat acknowledgement path to helper without UI or backend changes.
+- `690973e`, `d484b3c`: added Vitest fault-injection tests for empty queues, duplicate IDs, >1000 deliveries, first-batch network failure and successful subsequent reconnect replay; corrected test mock argument typing.
+- Tests are simulation of acknowledgement API failures, not a real browser or Android offline run. Await GitHub CI result; do not deploy to Pi.
