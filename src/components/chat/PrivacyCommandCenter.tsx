@@ -31,12 +31,12 @@ const tiles = [
 /** A read-only overview: never imply that unreleased security features work. */
 export function PrivacyCommandCenter({ onBack }: { onBack: () => void }) {
   return (
-    <div className="space-y-5">
+    <div className="emergent-locat-privacy min-w-0 space-y-5">
       <div className="flex items-start gap-3">
         <button
           type="button"
           onClick={onBack}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border bg-background/70 text-secondary hover:bg-accent hover:text-foreground"
+          className="emergent-locat-control flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-secondary hover:bg-accent hover:text-foreground"
           aria-label="Back to settings"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -53,9 +53,9 @@ export function PrivacyCommandCenter({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+      <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
         {tiles.map(({ title, description, status, Icon }) => (
-          <section key={title} className="titanium-panel flex min-h-0 min-w-0 flex-col rounded-2xl p-4 min-[420px]:min-h-44" aria-label={title}>
+          <section key={title} className="emergent-locat-surface flex min-h-0 min-w-0 flex-col rounded-2xl p-4 sm:min-h-44" aria-label={title}>
             <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-border/80 bg-background/80" aria-hidden="true">
               <Icon className="h-5 w-5 text-foreground" />
             </div>
@@ -66,7 +66,7 @@ export function PrivacyCommandCenter({ onBack }: { onBack: () => void }) {
         ))}
       </div>
 
-      <section className="smoked-glass rounded-2xl p-4" aria-labelledby="locat-security-activity">
+      <section className="emergent-locat-surface rounded-2xl p-4" aria-labelledby="locat-security-activity">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border bg-background/70" aria-hidden="true">
             <Activity className="h-5 w-5 text-primary" />
@@ -80,7 +80,7 @@ export function PrivacyCommandCenter({ onBack }: { onBack: () => void }) {
         </div>
       </section>
 
-      <p className="rounded-xl border border-border/70 bg-background/60 p-3 text-xs leading-relaxed text-muted-foreground">
+      <p className="emergent-locat-control rounded-xl p-3 text-xs leading-relaxed text-muted-foreground">
         Privacy note: end-to-end encryption protects message contents in transit, but chat history stored on this device is not encrypted at rest. The server handles account and delivery metadata. Keep encrypted backups of important conversations.
       </p>
     </div>
