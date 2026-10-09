@@ -146,3 +146,13 @@ body { overscroll-behavior: none; }
 @media (prefers-reduced-motion: reduce) {
   .emergent-locat-control { transition: none; }
 }
+
+/* Emergent titanium chat accents: presentation only; no message or crypto state. */
+.emergent-locat-chat .emergent-locat-message {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.045), 0 3px 12px rgb(0 0 0 / 0.12);
+  overflow-wrap: anywhere;
+}
+.emergent-locat-chat .emergent-locat-message:focus-within {
+  outline: 1px solid var(--locat-steel);
+  outline-offset: 2px;
+}
