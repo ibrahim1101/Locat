@@ -51,6 +51,49 @@ jobs:
       - name: Install Locat Android storage bridge
         run: node scripts/install-android-storage-plugin.mjs
       - run: npx cap sync android
+      - name: Generate Locat titanium adaptive launcher
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          res = Path("android/app/src/main/res")
+          drawable = res / "drawable"
+          drawable.mkdir(parents=True, exist_ok=True)
+          artwork = """<vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+            <path android:fillColor="#D6DAE0"
+              android:pathData="M38,49 C24,43 24,30 31,20 L43,27 C52,20 62,21 70,27 L80,20 C87,34 83,44 76,51 C72,55 72,60 79,67 C68,71 59,68 55,59 C51,54 46,51 38,49 Z"/>
+            <path android:fillColor="#D6DAE0"
+              android:pathData="M39,51 C25,54 24,70 34,78 C44,86 64,83 73,73 C67,79 56,77 52,68 C48,61 50,55 55,52 Z"/>
+            <path android:strokeColor="#E8EAEE" android:strokeWidth="5"
+              android:strokeLineCap="round" android:pathData="M34,79 C50,90 72,88 86,76"/>
+            <path android:fillColor="#12151A" android:pathData="M45,37 m-2,0 a2,2 0,1 0,4 0 a2,2 0,1 0,-4 0"/>
+            <path android:fillColor="#12151A" android:pathData="M65,37 m-2,0 a2,2 0,1 0,4 0 a2,2 0,1 0,-4 0"/>
+            <path android:strokeColor="#D6DAE0" android:strokeWidth="1.7" android:strokeLineCap="round" android:pathData="M37,42 L23,38 M36,47 L22,47 M74,42 L87,38 M75,47 L89,47"/>
+          </vector>"""
+          (drawable / "locat_cat_mark.xml").write_text(artwork)
+          values = res / "values"
+          colors = values / "colors.xml"
+          if colors.exists():
+              source = colors.read_text()
+              if 'name="locat_titanium_background"' not in source:
+                  source = source.replace("</resources>", '    <color name="locat_titanium_background">#0A0B0D</color>\n</resources>')
+              colors.write_text(source)
+          else:
+              colors.write_text('<resources><color name="locat_titanium_background">#0A0B0D</color></resources>')
+          mipmap = res / "mipmap-anydpi-v26"
+          mipmap.mkdir(parents=True, exist_ok=True)
+          adaptive = """<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+            <background android:drawable="@color/locat_titanium_background"/>
+            <foreground android:drawable="@drawable/locat_cat_mark"/>
+          </adaptive-icon>"""
+          for name in ("ic_launcher.xml", "ic_launcher_round.xml"):
+              (mipmap / name).write_text(adaptive)
+          ET.fromstring(artwork)
+          ET.fromstring(adaptive)
+          print("Locat titanium adaptive launcher generated")
+          PY
       - name: Configure Firebase for Android
         env:
           LOCAT_FIREBASE_CONFIG_BASE64: ${{ secrets.LOCAT_FIREBASE_CONFIG_BASE64 }}
