@@ -35,7 +35,7 @@ export function Notifications() {
     }
   }
   return (
-    <section className="space-y-3 rounded-xl border p-3">
+    <section className="emergent-locat-surface min-w-0 space-y-3 rounded-xl p-4">
       <h3 className="text-sm font-medium">Background notifications</h3>
       <p className="text-xs text-secondary">
         Optional alerts say “New messages on Locat” without contact names or
