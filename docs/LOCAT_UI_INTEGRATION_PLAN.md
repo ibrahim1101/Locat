@@ -30,3 +30,9 @@
 - Existing Android package ID, auth origins, push service or Raspberry Pi deployment settings change unexpectedly.
 
 No deployment to Raspberry Pi without explicit user permission. This document is a compatibility plan, not a claim of completed UI integration.
+
+## Phase 2: isolated presentation import
+- Verified CI and Android APK both passed on compatibility bridge commit 8462fdd (runs 37943204266 and 37943204360).
+- Imported Emergent-inspired standalone avatar as `src/components/emergent/TitaniumAvatar.tsx` (commit 666e25b). It uses only display props, deterministic avatar colors and presence dots; no mock adapter or network operations.
+- Added namespaced titanium design tokens and `emergent-locat-*` CSS primitives to `src/index.css` (commit 727e02f). No existing routes, login, crypto, storage, delivery or backend changed.
+- New commits await checks. Next: unit tests and gradual use of visual components within existing live conversation rendering.
