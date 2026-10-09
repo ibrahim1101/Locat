@@ -35,11 +35,11 @@ export function ProfileDialog({ user, open, onOpenChange }: {
   });
   const busy = preparing || savePicture.isPending || update.isPending;
   return <Dialog open={open} onOpenChange={next => { if (!busy) onOpenChange(next); }}>
-    <DialogContent className="smoked-glass max-h-[90dvh] w-[calc(100vw-1.5rem)] overflow-x-hidden overflow-y-auto rounded-2xl sm:max-w-md">
+    <DialogContent className="emergent-locat-surface max-h-[90dvh] w-[calc(100vw-1.5rem)] overflow-x-hidden overflow-y-auto rounded-2xl sm:max-w-md">
       <DialogHeader><DialogTitle>My profile</DialogTitle>
         <DialogDescription>Control which profile details other people can see using the privacy settings below.</DialogDescription>
       </DialogHeader>
-      <div className="titanium-panel flex min-w-0 items-center gap-4 rounded-2xl p-4">
+      <div className="emergent-locat-surface flex min-w-0 items-center gap-4 rounded-2xl p-4">
         <Avatar avatar={avatar} name={displayName || user.displayName} id={user.id} size={56} />
         <div className="min-w-0"><p className="truncate font-semibold">{displayName || user.displayName}</p>
           <p className="text-sm text-secondary">@{user.username}</p></div>
@@ -77,14 +77,14 @@ export function ProfileDialog({ user, open, onOpenChange }: {
       <div className="space-y-2"><Label htmlFor="profile-details-visibility">Who can see my picture and bio?</Label>
         <select id="profile-details-visibility" value={profileVisibility} disabled={busy}
           onChange={event => setProfileVisibility(event.target.value as typeof profileVisibility)}
-          className="h-11 w-full rounded-md border bg-background px-3 text-sm">
+          className="emergent-locat-control h-11 w-full rounded-xl px-3 text-sm">
           <option value="everyone">Everyone on this server</option><option value="contacts">Accepted contacts</option><option value="nobody">Nobody</option>
         </select>
       </div>
       <div className="space-y-2"><Label htmlFor="profile-presence-visibility">Who can see when I am online?</Label>
         <select id="profile-presence-visibility" value={presenceVisibility} disabled={busy}
           onChange={event => setPresenceVisibility(event.target.value as typeof presenceVisibility)}
-          className="h-11 w-full rounded-md border bg-background px-3 text-sm">
+          className="emergent-locat-control h-11 w-full rounded-xl px-3 text-sm">
           <option value="everyone">Everyone on this server</option><option value="contacts">Accepted contacts</option><option value="nobody">Nobody</option>
         </select>
         <p className="text-xs text-secondary">Online status is approximate and only shared while this device is connected.</p>
