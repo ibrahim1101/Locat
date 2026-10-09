@@ -153,7 +153,7 @@ function AuthForm({
           </Button>
         </form>
 
-        <div <div className="mt-5 border-t border-border/60 pt-4 text-center"><button type="button" className="min-h-11 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }}>{mode === "login" ? "New to Locat? Create account" : "Already have an account? Sign in"}</button></div>
+        <div className="mt-5 border-t border-border/60 pt-4 text-center"><button type="button" className="min-h-11 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }}>{mode === "login" ? "New to Locat? Create account" : "Already have an account? Sign in"}</button></div>
       </div>
     </Shell>
   );
