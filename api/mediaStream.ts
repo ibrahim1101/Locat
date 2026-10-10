@@ -3,6 +3,7 @@ import { realpath, stat } from "node:fs/promises";
 import { Readable } from "node:stream";
 import path from "node:path";
 import { createContext } from "./context";
+import { parseMediaRange } from "./mediaRange";
 
 const MIME: Record<string, string> = {
   ".mp4": "video/mp4", ".m4v": "video/mp4", ".mov": "video/quicktime",
@@ -10,7 +11,6 @@ const MIME: Record<string, string> = {
   ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".aac": "audio/aac",
   ".flac": "audio/flac", ".wav": "audio/wav", ".ogg": "audio/ogg", ".opus": "audio/ogg",
 };
-const MAX_RANGE = 8 * 1024 * 1024;
 
 export async function handleMediaStream(req: Request): Promise<Response> {
   if (req.method !== "GET" && req.method !== "HEAD") return new Response(null, { status: 405 });
@@ -33,25 +33,11 @@ export async function handleMediaStream(req: Request): Promise<Response> {
   const metadata = await stat(file).catch(() => null);
   if (!metadata?.isFile()) return new Response("Not found", { status: 404 });
   const size = metadata.size;
-  const range = req.headers.get("range");
-  let start = 0;
-  let end = size - 1;
-  if (range) {
-    const match = /^bytes=(\d*)-(\d*)$/.exec(range);
-    if (!match || (!match[1] && !match[2])) return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${size}` } });
-    if (!match[1]) {
-      const suffix = Number(match[2]);
-      if (!Number.isSafeInteger(suffix) || suffix < 1) return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${size}` } });
-      start = Math.max(0, size - suffix);
-    } else {
-      start = Number(match[1]);
-      if (match[2]) end = Number(match[2]);
-    }
-    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start >= size || end < start) return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${size}` } });
-  }
-  if (size === 0) return new Response(null, { status: range ? 416 : 200, headers: { "Content-Length": "0", "Accept-Ranges": "bytes" } });
-  end = Math.min(end, start + MAX_RANGE - 1, size - 1);
-  const partial = Boolean(range) || end < size - 1;
+  const range = parseMediaRange(req.headers.get("range"), size);
+  if (range.status === 416) return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${size}`, "Accept-Ranges": "bytes" } });
+  const { start, end } = range;
+  const partial = range.status === 206;
+  if (size === 0) return new Response(null, { status: 200, headers: { "Content-Length": "0", "Accept-Ranges": "bytes" } });
   const headers = new Headers({ "Content-Type": MIME[ext], "Content-Length": String(end - start + 1),
     "Accept-Ranges": "bytes", "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" });
   if (partial) headers.set("Content-Range", `bytes ${start}-${end}/${size}`);
