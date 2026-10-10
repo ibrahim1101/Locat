@@ -5,16 +5,23 @@ import { AppShell } from "@/components/shell/AppShell";
 
 export default function MediaLocal({ kind }: { kind: "cinema" | "music" }) {
   const music = kind === "music";
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [selected, setSelected] = useState(0);
+  const file = files[selected] ?? null;
   const [url, setUrl] = useState("");
-  useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
-  function choose(next?: File) {
-    if (!next) return;
-    setFile(next);
-    setUrl(URL.createObjectURL(next));
+  function choose(next: File[]) {
+    if (!next.length) return;
+    setFiles(next);
+    setSelected(0);
   }
+  useEffect(() => {
+    if (!file) { setUrl(""); return; }
+    const objectUrl = URL.createObjectURL(file);
+    setUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
   const Icon = music ? Music2 : Film;
-  return <AppShell active="dashboard">
+  return <AppShell active={kind}>
     <main className="locat-mesh flex-1 overflow-y-auto px-4 py-8 text-foreground">
       <div className="mx-auto max-w-3xl space-y-6">
         <Link to="/" className="inline-flex items-center gap-2 text-sm text-secondary"><ArrowLeft className="h-4 w-4" /> Dashboard</Link>
@@ -23,13 +30,13 @@ export default function MediaLocal({ kind }: { kind: "cinema" | "music" }) {
           <div><p className="obsidian-kicker">Locat Media Hub · Early access</p><h1 className="text-3xl font-semibold">{music ? "Music" : "Cinema"}</h1></div>
         </header>
         <section className="rounded-2xl border border-border bg-card/80 p-5">
-          <h2 className="flex items-center gap-2 font-semibold"><FolderOpen className="h-4 w-4 ember-text" /> Open a local {music ? "audio" : "video"} file</h2>
+          <h2 className="flex items-center gap-2 font-semibold"><FolderOpen className="h-4 w-4 ember-text" /> Open local {music ? "audio tracks" : "videos"}</h2>
           <p className="my-3 text-sm text-secondary">Playback uses this device's browser codecs. Full library streaming and advanced {music ? "EQ/DSP" : "transcoding"} are not connected yet.</p>
-          <input type="file" accept={music ? "audio/*,.flac,.alac,.wav" : "video/*,.mkv,.mov,.mp4"} onChange={e => { choose(e.target.files?.[0]); e.target.value = ""; }} aria-label="Select local media" className="w-full text-sm" />
+          <input type="file" multiple accept={music ? "audio/*,.flac,.alac,.wav" : "video/*,.mkv,.mov,.mp4"} onChange={e => { choose(Array.from(e.target.files ?? [])); e.target.value = ""; }} aria-label="Select local media" className="w-full text-sm" />
           {url && file && <div className="mt-5 space-y-3">
             <p className="truncate text-sm">{file.name}</p>
-            {music ? <audio key={url} src={url} controls className="w-full" /> : <video key={url} src={url} controls playsInline className="max-h-[65vh] w-full rounded-xl bg-black" />}
-            <button type="button" className="text-sm text-secondary underline" onClick={() => { setFile(null); setUrl(""); }}>Close media</button>
+            {music ? <audio key={url} src={url} controls onEnded={() => setSelected(i => Math.min(i + 1, files.length - 1))} className="w-full" /> : <video key={url} src={url} controls playsInline className="max-h-[65vh] w-full rounded-xl bg-black" />}
+            <div className="flex flex-wrap items-center gap-3 text-sm"><button type="button" disabled={selected === 0} className="rounded-lg border px-3 py-2 disabled:opacity-40" onClick={() => setSelected(i => Math.max(0, i - 1))}>Previous</button><span className="text-secondary">{selected + 1} / {files.length}</span><button type="button" disabled={selected >= files.length - 1} className="rounded-lg border px-3 py-2 disabled:opacity-40" onClick={() => setSelected(i => Math.min(files.length - 1, i + 1))}>Next</button><button type="button" className="text-secondary underline" onClick={() => { setFiles([]); setUrl(""); }}>Close media</button></div>{files.length > 1 && <ol aria-label="Local playback queue" className="max-h-48 space-y-1 overflow-y-auto">{files.map((track, index) => <li key={index}><button type="button" aria-current={selected === index ? "true" : undefined} onClick={() => setSelected(index)} className={`w-full truncate rounded-lg px-3 py-2 text-left text-sm ${selected === index ? "bg-primary/15 ember-text" : "text-secondary hover:bg-accent"}`}>{index + 1}. {track.name}</button></li>)}</ol>}
           </div>}
         </section>
         <section className="rounded-2xl border border-border bg-card/60 p-5">
