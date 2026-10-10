@@ -73,7 +73,7 @@ describe("downloadBlob", () => {
     });
     vi.stubGlobal("window", { confirm, dispatchEvent: vi.fn() });
     vi.stubGlobal("CustomEvent", class {
-      constructor(_name: string, _options: unknown) {}
+      constructor() {}
     });
     const saveSelected = vi.fn(async () => true);
     const fixture = testDependencies(saveSelected);
@@ -102,7 +102,7 @@ describe("downloadBlob", () => {
     });
     vi.stubGlobal("window", { confirm, dispatchEvent: vi.fn() });
     vi.stubGlobal("CustomEvent", class {
-      constructor(_name: string, _options: unknown) {}
+      constructor() {}
     });
     const fixture = testDependencies(vi.fn(async () => false));
     const filename = "browser-only-unique-image.png";
