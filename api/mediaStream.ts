@@ -34,7 +34,7 @@ export async function handleMediaStream(req: Request): Promise<Response> {
   if (!MIME[ext]) return new Response("Unsupported media", { status: 415 });
   const metadata = await stat(file).catch(() => null);
   if (!metadata?.isFile()) return new Response("Not found", { status: 404 });
-  if (params.get("mode") === "remux") {
+  if (params.get("mode") === "remux" || params.get("mode") === "transcode") {
     if (req.method !== "GET") return new Response("Remux requires GET", { status: 405 });
     // Firefox may request bytes=0- when initially opening a video.
     // Permit this initial request but reject actual seeking.
@@ -45,9 +45,10 @@ export async function handleMediaStream(req: Request): Promise<Response> {
     let probe;
     try { probe = await probeVideo(file); }
     catch { return new Response("FFprobe unavailable", { status: 503 }); }
-    if (probe.strategy !== "remux") return new Response("Stream copy unavailable for this codec combination", { status: 415 });
+    const transcode = params.get("mode") === "transcode";
+    if (transcode ? probe.strategy !== "transcode" : probe.strategy !== "remux") return new Response("Playback mode not supported for this codec combination", { status: 415 });
     let stream: ReadableStream<Uint8Array>;
-    try { stream = createRemuxStream(file, req.signal); }
+    try { stream = createRemuxStream(file, req.signal, transcode); }
     catch (error) {
       if (error instanceof RemuxBusyError) return new Response("Too many active remux streams", { status: 503, headers: { "Retry-After": "10" } });
       return new Response("Unable to start remux", { status: 503 });
