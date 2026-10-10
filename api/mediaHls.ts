@@ -12,7 +12,7 @@ import { probeVideo } from "./mediaProbe";
  * accepted from requests. Output stays in a private temporary directory.
  */
 const MAX_SESSIONS = 2;
-const IDLE_MS = 10 * 60_000;
+const IDLE_MS = 90_000;
 const MAX_RUNTIME_MS = 4 * 60 * 60_000;
 type Session = {
   dir: string; child: ChildProcess; touched: number;
@@ -23,8 +23,15 @@ const sessions = new Map<string, Session>();
 async function clearSession(key: string, session: Session) {
   if (sessions.get(key) !== session) return;
   sessions.delete(key);
-  if (!session.done) session.child.kill();
-  await rm(session.dir, { recursive: true, force: true }).catch(() => {});
+  if (!session.done) {
+    session.child.kill();
+    await new Promise<void>(resolve => {
+      if (session.child.exitCode !== null || session.child.signalCode !== null) return resolve();
+      session.child.once("close", () => resolve());
+      setTimeout(resolve, 3000).unref();
+    });
+  }
+  await rm(session.dir, { recursive: true, force: true, maxRetries: 4, retryDelay: 250 }).catch(() => {});
 }
 
 async function resolveAuthorizedFile(library: string | null, id: string | null) {
@@ -91,19 +98,27 @@ async function getSession(key: string, file: string, quality: "1080p" | "4k") {
 }
 
 export async function handleMediaHls(req: Request): Promise<Response> {
-  if (req.method !== "GET") return new Response(null, { status: 405 });
+  if (req.method !== "GET" && req.method !== "POST") return new Response(null, { status: 405 });
   const ctx = await createContext({ req, resHeaders: new Headers(), info: { isBatchCall: false, calls: [], accept: null, type: "query", connectionParams: null, signal: req.signal, url: new URL(req.url) } } as Parameters<typeof createContext>[0]);
   if (!ctx.user) return new Response("Unauthorized", { status: 401 });
   const params = new URL(req.url).searchParams;
   const file = await resolveAuthorizedFile(params.get("library"), params.get("id"));
   if (!file) return new Response("Not found", { status: 404 });
+  const action = params.get("action");
+  if (req.method === "POST" && action !== "release") return new Response("Invalid action", { status: 400 });
+  if (req.method === "GET" && action) return new Response("Invalid action", { status: 400 });
+  const quality = params.get("quality") === "4k" ? "4k" : "1080p";
+  const userId = String(ctx.user.id);
+  const key = createHash("sha256").update(userId + "\0" + file + "\0" + quality).digest("hex");
+  if (action === "release") {
+    const session = sessions.get(key);
+    if (session) await clearSession(key, session);
+    return new Response(null, { status: 204 });
+  }
   const probe = await probeVideo(file).catch(() => null);
   if (!probe || probe.strategy !== "transcode") return new Response("Transcoding not required or probe unavailable", { status: 415 });
   const asset = params.get("asset") || "index.m3u8";
   if (asset !== "index.m3u8" && !/^segment-\d{6}\.ts$/.test(asset)) return new Response("Invalid segment", { status: 400 });
-  const quality = params.get("quality") === "4k" ? "4k" : "1080p";
-  const userId = String(ctx.user.id);
-  const key = createHash("sha256").update(userId + "\0" + file + "\0" + quality).digest("hex");
   const session = await getSession(key, file, quality);
   if (!session) return new Response("HLS capacity reached", { status: 503, headers: { "Retry-After": "10" } });
   const filename = path.join(session.dir, asset);
