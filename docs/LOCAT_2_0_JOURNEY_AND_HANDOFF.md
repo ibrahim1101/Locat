@@ -193,3 +193,11 @@ up from this adapter layer without re-planning the architecture.
 - Added regression tests to `src/lib/appLock.test.ts` for the fail-closed behavior. **Tests not independently executed:** local container cannot reach GitHub to clone/install the full repository. No claim of green CI.
 - Follow-up: implement real challenge-bound WebAuthn assertion verification using credential public key, origin/RP ID, UV flag, signature and counter policy; review server-backed or native hardware-backed unlock, then re-enable biometrics only after end-to-end tests.
 - No production deployment, PR merge or original Android app changes.
+
+## 2026-10-10 — Plaintext draft persistence hardening
+
+- On `fix/locat-2.0-app-lock-biometric-guard`, replaced `src/lib/draft.ts` persistent localStorage composer text with ephemeral in-memory Map entries scoped to `userId:conversationId`.
+- Drafts survive in-app navigation within the current tab, but deliberately do **not** survive a full page reload, browser restart or app process termination. This is a privacy-over-convenience tradeoff, not encryption at rest.
+- Added `purgeLegacyDrafts()` on auth provider startup, successful account transition and logout, and `clearAllDrafts()` on account transition/logout. Legacy plaintext `locat-draft:` entries are deleted best-effort without importing their contents.
+- Updated `ChatWindow` to load per-user drafts and save only on actual textarea edits, avoiding cross-conversation overwrites caused by effect ordering. Updated `draft.test.ts` and `homeNavigation.test.ts` for new API.
+- No browser, native Android or GitHub Actions execution evidence yet. This branch requires TypeScript, Vitest, lint and build verification before integration; user local Android preview remains untouched.
