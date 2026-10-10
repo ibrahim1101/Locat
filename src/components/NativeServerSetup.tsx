@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { setNativeServerUrl } from "@/lib/native";
+import { parseNativeServerOrigin } from "@/lib/nativeServerOrigin";
 
 export function NativeServerSetup() {
   const [server, setServer] = useState("");
@@ -10,13 +11,12 @@ export function NativeServerSetup() {
     setChecking(true);
     setError("");
     try {
-      const url = new URL(server.trim());
-      if (url.protocol !== "https:") throw new Error("Locat Android requires an HTTPS server address.");
-      const response = await fetch(`${url.origin}/api/health`, { signal: AbortSignal.timeout(8000) });
+      const origin = parseNativeServerOrigin(server);
+      const response = await fetch(`${origin}/api/health`, { signal: AbortSignal.timeout(8000) });
       if (!response.ok) throw new Error("That server did not pass the Locat health check.");
       const health = await response.json() as { app?: string; status?: string };
       if (health.app !== "Locat" || health.status !== "ok") throw new Error("That address is not a compatible Locat server.");
-      setNativeServerUrl(url.origin);
+      setNativeServerUrl(origin);
       window.location.reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not reach that Locat server.");
