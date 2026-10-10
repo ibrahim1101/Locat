@@ -1,4 +1,4 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtemp, readFile, realpath, rm, stat } from "node:fs/promises";
 import os from "node:os";
@@ -15,7 +15,7 @@ const MAX_SESSIONS = 2;
 const IDLE_MS = 10 * 60_000;
 const MAX_RUNTIME_MS = 4 * 60 * 60_000;
 type Session = {
-  dir: string; child: ChildProcessWithoutNullStreams; touched: number;
+  dir: string; child: ChildProcess; touched: number;
   failed: boolean; done: boolean; started: number;
 };
 const sessions = new Map<string, Session>();
@@ -72,7 +72,7 @@ async function getSession(key: string, file: string) {
   const session: Session = { dir, child, touched: Date.now(), failed: false, done: false, started: Date.now() };
   sessions.set(key, session);
   let errorTail = "";
-  child.stderr.on("data", (chunk: Buffer) => { errorTail = (errorTail + chunk.toString()).slice(-2048); });
+  child.stderr?.on("data", (chunk: Buffer) => { errorTail = (errorTail + chunk.toString()).slice(-2048); });
   child.on("error", () => { session.failed = true; session.done = true; });
   child.on("close", code => {
     session.done = true;
