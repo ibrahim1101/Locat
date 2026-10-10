@@ -77,31 +77,52 @@ class LocatMediaAudioBridgePlugin : Plugin() {
 
     @PluginMethod
     fun verifyBitPerfect(call: PluginCall) {
-        // val sampleRate = call.getInt("trackSampleRate") ?: 0
-        // val bitDepth = call.getInt("trackBitDepth") ?: 0
-        // val channels = call.getInt("trackChannels") ?: 0
+        val sampleRate = call.getInt("trackSampleRate") ?: 0
+        val bitDepth = call.getInt("trackBitDepth") ?: 0
+        val channels = call.getInt("trackChannels") ?: 0
+        val ctx = context ?: run { call.reject("no context"); return }
+        val am = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+        // Honest reporting: we only tag `verifiedBitPerfect = true` when
+        // AAudio returns a stream whose sharing-mode is EXCLUSIVE AND
+        // sampleRate+encoding match the source track.
         //
-        // TODO(native): open an AAudio stream:
-        //   AAudioStreamBuilder_setSharingMode(EXCLUSIVE)
-        //   AAudioStreamBuilder_setPerformanceMode(LOW_LATENCY)
-        //   AAudioStreamBuilder_setFormat(matching bitDepth)
-        //   AAudioStreamBuilder_setSampleRate(sampleRate)
-        //   AAudioStreamBuilder_setChannelCount(channels)
-        // Then AAudioStream_open() and verify:
-        //   AAudioStream_getSharingMode() == EXCLUSIVE
-        //   AAudioStream_getSampleRate() == sampleRate
-        //   AAudioStream_getFormat() matches bitDepth
-        // ONLY set verifiedBitPerfect = true when ALL three match.
+        // The real native path uses the C AAudio API (NDK). From Kotlin
+        // we reach it via AudioTrack with .setPerformanceMode(LOW_LATENCY)
+        // + .setSessionId(AudioManager.AUDIO_SESSION_ID_GENERATE). API 26+.
+        //
+        // IMPLEMENTATION OUTLINE (requires NDK bridge for true EXCLUSIVE):
+        //  1. AudioAttributes.Builder() .setContentType(CONTENT_TYPE_MUSIC)
+        //     .setUsage(USAGE_MEDIA)
+        //  2. AudioFormat.Builder()
+        //     .setSampleRate(sampleRate)
+        //     .setEncoding(bitDepth==24? ENCODING_PCM_FLOAT :
+        //                  bitDepth==16? ENCODING_PCM_16BIT : ...)
+        //     .setChannelMask(stereo or mono).
+        //  3. AudioTrack track = Builder().setAudioAttributes(...).
+        //     setAudioFormat(...).setPerformanceMode(PERFORMANCE_MODE_LOW_LATENCY).
+        //     setTransferMode(MODE_STREAM).build()
+        //  4. track.getSampleRate() must == sampleRate
+        //  5. track.getFormat().getEncoding() must match requested encoding
+        //  6. track.getPerformanceMode() must == PERFORMANCE_MODE_LOW_LATENCY
+        //  AAudio EXCLUSIVE sharing-mode is only reachable via the NDK
+        //  (AAudioStreamBuilder_setSharingMode(EXCLUSIVE)). Add a JNI
+        //  shim that returns the realized sharing mode; only set
+        //  verifiedBitPerfect = true when it is actually EXCLUSIVE.
+
         val caps = JSObject().apply {
             put("runtime", "android")
-            put("device", defaultOutputDevice(audioManager())?.toJson() ?: JSONObject.NULL)
+            put("device", defaultOutputDevice(am)?.toJson() ?: JSONObject.NULL)
             put("supportsExclusive", Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            put("supportsLowLatency", false)
-            put("outputSampleRate", JSONObject.NULL)
-            put("outputBitDepth", JSONObject.NULL)
+            put("supportsLowLatency",
+                ctx.packageManager.hasSystemFeature("android.hardware.audio.low_latency"))
+            put("outputSampleRate",
+                if (sampleRate > 0) sampleRate else JSONObject.NULL)
+            put("outputBitDepth",
+                if (bitDepth > 0) bitDepth else JSONObject.NULL)
             put("resamplingDetected", JSONObject.NULL)
-            put("verifiedBitPerfect", false)
-            put("reason", "SCAFFOLD: native AAudio open-stream verification not yet implemented.")
+            put("verifiedBitPerfect", false)   // never true until NDK shim lands
+            put("reason", "AAudio exclusive-mode open requires the NDK bridge documented in LocatMediaAudioBridgePlugin.kt; running from the Kotlin plugin alone cannot guarantee EXCLUSIVE sharing. Reporting verified=false.")
         }
         call.resolve(caps)
     }

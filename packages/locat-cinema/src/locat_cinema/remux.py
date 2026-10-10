@@ -67,6 +67,7 @@ class FfmpegRemuxWorker:
         *,
         start_seconds: float = 0.0,
         audio_codec_hint: Optional[str] = None,
+        preserve_dovi: bool = False,
         on_bytes=None,
         cancel_event: Optional[asyncio.Event] = None,
     ) -> AsyncIterator[bytes]:
@@ -80,6 +81,12 @@ class FfmpegRemuxWorker:
         if start_seconds and start_seconds > 0:
             pre_input = ["-ss", f"{start_seconds:.3f}"]
 
+        # Dolby Vision preservation: when the source is a DoVi-tagged
+        # HEVC track inside MKV, we tag the output video stream as hvc1
+        # so a DoVi-capable player can still see the RPU payload. We do
+        # NOT re-encode. For non-DoVi sources this flag is a no-op.
+        extra_video_tags = ["-tag:v", "hvc1"] if preserve_dovi else []
+
         cmd = [
             _FFMPEG,
             "-hide_banner", "-loglevel", "warning",
@@ -88,6 +95,7 @@ class FfmpegRemuxWorker:
             "-map", "0:v:0?",
             "-map", "0:a?",
             "-c:v", "copy",
+            *extra_video_tags,
             *audio_args,
             "-sn",                             # drop subs; UI selects separately
             "-movflags", "frag_keyframe+empty_moov+default_base_moof+delay_moov",

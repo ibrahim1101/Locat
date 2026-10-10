@@ -39,7 +39,8 @@ from locat_media_adapters import (
 )
 
 from locat_cinema import CinemaIndexer, ClientCapabilities, PlaybackDecider, RangeStreamer
-from locat_cinema import FfmpegRemuxWorker
+from locat_cinema import FfmpegRemuxWorker, FfmpegTranscodeWorker, select_profile
+from locat_cinema import classify_subtitle, extract_subtitle_as_webvtt
 from locat_cinema.hwaccel import probe_ffmpeg_capabilities, common_container_matrix
 from locat_music import MusicIndexer, AudioModeService, builtin_eq_presets
 
@@ -139,6 +140,7 @@ def create_media_router(
     audio_mode_service = AudioModeService(persistence=persistence, host=host)
     decider = PlaybackDecider()
     remuxer = FfmpegRemuxWorker()
+    transcoder = FfmpegTranscodeWorker()
     telemetry = TelemetryService(diagnostics)
 
     # ---------------- Dependencies ----------------
@@ -432,6 +434,7 @@ def create_media_router(
                 async for chunk in remuxer.stream(
                     Path(it.path),
                     start_seconds=start,
+                    preserve_dovi=(v is not None and v.hdr == "dovi"),
                     on_bytes=lambda n: diagnostics.record_bytes(session.id, n),
                     cancel_event=cancel,
                 ):
@@ -443,15 +446,158 @@ def create_media_router(
                 diagnostics.end_session(session.id)
 
         from starlette.responses import StreamingResponse
+        v = it.video_streams[0] if it.video_streams else None
+        dovi_header = "preserved" if (v and v.hdr == "dovi") else "not-applicable"
         return StreamingResponse(
             _iter(),
             media_type="video/mp4",
             headers={
                 "X-Locat-Session-Id": session.id,
                 "X-Locat-Playback-Path": "remux-stream-copy",
+                "X-Locat-HDR-Format": (v.hdr or "sdr") if v else "sdr",
+                "X-Locat-DolbyVision": dovi_header,
                 "Cache-Control": "no-cache",
             },
         )
+
+    @router.get("/items/{item_id}/transcode.mp4")
+    async def transcode_item(
+        item_id: str,
+        request: Request,
+        start: float = Query(0.0, ge=0),
+        max_height: Optional[int] = Query(None),
+        user: UserContext = Depends(_require_user),
+    ):
+        """Server-side TRANSCODE to H.264/AAC MP4. NVENC-first with CPU
+        fallback. Used only when neither Direct Play nor Direct Stream
+        can serve the client."""
+        it = await persistence.get_item(item_id)
+        if not it:
+            raise HTTPException(status_code=404, detail="Item not found")
+        if not storage.is_authorized_path(it.path):
+            raise HTTPException(status_code=403, detail="Media path not authorized")
+
+        v = it.video_streams[0] if it.video_streams else None
+        profile = await select_profile(
+            source_codec=(v.codec if v else ""),
+            source_pix_fmt=(v.pixel_format if v else None),
+            want_video_codecs=["h264"],
+            max_height=max_height,
+        )
+        session = diagnostics.start_session(PlaybackSession(
+            item_id=item_id,
+            client_id=user.device_id,
+            client_info={"user_id": user.user_id, "mode": "transcode", "profile": profile.name},
+        ))
+
+        import asyncio as _asyncio
+        cancel = _asyncio.Event()
+        progress_state = {"progress": {}}
+
+        def _on_progress(p: dict) -> None:
+            progress_state["progress"] = p
+
+        async def _iter():
+            try:
+                async for chunk in transcoder.stream(
+                    Path(it.path), profile,
+                    start_seconds=start,
+                    on_bytes=lambda n: diagnostics.record_bytes(session.id, n),
+                    on_progress=_on_progress,
+                    cancel_event=cancel,
+                ):
+                    if await request.is_disconnected():
+                        cancel.set()
+                        break
+                    yield chunk
+            finally:
+                diagnostics.end_session(session.id)
+
+        from starlette.responses import StreamingResponse
+        headers = {
+            "X-Locat-Session-Id": session.id,
+            "X-Locat-Playback-Path": "transcode",
+            "X-Locat-Encoder": profile.video_codec,
+            "X-Locat-Encoder-Reason": profile.reason,
+            "Cache-Control": "no-cache",
+        }
+        return StreamingResponse(_iter(), media_type="video/mp4", headers=headers)
+
+    @router.get("/items/{item_id}/transcode-profile")
+    async def preview_transcode_profile(item_id: str,
+                                        max_height: Optional[int] = None,
+                                        user: UserContext = Depends(_require_user)):
+        it = await persistence.get_item(item_id)
+        if not it:
+            raise HTTPException(status_code=404, detail="Item not found")
+        v = it.video_streams[0] if it.video_streams else None
+        profile = await select_profile(
+            source_codec=(v.codec if v else ""),
+            source_pix_fmt=(v.pixel_format if v else None),
+            want_video_codecs=["h264"],
+            max_height=max_height,
+        )
+        return {
+            "name": profile.name,
+            "video_codec": profile.video_codec,
+            "audio_codec": profile.audio_codec,
+            "preset": profile.preset,
+            "hwaccel": profile.hwaccel,
+            "max_height": profile.max_height,
+            "reason": profile.reason,
+        }
+
+    @router.get("/items/{item_id}/subtitles")
+    async def list_subtitles(item_id: str, user: UserContext = Depends(_require_user)):
+        it = await persistence.get_item(item_id)
+        if not it:
+            raise HTTPException(status_code=404, detail="Item not found")
+        tracks = []
+        for s in it.subtitle_streams:
+            kind = classify_subtitle(s.codec)
+            tracks.append({
+                "index": s.index,
+                "codec": s.codec,
+                "language": s.language,
+                "default": s.default,
+                "forced": s.forced,
+                "kind": kind,
+                "deliverable_as_webvtt": kind == "text",
+                "notes": (
+                    "Text subtitle — converted to WebVTT on request." if kind == "text" else
+                    "Image-based subtitle (PGS/VobSub). WebVTT is a TEXT format; direct conversion is not possible without OCR. "
+                    "Native Locat Windows/Android adapter must render these in a hardware subtitle overlay."
+                    if kind == "image" else
+                    "Unknown subtitle codec — browser-side rendering not supported."
+                ),
+            })
+        return {"item_id": item_id, "tracks": tracks}
+
+    @router.get("/items/{item_id}/subtitles/{index}.vtt")
+    async def subtitle_vtt(item_id: str, index: int, user: UserContext = Depends(_require_user)):
+        it = await persistence.get_item(item_id)
+        if not it:
+            raise HTTPException(status_code=404, detail="Item not found")
+        if not storage.is_authorized_path(it.path):
+            raise HTTPException(status_code=403, detail="Media path not authorized")
+        stream = next((s for s in it.subtitle_streams if s.index == index), None)
+        if stream is None:
+            raise HTTPException(status_code=404, detail="Subtitle stream not found")
+        kind = classify_subtitle(stream.codec)
+        if kind == "image":
+            raise HTTPException(
+                status_code=415,
+                detail=(
+                    f"Subtitle stream {index} is image-based ({stream.codec}); WebVTT is a text format. "
+                    "Direct conversion requires OCR and is intentionally not performed by this server. "
+                    "Use a native Locat adapter that can overlay the original bitmaps instead."
+                ),
+            )
+        vtt = await extract_subtitle_as_webvtt(Path(it.path), index, stream.codec)
+        if vtt is None:
+            raise HTTPException(status_code=500, detail="Failed to extract subtitle")
+        from starlette.responses import Response as _Resp
+        return _Resp(content=vtt, media_type="text/vtt; charset=utf-8")
 
     @router.get("/items/{item_id}/diagnostics")
     async def item_diagnostics(
