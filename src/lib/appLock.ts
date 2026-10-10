@@ -320,6 +320,7 @@ export async function registerBiometric(
   _username: string,
   _storage: AppLockStorage | undefined = defaultStorage(),
 ): Promise<AppLockConfig | null> {
+  void _storage;
   throw new AppLockError(
     "Biometric unlock is temporarily disabled pending verified WebAuthn assertions. Use your device passcode.",
     "storage-unavailable",
@@ -329,6 +330,7 @@ export async function registerBiometric(
 export async function verifyBiometric(
   _storage: AppLockStorage | undefined = defaultStorage(),
 ): Promise<boolean> {
+  void _storage;
   return false;
 }
 
