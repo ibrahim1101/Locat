@@ -104,17 +104,11 @@ export function ChatWindow({
   onToggleMessageHidden: (message: LocalMessage) => void;
 }) {
   const [draft, setDraft] = useState(() => loadDraft(conversation.id, myId));
-  const draftOwner = useRef(`${myId}:${conversation.id}`);
-  // On conversation/account switches, avoid saving the previous chat's text
-  // under the newly selected conversation before the state update takes effect.
+  // Drafts persist in memory on actual edits, never on a conversation-switch
+  // effect (which could otherwise copy the previous conversation's text).
   useEffect(() => {
-    draftOwner.current = `${myId}:${conversation.id}`;
     setDraft(loadDraft(conversation.id, myId));
   }, [conversation.id, myId]);
-  useEffect(() => {
-    if (draftOwner.current !== `${myId}:${conversation.id}`) return;
-    saveDraft(conversation.id, myId, draft);
-  }, [conversation.id, myId, draft]);
 
   // Per-conversation notification mute. Preferences are device-local so the
   // state lives next to the draft rather than in the server session.
@@ -497,6 +491,7 @@ export function ChatWindow({
                 value={draft}
                 onChange={e => {
                   setDraft(e.target.value);
+                  saveDraft(conversation.id, myId, e.target.value);
                   e.target.style.height = "auto";
                   e.target.style.height = `${Math.min(e.target.scrollHeight, 144)}px`;
                 }}
