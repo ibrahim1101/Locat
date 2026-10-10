@@ -1,53 +1,49 @@
-// Composer drafts are stored on-device so switching conversations, closing the
-// app, or jumping to the ecosystem home never loses what the user was typing.
-// Drafts are not E2E encrypted at rest, matching the rest of local history.
-//
-// Keys are per-conversation and per-browser; nothing is uploaded to the server.
-// Empty drafts are removed to avoid filling localStorage with blank entries.
+// Drafts are ephemeral and never written to persistent browser storage.
+// The map survives React navigation inside this tab, but not a page reload.
+// Each entry is scoped to the authenticated user and conversation.
+const MAX_DRAFT = 4096;
+const drafts = new Map<string, string>();
+const LEGACY_PREFIX = "locat-draft:";
 
-const PREFIX = "locat-draft:";
-const MAX_DRAFT = 4096; // Guard against runaway textareas and quota errors.
-
-export function draftStorageKey(conversationId: number): string {
-  return `${PREFIX}${conversationId}`;
+export function draftStorageKey(conversationId: number, userId: number): string {
+  return `locat-draft:${userId}:${conversationId}`;
 }
 
-export function loadDraft(
-  conversationId: number,
-  storage: Pick<Storage, "getItem"> | undefined = typeof localStorage === "undefined" ? undefined : localStorage,
-): string {
-  if (!storage) return "";
-  try {
-    return storage.getItem(draftStorageKey(conversationId)) ?? "";
-  } catch {
-    return "";
-  }
+export function loadDraft(conversationId: number, userId: number): string {
+  return drafts.get(draftStorageKey(conversationId, userId)) ?? "";
 }
 
-export function saveDraft(
-  conversationId: number,
-  value: string,
-  storage: Pick<Storage, "setItem" | "removeItem"> | undefined = typeof localStorage === "undefined" ? undefined : localStorage,
-): void {
-  if (!storage) return;
-  const trimmed = value.length > MAX_DRAFT ? value.slice(0, MAX_DRAFT) : value;
-  try {
-    if (trimmed.length === 0) storage.removeItem(draftStorageKey(conversationId));
-    else storage.setItem(draftStorageKey(conversationId), trimmed);
-  } catch {
-    // Private windows and quota-exceeded failures are swallowed: a lost draft
-    // is better than a crashed composer, and the UI already has in-memory state.
-  }
+export function saveDraft(conversationId: number, userId: number, value: string): void {
+  const key = draftStorageKey(conversationId, userId);
+  const capped = value.slice(0, MAX_DRAFT);
+  if (capped) drafts.set(key, capped);
+  else drafts.delete(key);
 }
 
-export function clearDraft(
-  conversationId: number,
-  storage: Pick<Storage, "removeItem"> | undefined = typeof localStorage === "undefined" ? undefined : localStorage,
-): void {
+export function clearDraft(conversationId: number, userId: number): void {
+  drafts.delete(draftStorageKey(conversationId, userId));
+}
+
+/** Erase in-memory drafts on sign-out/account transitions. */
+export function clearAllDrafts(): void {
+  drafts.clear();
+}
+
+/**
+ * Best-effort cleanup of plaintext legacy drafts created by earlier builds.
+ * Run on startup and logout. No legacy content is imported into memory.
+ */
+export function purgeLegacyDrafts(storage: Pick<Storage, "length" | "key" | "removeItem"> | undefined =
+  typeof localStorage === "undefined" ? undefined : localStorage): void {
   if (!storage) return;
   try {
-    storage.removeItem(draftStorageKey(conversationId));
+    const keys: string[] = [];
+    for (let i = 0; i < storage.length; i++) {
+      const key = storage.key(i);
+      if (key?.startsWith(LEGACY_PREFIX)) keys.push(key);
+    }
+    for (const key of keys) storage.removeItem(key);
   } catch {
-    // Best effort — matches saveDraft.
+    // Browsers can disable storage access. Never block chat initialization.
   }
 }
