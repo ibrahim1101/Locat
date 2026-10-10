@@ -7,6 +7,7 @@ import { conversationsRouter } from "./conversationsRouter";
 import { messagesRouter } from "./messagesRouter";
 import { sentinelRouter } from "./sentinelRouter";
 import { linkRouter } from "./linkRouter";
+import { mediaRouter } from "./mediaRouter";
 
 export const appRouter = createRouter({
   ping: publicQuery.query(() => ({ ok: true, ts: Date.now() })),
@@ -19,6 +20,7 @@ export const appRouter = createRouter({
   messages: messagesRouter,
   sentinel: sentinelRouter,
   link: linkRouter,
+  media: mediaRouter,
 });
 
 export type AppRouter = typeof appRouter;
