@@ -68,7 +68,10 @@ async function getSession(key: string, file: string, quality: "1080p" | "4k") {
   const nvenc = process.env.LOCAT_TRANSCODE_ENCODER === "h264_nvenc";
   const maxHeight = quality === "4k" ? 2160 : 1080;
   const child = spawn(process.env.LOCAT_FFMPEG_PATH || "ffmpeg", [
-    "-hide_banner", "-loglevel", "error", "-nostdin", "-i", file,
+    // Throttle file ingestion to near playback speed: prevents runaway GPU/disk use.
+    // This is not pause-aware yet; the next stage will make segment production demand-driven.
+    "-hide_banner", "-loglevel", "error", "-nostdin",
+    "-readrate", "1.25", "-readrate_initial_burst", "8", "-i", file,
     "-map", "0:v:0", "-map", "0:a:0?",
     "-c:v", nvenc ? "h264_nvenc" : "libx264",
     "-preset", nvenc ? "p4" : "veryfast", "-pix_fmt", "yuv420p",
