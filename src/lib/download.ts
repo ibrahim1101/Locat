@@ -28,8 +28,6 @@ export type DownloadDependencies = {
 };
 
 const activeDownloads = new Map<string, Promise<DownloadDestination>>();
-const recentlySaved = new Map<string, { destination: DownloadDestination; until: number }>();
-const DUPLICATE_TAP_WINDOW_MS = 5_000;
 const SAVED_DOWNLOADS_KEY = "locat-saved-attachments-v1";
 
 function previouslySaved(key: string): boolean {
@@ -76,14 +74,8 @@ export function downloadBlob(
   const dependencies = { ...browserDependencies(), ...overrides };
   const existing = activeDownloads.get(key);
   if (existing) return existing;
-  const previous = recentlySaved.get(key);
-  if (previous && Date.now() < previous.until && !(dependencies.isNativeShell() && previous.destination === "browser")) {
-    notifyDownload(filename, "saved", previous.destination);
-    return Promise.resolve(previous.destination);
-  }
-  recentlySaved.delete(key);
   // Remember successful saves across restarts. This is history, not proof the file still exists.
-  if (typeof window !== "undefined" && previouslySaved(key) &&
+  if (dependencies.isNativeShell() && typeof window !== "undefined" && previouslySaved(key) &&
       !window.confirm(`You previously downloaded "${filename}". Download it again?`)) {
     return Promise.resolve("selected-folder");
   }
@@ -112,7 +104,6 @@ export function downloadBlob(
         if (error instanceof Error && error.message.startsWith("Android native downloads")) throw error;
         throw new Error("Locat could not save the attachment. Open Settings & backups, choose the folder again, then retry. No file was saved.");
       }
-      if (destination === "selected-folder") recentlySaved.set(key, { destination, until: Date.now() + DUPLICATE_TAP_WINDOW_MS });
       if (destination === "selected-folder") rememberSaved(key);
       notifyDownload(filename, "saved", destination);
       return destination;
