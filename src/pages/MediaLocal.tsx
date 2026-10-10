@@ -9,16 +9,17 @@ export default function MediaLocal({ kind }: { kind: "cinema" | "music" }) {
   const [files, setFiles] = useState<File[]>([]);
   const [selected, setSelected] = useState(0);
   const file = files[selected] ?? null;
-  const [url, setUrl] = useState("");
+
   function choose(next: File[]) {
     if (!next.length) return;
     setFiles(next);
     setSelected(0);
   }
+  const [url, setUrl] = useState("");
   useEffect(() => {
-    if (!file) { setUrl(""); return; }
+    if (!file) return;
     const objectUrl = URL.createObjectURL(file);
-    setUrl(objectUrl);
+    queueMicrotask(() => setUrl(objectUrl));
     return () => URL.revokeObjectURL(objectUrl);
   }, [file]);
   const Icon = music ? Music2 : Film;
