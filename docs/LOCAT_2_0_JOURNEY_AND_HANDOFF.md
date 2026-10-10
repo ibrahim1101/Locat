@@ -111,7 +111,7 @@ Working branch forked from `feat/locat-2.0` at `334ff1f`. Target is Phase 1
   router: it does **not** touch the server session or identity keys — the
   gate only blocks the UI until the device-local passcode / biometric is
   satisfied. 24 new tests, no regressions.
-* `TBD` — **Platform adapter scaffold for Tauri 2 desktop.**
+* `b78afb8` — **Platform adapter scaffold for Tauri 2 desktop.**
   Added `src/lib/platform/{index,browser,capacitor,tauri}.ts` so native
   capabilities (notifications, file save, open-external, secure storage,
   system tray, deep links, signed updates) sit behind a shared `PlatformAdapter`
@@ -168,7 +168,7 @@ up from this adapter layer without re-planning the architecture.
 * Docker Hub rate-limit on CI for the Node runtime image.
 
 ### Follow-up in this session
-* `TBD` — **M0 notifications: device prefs, categories, quiet hours,
+* `33e3d17` — **M0 notifications: device prefs, categories, quiet hours,
   per-conversation mute.** Added `src/lib/notificationPrefs.ts` (pure logic
   + persistence), `src/components/chat/NotificationPreferences.tsx` (UI
   mounted in Settings & backups) and a bell/mute toggle in the chat header
