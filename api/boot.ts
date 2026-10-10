@@ -9,6 +9,7 @@ import { env } from "./lib/env";
 import { getDb } from "./queries/connection";
 import { sql } from "drizzle-orm";
 import { handleSentinelWebhook } from "./sentinel/webhook";
+import { handleMediaStream } from "./mediaStream";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 app.use("/api/*", cors({
@@ -44,6 +45,7 @@ app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
 // Locat Sentinel inbound webhook — authenticated by scoped integration token
 // (never a user session), mounted before the tRPC handler and the catch-all.
 app.post("/api/sentinel/webhook", handleSentinelWebhook);
+app.on(["GET", "HEAD"], "/api/media/stream", c => handleMediaStream(c.req.raw));
 app.use("/api/trpc/*", async (c) => {
   return fetchRequestHandler({
     endpoint: "/api/trpc",
