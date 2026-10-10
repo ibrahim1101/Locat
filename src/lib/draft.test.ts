@@ -1,79 +1,48 @@
-import { describe, expect, it } from "vitest";
-import { clearDraft, draftStorageKey, loadDraft, saveDraft } from "./draft";
+import { beforeEach, describe, expect, it } from "vitest";
+import { clearAllDrafts, clearDraft, draftStorageKey, loadDraft, purgeLegacyDrafts, saveDraft } from "./draft";
 
-function memoryStorage() {
-  const store = new Map<string, string>();
-  return {
-    getItem: (key: string) => (store.has(key) ? store.get(key)! : null),
-    setItem: (key: string, value: string) => void store.set(key, value),
-    removeItem: (key: string) => void store.delete(key),
-    get size() {
-      return store.size;
-    },
-  };
-}
+beforeEach(() => clearAllDrafts());
 
-describe("message composer drafts", () => {
-  it("namespaces storage keys per conversation", () => {
-    expect(draftStorageKey(42)).toBe("locat-draft:42");
-    expect(draftStorageKey(1)).not.toBe(draftStorageKey(2));
+describe("ephemeral message drafts", () => {
+  it("isolates accounts and conversations", () => {
+    expect(draftStorageKey(42, 7)).toBe("locat-draft:7:42");
+    saveDraft(5, 7, "hello");
+    expect(loadDraft(5, 7)).toBe("hello");
+    expect(loadDraft(5, 8)).toBe("");
+    expect(loadDraft(6, 7)).toBe("");
   });
 
-  it("round-trips a draft through storage", () => {
-    const storage = memoryStorage();
-    saveDraft(5, "hello", storage);
-    expect(loadDraft(5, storage)).toBe("hello");
+  it("clears drafts on send and account transitions", () => {
+    saveDraft(3, 7, "pending");
+    clearDraft(3, 7);
+    expect(loadDraft(3, 7)).toBe("");
+    saveDraft(3, 7, "pending");
+    clearAllDrafts();
+    expect(loadDraft(3, 7)).toBe("");
   });
 
-  it("returns an empty string when nothing is stored", () => {
-    const storage = memoryStorage();
-    expect(loadDraft(99, storage)).toBe("");
+  it("limits draft length", () => {
+    saveDraft(1, 7, "x".repeat(10000));
+    expect(loadDraft(1, 7).length).toBe(4096);
   });
 
-  it("removes the entry when saving an empty draft", () => {
-    const storage = memoryStorage();
-    saveDraft(7, "typing…", storage);
-    saveDraft(7, "", storage);
-    expect(loadDraft(7, storage)).toBe("");
-    expect(storage.size).toBe(0);
-  });
-
-  it("drops drafts via clearDraft after send", () => {
-    const storage = memoryStorage();
-    saveDraft(3, "pending send", storage);
-    clearDraft(3, storage);
-    expect(storage.size).toBe(0);
-  });
-
-  it("caps very long drafts without throwing", () => {
-    const storage = memoryStorage();
-    const long = "x".repeat(10_000);
-    saveDraft(1, long, storage);
-    const restored = loadDraft(1, storage);
-    expect(restored.length).toBeLessThanOrEqual(4096);
-    expect(restored.startsWith("xxxx")).toBe(true);
-  });
-
-  it("swallows storage errors instead of breaking the composer", () => {
-    const broken = {
-      getItem: () => {
-        throw new Error("blocked");
-      },
-      setItem: () => {
-        throw new Error("blocked");
-      },
-      removeItem: () => {
-        throw new Error("blocked");
-      },
+  it("purges legacy localStorage draft keys", () => {
+    const entries = new Map([["locat-draft:1", "old"], ["other-setting", "keep"]]);
+    const storage = {
+      get length() { return entries.size; },
+      key(i: number) { return [...entries.keys()][i] ?? null; },
+      removeItem(k: string) { entries.delete(k); },
     };
-    expect(loadDraft(1, broken)).toBe("");
-    expect(() => saveDraft(1, "ok", broken)).not.toThrow();
-    expect(() => clearDraft(1, broken)).not.toThrow();
+    purgeLegacyDrafts(storage);
+    expect(entries.has("locat-draft:1")).toBe(false);
+    expect(entries.get("other-setting")).toBe("keep");
   });
 
-  it("tolerates environments without storage", () => {
-    expect(loadDraft(1, undefined)).toBe("");
-    expect(() => saveDraft(1, "ok", undefined)).not.toThrow();
-    expect(() => clearDraft(1, undefined)).not.toThrow();
+  it("handles blocked legacy storage gracefully", () => {
+    expect(() => purgeLegacyDrafts({
+      get length() { throw new Error("blocked"); },
+      key() { return null; },
+      removeItem() { throw new Error("blocked"); },
+    })).not.toThrow();
   });
 });
