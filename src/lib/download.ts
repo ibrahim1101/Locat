@@ -8,7 +8,7 @@ async function blobBase64(blob: Blob): Promise<string> {
   return btoa(text);
 }
 
-export type DownloadDestination = "selected-folder" | "browser";
+export type DownloadDestination = "selected-folder" | "browser" | "cancelled";
 
 type DownloadLink = {
   href: string;
@@ -77,7 +77,7 @@ export function downloadBlob(
   // Remember successful saves across restarts. This is history, not proof the file still exists.
   if (dependencies.isNativeShell() && typeof window !== "undefined" && previouslySaved(key) &&
       !window.confirm(`You previously downloaded "${filename}". Download it again?`)) {
-    return Promise.resolve("selected-folder");
+    return Promise.resolve("cancelled");
   }
 
   const operation = (async (): Promise<DownloadDestination> => {
