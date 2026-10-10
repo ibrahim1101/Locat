@@ -98,6 +98,7 @@ export function AppLockGate({ children }: { children: React.ReactNode }) {
 }
 
 export const APP_LOCK_CHANGE_EVENT = "locat-app-lock-change";
+// eslint-disable-next-line react-refresh/only-export-components -- small helper co-located with the gate to keep the API discoverable.
 export function notifyAppLockChange() {
   window.dispatchEvent(new CustomEvent(APP_LOCK_CHANGE_EVENT));
 }

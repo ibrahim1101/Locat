@@ -166,5 +166,12 @@ up from this adapter layer without re-planning the architecture.
 * Android HTTPS loopback verification on the user's emulator.
 * Link device proof-of-possession challenge-response (PR #3 open draft).
 * Docker Hub rate-limit on CI for the Node runtime image.
-* Notifications wiring per Phase 1 (quiet hours, mute per-conversation,
-  category toggles) — next commit in this session.
+
+### Follow-up in this session
+* `TBD` — **M0 notifications: device prefs, categories, quiet hours,
+  per-conversation mute.** Added `src/lib/notificationPrefs.ts` (pure logic
+  + persistence), `src/components/chat/NotificationPreferences.tsx` (UI
+  mounted in Settings & backups) and a bell/mute toggle in the chat header
+  that toggles the muted state via the shared prefs store. Prefs stay on
+  the device; the Web Push payload still contains no plaintext — only the
+  shell decides when to alert. 23 new tests, no regressions.

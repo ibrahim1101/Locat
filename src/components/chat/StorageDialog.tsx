@@ -1,4 +1,5 @@
 import { Notifications } from "./Notifications";
+import { NotificationPreferences } from "./NotificationPreferences";
 import { downloadBlob } from "@/lib/download";
 import { chooseUserStorageFolder, selectInternalStorage, storagePreference, type StoragePreference } from "@/lib/storagePreference";
 import { isNativeShell } from "@/lib/native";
@@ -58,6 +59,7 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
       <Preferences />
       <AppLockSection user={user} />
       <Notifications />
+      <NotificationPreferences />
       <div className="emergent-locat-surface space-y-3 rounded-xl p-4">
         <div><p className="font-medium">Downloads & encrypted exports</p>
           <p className="text-xs text-secondary">Choose where attachments and encrypted history backups are saved. Identity keys, login sessions and Locat's private runtime data always remain in protected app storage.</p></div>

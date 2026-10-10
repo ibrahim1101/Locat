@@ -1,3 +1,4 @@
+import { Bell, BellOff } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LocalMessage } from "@/lib/localdb";
@@ -6,6 +7,12 @@ import { downloadFilePayload, imageUrl, voiceUrl } from "@/lib/crypto";
 import { dayLabel, sameDay, timeLabel } from "@/lib/format";
 import { messageComposerState } from "@/lib/controlStates";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/draft";
+import {
+  isConversationMuted,
+  loadPrefs,
+  PREFS_EVENT,
+  toggleMutedConversation,
+} from "@/lib/notificationPrefs";
 import { Avatar, AvatarStack } from "./Avatar";
 import { FriendProfileDialog } from "./FriendProfileDialog";
 import {
@@ -107,6 +114,20 @@ export function ChatWindow({
   useEffect(() => {
     saveDraft(conversation.id, draft);
   }, [conversation.id, draft]);
+
+  // Per-conversation notification mute. Preferences are device-local so the
+  // state lives next to the draft rather than in the server session.
+  const [muted, setMuted] = useState(() => isConversationMuted(conversation.id, loadPrefs()));
+  useEffect(() => {
+    setMuted(isConversationMuted(conversation.id, loadPrefs()));
+    const refresh = () => setMuted(isConversationMuted(conversation.id, loadPrefs()));
+    window.addEventListener(PREFS_EVENT, refresh);
+    return () => window.removeEventListener(PREFS_EVENT, refresh);
+  }, [conversation.id]);
+  const toggleMute = () => {
+    toggleMutedConversation(conversation.id);
+    setMuted((prev) => !prev);
+  };
   const [showHiddenMessages, setShowHiddenMessages] = useState(false);
   const [profileId, setProfileId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
@@ -233,6 +254,17 @@ export function ChatWindow({
       <div className="flex items-center justify-end gap-2 border-b px-3 py-1">
         <button type="button" aria-pressed={showHiddenMessages} onClick={() => { setShowHiddenMessages(v => !v); setSearch(""); setReply(null); }} className="min-h-11 rounded-md px-3 text-xs hover:bg-accent">
           {showHiddenMessages ? "Back to messages" : `Hidden messages (${messages.filter(m => m.hidden).length})`}
+        </button>
+        <button
+          type="button"
+          onClick={toggleMute}
+          aria-pressed={muted}
+          data-testid="conversation-mute-toggle"
+          title={muted ? "Unmute notifications for this conversation" : "Mute notifications for this conversation"}
+          className="flex min-h-11 items-center gap-2 rounded-md px-3 text-xs hover:bg-accent"
+        >
+          {muted ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+          {muted ? "Muted" : "Mute"}
         </button>
         <button type="button" onClick={onToggleHidden} className="flex min-h-11 items-center gap-2 rounded-md px-3 text-xs hover:bg-accent">
           {hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
