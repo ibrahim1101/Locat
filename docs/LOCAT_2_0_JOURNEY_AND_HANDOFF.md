@@ -208,3 +208,11 @@ up from this adapter layer without re-planning the architecture.
 - Next stabilization step: `src/lib/download.ts` now refuses the browser Blob-anchor fallback when Capacitor explicitly reports a native platform, rather than returning `"browser"` as if the file had been saved. Added a regression test.
 - Native Android folder selection and writing still require the **LocatStorage** plugin in the local Android project. This patch does not implement native DownloadManager or claim to fix APK downloads. The platform probe depends on `Capacitor.isNativePlatform()`; verify behavior in a real WebView and any legacy shell variant before release.
 - New download commits require a fresh successful CI run. No production server, stable branch or local Android files were changed.
+
+## 2026-10-10 — Android native project inventory and capability correction
+
+- The GitHub tree at `ce161bc` has **no `android/` directory**. The Android Gradle project is held in the local Windows preview checkout, so the native `LocatStorage` plugin cannot be implemented or verified against the actual app through this GitHub branch alone.
+- `capacitor.config.json` and TypeScript `src/lib/storagePreference.ts` exist, but a declared `window.Capacitor.Plugins.LocatStorage` interface is **not** a native implementation.
+- Corrected `src/lib/platform/capacitor.ts` to advertise `nativeFileSave` only when the runtime registers `LocatStorage.writeFile`; previously it always advertised true.
+- Remaining Android work: preserve the local uncommitted Android directory; review native plugin implementation, register it with Capacitor, handle Android SAF permissions and writes, and test file creation, MIME types, cancellations, and persistence on the emulator. Do not blindly reset the Windows preview checkout or claim native downloads are complete.
+- Re-run CI on the capability correction and keep the branch unmerged until verified.
