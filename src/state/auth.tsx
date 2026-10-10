@@ -17,6 +17,7 @@ import {
   type IdentityKeys,
 } from "@/lib/crypto";
 import { stopDeviceNotifications } from "@/lib/notifications";
+import { clearAllDrafts, purgeLegacyDrafts } from "@/lib/draft";
 import { loadIdentity, saveIdentity } from "@/lib/localdb";
 import { setNativeSessionToken } from "@/lib/native";
 
@@ -54,6 +55,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: "loading" });
+  useEffect(() => { purgeLegacyDrafts(); }, []);
   const me = trpc.auth.me.useQuery(undefined, { retry: false, enabled: state.status === "loading" });
   const loginMut = trpc.auth.login.useMutation();
   const registerMut = trpc.auth.register.useMutation();
@@ -119,6 +121,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [me.isLoading, me.isError, me.data, state.status]);
 
   const finishWithKeys = useCallback(async (user: SessionUser, keys: IdentityKeys) => {
+    clearAllDrafts();
+    purgeLegacyDrafts();
     await stopDeviceNotifications().catch(() => {});
     await queryClient.cancelQueries();
     queryClient.clear();
@@ -209,6 +213,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     await logoutMut.mutateAsync();
     setNativeSessionToken(null);
+    clearAllDrafts();
+    purgeLegacyDrafts();
     await stopDeviceNotifications().catch(() => {});
     localStorage.removeItem("locat-offline-account");
     setState({ status: "signedOut" });
