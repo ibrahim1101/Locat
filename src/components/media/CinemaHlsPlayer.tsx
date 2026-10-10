@@ -4,10 +4,10 @@ import Hls from "hls.js";
 export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autoplay = true, onPositionChange }: { url: string; durationSeconds?: number; startSeconds?: number; autoplay?: boolean; onPositionChange?: (position: number, playing: boolean) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const positionCallback = useRef(onPositionChange);
-  positionCallback.current = onPositionChange;
   const [error, setError] = useState("");
   const [status, setStatus] = useState("Preparing transcoded playback…");
   const [buffered, setBuffered] = useState(0);
+  useEffect(() => { positionCallback.current = onPositionChange; }, [onPositionChange]);
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
