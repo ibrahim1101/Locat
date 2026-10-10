@@ -14,6 +14,14 @@ describe("FFmpeg remux lifecycle", () => {
     expect(() => createRemuxStream("not-a-file.mkv", controller.signal)).toThrow("Request canceled");
   });
 
+  it("reports a subprocess failure instead of completing a remux stream", async () => {
+    // Node accepts FFmpeg arguments as script flags and exits unsuccessfully.
+    // This makes the regression independent of whether FFmpeg is installed.
+    process.env.LOCAT_FFMPEG_PATH = process.execPath;
+    const stream = createRemuxStream("missing-video.mkv", new AbortController().signal);
+    await expect(stream.getReader().read()).rejects.toThrow("FFmpeg remux failed");
+  });
+
   it("surfaces a missing FFmpeg binary as a stream error", async () => {
     process.env.LOCAT_FFMPEG_PATH = "__locat_missing_ffmpeg_executable_987654__";
     const stream = createRemuxStream("not-a-file.mkv", new AbortController().signal);
