@@ -103,17 +103,17 @@ export function ChatWindow({
   onToggleHidden: () => void;
   onToggleMessageHidden: (message: LocalMessage) => void;
 }) {
-  const [draft, setDraft] = useState(() => loadDraft(conversation.id));
+  const [draft, setDraft] = useState(() => loadDraft(conversation.id, myId));
   // Reload the draft whenever the active conversation changes so switching
   // chats never shows the previous conversation's text.
   useEffect(() => {
-    setDraft(loadDraft(conversation.id));
-  }, [conversation.id]);
+    setDraft(loadDraft(conversation.id, myId));
+  }, [conversation.id, myId]);
   // Persist drafts on every edit so navigating home, locking the device, or
   // backgrounding the native shell preserves what the user was typing.
   useEffect(() => {
-    saveDraft(conversation.id, draft);
-  }, [conversation.id, draft]);
+    saveDraft(conversation.id, myId, draft);
+  }, [conversation.id, myId, draft]);
 
   // Per-conversation notification mute. Preferences are device-local so the
   // state lives next to the draft rather than in the server session.
@@ -123,7 +123,7 @@ export function ChatWindow({
     const refresh = () => setMuted(isConversationMuted(conversation.id, loadPrefs()));
     window.addEventListener(PREFS_EVENT, refresh);
     return () => window.removeEventListener(PREFS_EVENT, refresh);
-  }, [conversation.id]);
+  }, [conversation.id, myId]);
   const toggleMute = () => {
     toggleMutedConversation(conversation.id);
     setMuted((prev) => !prev);
@@ -233,7 +233,7 @@ export function ChatWindow({
     const text = draft.trim();
     if (!text) return;
     setDraft("");
-    clearDraft(conversation.id);
+    clearDraft(conversation.id, myId);
     onSendText(reply ? `> ${reply.replaceAll("\n", "\n> ")}\n\n${text}` : text);
     setReply(null);
   }
