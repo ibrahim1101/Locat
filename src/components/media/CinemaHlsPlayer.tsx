@@ -46,6 +46,10 @@ export function CinemaHlsPlayer({ url, durationSeconds }: { url: string; duratio
     return () => {
       cancelled = true;
       hls?.destroy();
+      // Release server-side FFmpeg and temporary HLS segments on player exit/quality change.
+      const releaseUrl = new URL(url, window.location.origin);
+      releaseUrl.searchParams.set("action", "release");
+      void fetch(releaseUrl, { method: "POST", credentials: "same-origin", keepalive: true }).catch(() => {});
       video.pause();
       video.removeAttribute("src");
       video.load();
