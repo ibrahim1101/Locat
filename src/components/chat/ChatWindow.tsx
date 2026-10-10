@@ -107,6 +107,7 @@ export function ChatWindow({
   // Drafts persist in memory on actual edits, never on a conversation-switch
   // effect (which could otherwise copy the previous conversation's text).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset local UI state when the selected conversation or message changes
     setDraft(loadDraft(conversation.id, myId));
   }, [conversation.id, myId]);
 
@@ -114,6 +115,7 @@ export function ChatWindow({
   // state lives next to the draft rather than in the server session.
   const [muted, setMuted] = useState(() => isConversationMuted(conversation.id, loadPrefs()));
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset local UI state when the selected conversation or message changes
     setMuted(isConversationMuted(conversation.id, loadPrefs()));
     const refresh = () => setMuted(isConversationMuted(conversation.id, loadPrefs()));
     window.addEventListener(PREFS_EVENT, refresh);
@@ -568,6 +570,7 @@ function MessageBubble({
   const img = useMemo(() => imageUrl(m.payload), [m.payload]);
   const voice = useMemo(() => voiceUrl(m.payload), [m.payload]);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset local UI state when the selected conversation or message changes
     setImageBroken(false);
     return () => {
       if (img) URL.revokeObjectURL(img);
