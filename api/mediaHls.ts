@@ -59,7 +59,7 @@ function evictIdle() {
 const cleanupTimer = setInterval(evictIdle, 60_000);
 cleanupTimer.unref();
 
-async function getSession(key: string, file: string, quality: "1080p" | "4k") {
+async function getSession(key: string, file: string, quality: "1080p" | "4k", start: number) {
   evictIdle();
   const existing = sessions.get(key);
   if (existing) { existing.touched = Date.now(); return existing; }
@@ -71,7 +71,8 @@ async function getSession(key: string, file: string, quality: "1080p" | "4k") {
     // Throttle file ingestion to near playback speed: prevents runaway GPU/disk use.
     // This is not pause-aware yet; the next stage will make segment production demand-driven.
     "-hide_banner", "-loglevel", "error", "-nostdin",
-    "-readrate", "1.25", "-readrate_initial_burst", "8", "-i", file,
+    "-readrate", "1.25", "-readrate_initial_burst", "8",
+    ...(start > 0 ? ["-ss", String(start)] : []), "-i", file,
     "-map", "0:v:0", "-map", "0:a:0?",
     "-c:v", nvenc ? "h264_nvenc" : "libx264",
     "-preset", nvenc ? "p4" : "veryfast", "-pix_fmt", "yuv420p",
@@ -111,8 +112,12 @@ export async function handleMediaHls(req: Request): Promise<Response> {
   if (req.method === "POST" && action !== "release") return new Response("Invalid action", { status: 400 });
   if (req.method === "GET" && action) return new Response("Invalid action", { status: 400 });
   const quality = params.get("quality") === "4k" ? "4k" : "1080p";
+  // Start a new rendition near the previous playback position, rather than at 0.
+  const requestedStart = Number(params.get("start") || "0");
+  if (!Number.isFinite(requestedStart) || requestedStart < 0 || requestedStart > 86400) return new Response("Invalid start time", { status: 400 });
+  const start = Math.floor(requestedStart);
   const userId = String(ctx.user.id);
-  const key = createHash("sha256").update(userId + "\0" + file + "\0" + quality).digest("hex");
+  const key = createHash("sha256").update(userId + "\0" + file + "\0" + quality + "\0" + start).digest("hex");
   if (action === "release") {
     const session = sessions.get(key);
     if (session) await clearSession(key, session);
@@ -122,7 +127,7 @@ export async function handleMediaHls(req: Request): Promise<Response> {
   if (!probe || probe.strategy !== "transcode") return new Response("Transcoding not required or probe unavailable", { status: 415 });
   const asset = params.get("asset") || "index.m3u8";
   if (asset !== "index.m3u8" && !/^segment-\d{6}\.ts$/.test(asset)) return new Response("Invalid segment", { status: 400 });
-  const session = await getSession(key, file, quality);
+  const session = await getSession(key, file, quality, start);
   if (!session) return new Response("HLS capacity reached", { status: 503, headers: { "Retry-After": "10" } });
   const filename = path.join(session.dir, asset);
   let data: Buffer | null = null;
