@@ -3,6 +3,8 @@ import Hls from "hls.js";
 
 export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autoplay = true, onPositionChange }: { url: string; durationSeconds?: number; startSeconds?: number; autoplay?: boolean; onPositionChange?: (position: number, playing: boolean) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const positionCallback = useRef(onPositionChange);
+  positionCallback.current = onPositionChange;
   const [error, setError] = useState("");
   const [status, setStatus] = useState("Preparing transcoded playback…");
   const [buffered, setBuffered] = useState(0);
@@ -16,7 +18,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       const end = video.buffered.length ? video.buffered.end(video.buffered.length - 1) : 0;
       setBuffered(Math.min(100, Math.round(end / video.duration * 100)));
     };
-    const report = () => onPositionChange?.(startSeconds + video.currentTime, !video.paused);
+    const report = () => positionCallback.current?.(startSeconds + video.currentTime, !video.paused);
     const onPlaying = () => { setError(""); setStatus("Playing"); report(); };
     const onPause = () => { setStatus("Paused"); report(); };
     const onWaiting = () => setStatus("Buffering…");
@@ -62,7 +64,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       video.removeEventListener("waiting", onWaiting);
       video.removeEventListener("progress", update);
     };
-  }, [url, startSeconds, autoplay, onPositionChange]);
+  }, [url, startSeconds, autoplay]);
   const formatTime = (seconds: number) => { const n = Math.floor(seconds); return `${Math.floor(n / 3600)}:${String(Math.floor(n / 60) % 60).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`; };
   return <div className="space-y-2">
     <video ref={videoRef} controls playsInline preload="metadata" className="max-h-[55vh] w-full rounded-xl bg-black" />
