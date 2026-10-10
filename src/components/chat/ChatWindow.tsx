@@ -568,9 +568,11 @@ function MessageBubble({
   const [expanded, setExpanded] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [downloadError, setDownloadError] = useState("");
+  const [imageBroken, setImageBroken] = useState(false);
   const img = useMemo(() => imageUrl(m.payload), [m.payload]);
   const voice = useMemo(() => voiceUrl(m.payload), [m.payload]);
   useEffect(() => {
+    setImageBroken(false);
     return () => {
       if (img) URL.revokeObjectURL(img);
       if (voice) URL.revokeObjectURL(voice);
@@ -674,9 +676,10 @@ function MessageBubble({
               : "locat-bubble-in rounded-bl-md"
           } ${m.pending ? "opacity-60" : ""} ${m.failed ? "border-destructive" : ""}`}
         >
-          {m.payload.type === "image" && img && (
+          {m.payload.type === "image" && img && !imageBroken && (
             <img
               onClick={() => setExpanded(true)}
+              onError={() => setImageBroken(true)}
               tabIndex={0}
               role="button"
               onKeyDown={e => {
@@ -688,11 +691,17 @@ function MessageBubble({
               aria-label={`Open image: ${m.payload.name}`}
               src={img}
               alt={m.payload.name}
-              className="-mx-1 mb-1 max-h-72 rounded-lg object-cover"
+              className="-mx-1 mb-1 max-h-72 max-w-full rounded-lg object-contain"
               loading="lazy"
             />
           )}
-          {m.payload.type === "image" && !img && <p>Unsupported image format</p>}
+          {m.payload.type === "image" && (!img || imageBroken) && (
+            <p role="status" className="text-xs opacity-80">
+              {imageBroken
+                ? `Preview unavailable for ${m.payload.name}. The image may use a format this device cannot display.`
+                : "Unsupported image format"}
+            </p>
+          )}
           {m.payload.type === "text" && (
             <p className="whitespace-pre-wrap break-words">{m.payload.text}</p>
           )}

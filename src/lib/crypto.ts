@@ -217,13 +217,59 @@ export async function keyFingerprintB64(publicKeyB64: string): Promise<string> {
 
 // ─── Image preprocessing (keep payloads small for the relay) ────────────────
 
+/** MIME types that can render inline in every supported browser/WebView. */
+export const SUPPORTED_IMAGE_MIMES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"] as const;
+export type SupportedImageMime = (typeof SUPPORTED_IMAGE_MIMES)[number];
+
+/**
+ * Normalise a sender-reported MIME type. Android's share sheet and some
+ * gallery pickers hand us HEIC photos (`image/heic`) or an empty type with a
+ * content URI; storing those verbatim would make the message fail the relay
+ * schema or render as "Unsupported image format" on the receiving device.
+ * Returns the supported MIME unchanged, or null when the caller must
+ * re-encode (JPEG) instead.
+ */
+export function normalizeImageMime(mime: string | undefined | null): SupportedImageMime | null {
+  if (!mime) return null;
+  const lower = mime.toLowerCase();
+  return (SUPPORTED_IMAGE_MIMES as readonly string[]).includes(lower) ? (lower as SupportedImageMime) : null;
+}
+
+/**
+ * Sniff the real image format from magic bytes. Payload MIME labels can be
+ * wrong when a sender's OS reported an empty or generic type, so the
+ * receiving preview decides on bytes, not on the label.
+ */
+export function sniffImageMime(bytes: Uint8Array): SupportedImageMime | null {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
+  if (bytes.length >= 6 && bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return "image/gif";
+  if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+    && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return "image/webp";
+  // AVIF / HEIC share the ISO BMFF box: ... "ftyp" + brand.
+  if (bytes.length >= 12 && bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) {
+    const brand = String.fromCharCode(...bytes.subarray(8, 12));
+    if (brand === "avif" || brand === "avis") return "image/avif";
+  }
+  return null;
+}
+
+/** MIME values allowed on the outbound download blob; anything else degrades to octet-stream. */
+export function sanitizeAttachmentMime(mime: string): string {
+  return /^[\w!#$&^+-]{1,100}\/[\w!#$&^+.-]{1,100}$/.test(mime) ? mime : "application/octet-stream";
+}
+
 export async function imageToPayload(file: File): Promise<MessagePayload> {
   const MAX_EDGE = 1600;
   const bitmap = await decodeBrowserImage(file);
   try {
-  if (bitmap.width <= MAX_EDGE && bitmap.height <= MAX_EDGE && file.size <= 900_000) {
+  const safeMime = normalizeImageMime(file.type);
+  // Keep the original bytes only when the format is inline-renderable on
+  // every client. Unknown or HEIC-type images are always re-encoded so
+  // receivers never see "Unsupported image format" for a valid picture.
+  if (safeMime && bitmap.width <= MAX_EDGE && bitmap.height <= MAX_EDGE && file.size <= 900_000) {
     const buf = await file.arrayBuffer();
-    return { type: "image", mime: file.type || "image/jpeg", name: file.name, dataB64: b64encode(buf) };
+    return { type: "image", mime: safeMime, name: file.name, dataB64: b64encode(buf) };
   }
   const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
   const w = Math.round(bitmap.width * scale);
@@ -241,8 +287,13 @@ export async function imageToPayload(file: File): Promise<MessagePayload> {
 }
 
 export function imageUrl(payload: MessagePayload): string | null {
-  if (payload.type !== "image" || !["image/jpeg","image/png","image/webp","image/gif","image/avif"].includes(payload.mime)) return null;
-  const blob = new Blob([b64decode(payload.dataB64) as BlobPart], { type: payload.mime });
+  if (payload.type !== "image") return null;
+  const bytes = b64decode(payload.dataB64);
+  // Trust the bytes, not the label: sniff the real format first, fall back
+  // to the declared MIME when sniffing is inconclusive but allowed.
+  const mime = sniffImageMime(bytes) ?? normalizeImageMime(payload.mime);
+  if (!mime) return null;
+  const blob = new Blob([bytes as BlobPart], { type: mime });
   return URL.createObjectURL(blob);
 }
 
@@ -284,6 +335,9 @@ export async function fileToPayload(file: File): Promise<MessagePayload> {
 
 export async function downloadFilePayload(payload: MessagePayload): Promise<void> {
   if (payload.type !== "file") return;
-  const blob = new Blob([b64decode(payload.dataB64) as BlobPart], { type: "application/octet-stream" });
+  // Preserve the real content type so Android / desktop file managers can
+  // hand the attachment to the right app; anything malformed degrades to a
+  // safe octet-stream label.
+  const blob = new Blob([b64decode(payload.dataB64) as BlobPart], { type: sanitizeAttachmentMime(payload.mime) });
   await downloadBlob(blob, safeAttachmentName(payload.name));
 }
