@@ -48,6 +48,10 @@ function evictIdle() {
   }
 }
 
+// Cleanup continues even when clients disconnect and make no more requests.
+const cleanupTimer = setInterval(evictIdle, 60_000);
+cleanupTimer.unref();
+
 async function getSession(key: string, file: string) {
   evictIdle();
   const existing = sessions.get(key);
