@@ -12,10 +12,10 @@ export function playbackStrategy(container: string, videoCodec: string | null, a
   const webm = c === "matroska" || c === "webm";
   if (mp4 && video === "h264" && (!audio || audio === "aac" || audio === "mp3")) return { strategy: "direct", reason: "Browser-friendly MP4/H.264 stream" };
   if (webm && video === "vp9" && (!audio || audio === "opus" || audio === "vorbis")) return { strategy: "direct", reason: "WebM-compatible video and audio; browser support varies" };
-  if (["h264", "hevc", "av1"].includes(video) && (!audio || ["aac", "mp3", "alac"].includes(audio))) {
+  if (["h264"].includes(video) && (!audio || ["aac", "mp3", "alac"].includes(audio))) {
     return { strategy: "remux", reason: "Compatible elementary streams may be copied into MP4; client codec support must still be checked" };
   }
-  return { strategy: "transcode", reason: "At least one elementary stream needs conversion for broad browser playback" };
+  return { strategy: "transcode", reason: "Video or audio codec requires H.264/AAC conversion for browser playback" };
 }
 
 export async function probeVideo(file: string, timeoutMs = 8000): Promise<VideoProbe> {
