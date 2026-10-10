@@ -3,9 +3,14 @@ import { Link } from "react-router";
 import { Film, Music2, ArrowLeft, FolderOpen, Server } from "lucide-react";
 import { AppShell } from "@/components/shell/AppShell";
 import { MusicEqualizer } from "@/components/media/MusicEqualizer";
+import { trpc } from "@/providers/trpc";
+import { useAuth } from "@/state/auth";
 
 export default function MediaLocal({ kind }: { kind: "cinema" | "music" }) {
   const music = kind === "music";
+  const { state } = useAuth();
+  const libraries = trpc.media.libraries.useQuery(undefined, { enabled: state.status === "ready", retry: false });
+  const hostedItems = trpc.media.items.useQuery(undefined, { enabled: state.status === "ready", retry: false });
   const [files, setFiles] = useState<File[]>([]);
   const [selected, setSelected] = useState(0);
   const file = files[selected] ?? null;
@@ -43,7 +48,7 @@ export default function MediaLocal({ kind }: { kind: "cinema" | "music" }) {
         </section>
         <section className="rounded-2xl border border-border bg-card/60 p-5">
           <h2 className="flex items-center gap-2 font-semibold"><Server className="h-4 w-4 ember-text" /> Server library integration</h2>
-          <p className="mt-2 text-sm text-secondary">The Emergent Media Hub services are being adapted to Locat authentication and its Obsidian Ember interface. No separate blue-themed application is required.</p>
+          {state.status !== "ready" ? <p className="mt-2 text-sm text-secondary">Connect and sign in to a Locat host to browse its authorized media folders. Local playback works without a server.</p> : <div className="mt-3 space-y-3 text-sm"><p className="text-secondary">{libraries.data?.length ?? 0} configured libraries · {hostedItems.data?.filter(item => item.kind === kind).length ?? 0} indexed {music ? "tracks" : "videos"}</p>{libraries.isError || hostedItems.isError ? <p role="alert" className="text-destructive">Media index unavailable. Check your server connection and media root configuration.</p> : null}<ul className="max-h-64 space-y-1 overflow-y-auto">{hostedItems.data?.filter(item => item.kind === kind).map((item, index) => <li key={`${item.library}-${item.id}-${index}`} className="rounded-lg border border-border/60 px-3 py-2"><span className="block truncate">{item.name}</span><span className="text-xs text-secondary">{item.library} · {(item.sizeBytes / 1048576).toFixed(1)} MB</span></li>)}</ul><p className="text-xs text-secondary">Read-only indexing is available. Server streaming controls are not connected yet.</p></div>}
         </section>
       </div>
     </main>
