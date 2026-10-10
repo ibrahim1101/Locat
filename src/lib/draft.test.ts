@@ -31,7 +31,7 @@ describe("ephemeral message drafts", () => {
     const storage = {
       get length() { return entries.size; },
       key(i: number) { return [...entries.keys()][i] ?? null; },
-      removeItem(k: string) { entries.delete(k); },
+      removeItem(k: string) { entries.delete(k); return; },
     };
     purgeLegacyDrafts(storage);
     expect(entries.has("locat-draft:1")).toBe(false);
