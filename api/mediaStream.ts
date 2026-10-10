@@ -35,7 +35,12 @@ export async function handleMediaStream(req: Request): Promise<Response> {
   const metadata = await stat(file).catch(() => null);
   if (!metadata?.isFile()) return new Response("Not found", { status: 404 });
   if (params.get("mode") === "remux") {
-    if (req.method !== "GET" || req.headers.has("range")) return new Response("Remux does not support seeking", { status: 400 });
+    if (req.method !== "GET") return new Response("Remux requires GET", { status: 405 });
+    // Firefox may request bytes=0- when initially opening a video.
+    // Permit this initial request but reject actual seeking.
+    const requestedRange = req.headers.get("range");
+    if (requestedRange && requestedRange.trim().toLowerCase() !== "bytes=0-")
+      return new Response("Remux does not support seeking", { status: 416 });
     if (![".mkv", ".avi", ".mov", ".mp4", ".m4v", ".webm"].includes(ext)) return new Response("Unsupported media", { status: 415 });
     let probe;
     try { probe = await probeVideo(file); }
