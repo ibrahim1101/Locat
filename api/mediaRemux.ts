@@ -28,6 +28,11 @@ export function createRemuxStream(file: string, signal: AbortSignal): ReadableSt
 
   const stdout = child.stdout;
   const stderr = child.stderr;
+  if (!stdout || !stderr) {
+    child.kill();
+    activeRemuxes--;
+    throw new Error("FFmpeg stdout/stderr pipes are unavailable");
+  }
   let finished = false;
   let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
   const abort = () => child.kill();
