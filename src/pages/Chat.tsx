@@ -64,6 +64,8 @@ import { messagePayloadSchema } from "@/lib/archive";
 import { LogOut, MessageSquarePlus, Menu, Search, UserRound, HardDrive, X } from "lucide-react";
 import { LocatMark, LocatWordmark } from "@/components/LocatBrand";
 import { MobileBottomNav } from "@/components/shell/MobileBottomNav";
+import { ToastHost } from "@/components/chat/ToastHost";
+import { dispatchForegroundToast, updateAppBadge } from "@/lib/foregroundNotify";
 
 export default function Chat() {
   const { state } = useAuth();
@@ -407,6 +409,31 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
               );
               return next;
             });
+            // Foreground alert (privacy-shaped: sender name only, never the
+            // message body). Suppressed by category toggle, quiet hours,
+            // per-conversation mute, or when this chat is already open.
+            if (!persisted.hidden) {
+              dispatchForegroundToast(
+                {
+                  category: "messages",
+                  title: msg.senderName,
+                  body:
+                    msg.payload.type === "image"
+                      ? "Sent an image"
+                      : msg.payload.type === "voice"
+                        ? "Sent a voice message"
+                        : msg.payload.type === "file"
+                          ? `Sent ${msg.payload.name}`
+                          : "New message",
+                  route: "/messages",
+                  conversationId: item.conversationId,
+                },
+                {
+                  activeConversationId: activeIdRef.current,
+                  documentVisible: document.visibilityState === "visible",
+                },
+              );
+            }
           }
         } catch {
           // Keep the envelope queued if decryption or durable local storage fails.
@@ -770,6 +797,13 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
 
   const activeConv = conversations.find(c => c.id === activeId) ?? null;
 
+  // Keep the OS / installed-PWA badge in sync with the unread count.
+  useEffect(() => {
+    let total = 0;
+    for (const count of unread.values()) total += count;
+    updateAppBadge(total);
+  }, [unread]);
+
   async function toggleHidden(conversationId: number) {
     try {
       const hidden = !hiddenIds.has(conversationId);
@@ -976,6 +1010,9 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
           tap on Home returns to the Dashboard. Hidden when a chat is open so
           the composer and keyboard are not obscured. */}
       {!activeId && <MobileBottomNav active="messages" />}
+
+      {/* In-app foreground alerts for incoming messages. */}
+      <ToastHost onOpenConversation={id => void openConversation(id)} />
 
       {/* main pane */}
       <div className={`${activeId ? "flex" : "hidden"} min-w-0 flex-1 md:flex`}>

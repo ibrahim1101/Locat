@@ -5,6 +5,8 @@
 // with each incoming event: which categories alert the user, which
 // conversations are muted on this device, and when quiet hours silence the
 // bar entirely. They never travel to the server.
+
+import { syncNotificationPrefs } from "./notifications";
 //
 // Pure logic lives here so the rules can be unit-tested without React.
 
@@ -114,6 +116,14 @@ export function savePrefs(
     } catch {
       // CustomEvent may be unavailable in server-rendered contexts.
     }
+  }
+  // Mirror categories + quiet hours into the service worker so background
+  // pushes follow the same rules. Fire-and-forget: the push path degrades
+  // to the previous mirrored preferences if the worker is not ready yet.
+  if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+    void navigator.serviceWorker.ready
+      .then((registration) => syncNotificationPrefs(registration, next))
+      .catch(() => {});
   }
 }
 

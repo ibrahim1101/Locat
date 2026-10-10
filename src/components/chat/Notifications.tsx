@@ -2,7 +2,8 @@ import { useState } from "react";
 import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/state/auth";
 import { Button } from "@/components/ui/button";
-import { stopDeviceNotifications, setNotificationAccount, notificationUnavailableReason, readyNotificationWorker } from "@/lib/notifications";
+import { stopDeviceNotifications, setNotificationAccount, notificationUnavailableReason, readyNotificationWorker, syncNotificationPrefs } from "@/lib/notifications";
+import { loadPrefs } from "@/lib/notificationPrefs";
 
 export function Notifications() {
   const { state } = useAuth();
@@ -90,6 +91,7 @@ export function Notifications() {
                 if (!json.endpoint || !json.keys?.auth || !json.keys?.p256dh)
                   throw new Error("Browser did not provide notification keys.");
                 await setNotificationAccount(registration, state.user.id);
+                await syncNotificationPrefs(registration, loadPrefs());
                 await subscribe.mutateAsync({
                   endpoint: json.endpoint,
                   keys: { auth: json.keys.auth, p256dh: json.keys.p256dh },

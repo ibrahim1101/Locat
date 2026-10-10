@@ -36,22 +36,34 @@ export function allowedPushEndpoint(endpoint: string): boolean {
 }
 export const endpointHash = (endpoint: string) =>
   createHash("sha256").update(endpoint).digest("hex");
+
+/**
+ * Push payload kinds. Payloads never carry message content, sender names or
+ * incident details — only the kind and the target user id, so the push
+ * provider learns nothing beyond "something happened for this account".
+ */
+export type PushKind = "new-message" | "sentinel-alert";
+export const PUSH_KINDS: readonly PushKind[] = ["new-message", "sentinel-alert"];
+
 const pending = new Set<number>();
-const lastNotified = new Map<number, number>();
-export async function notifyUsers(userIds: number[]): Promise<void> {
+const lastNotified = new Map<string, number>();
+export async function notifyUsers(userIds: number[], kind: PushKind = "new-message"): Promise<void> {
   const config = pushConfiguration();
   if (!config || !userIds.length) return;
   const now = Date.now();
-  if (lastNotified.size > 10000)
-    for (const [id, time] of lastNotified)
-      if (time < now - 10000) lastNotified.delete(id);
+  // Throttling is per user AND kind so a busy chat cannot starve a rare
+  // Sentinel alert and vice versa.
+  if (lastNotified.size > 20000)
+    for (const [key, time] of lastNotified)
+      if (time < now - 10000) lastNotified.delete(key);
+  const throttleKey = (id: number) => `${id}:${kind}`;
   const ids = [...new Set(userIds)].filter(
-    id => !pending.has(id) && (lastNotified.get(id) ?? 0) < now - 10000
+    id => !pending.has(id) && (lastNotified.get(throttleKey(id)) ?? 0) < now - 10000
   );
   if (!ids.length) return;
   ids.forEach(id => {
     pending.add(id);
-    lastNotified.set(id, now);
+    lastNotified.set(throttleKey(id), now);
   });
   try {
     // A revoked/expired login cannot receive a new push. Message contents and names are omitted.
@@ -86,14 +98,14 @@ export async function notifyUsers(userIds: number[]): Promise<void> {
                 keys: { p256dh: subscription.p256dh, auth: subscription.auth },
               },
               JSON.stringify({
-                type: "new-message",
+                type: kind,
                 userId: subscription.userId,
               }),
               {
                 vapidDetails: config,
                 timeout: 5000,
                 TTL: 300,
-                topic: "locat-new-message",
+                topic: `locat-${kind}`,
               }
             );
           } catch (error) {

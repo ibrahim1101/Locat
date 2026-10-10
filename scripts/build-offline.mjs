@@ -26,7 +26,7 @@ self.addEventListener('fetch', event => {
     event.respondWith(caches.open(CACHE).then(cache => cache.match(url.pathname)).then(cached => cached || fetch(event.request)));
   }
 });
-async function pushAccount(value) {
+async function pushStore(key, value) {
   const db = await new Promise((resolve, reject) => {
     const request = indexedDB.open('locat-notification-settings', 1);
     request.onupgradeneeded = () => request.result.createObjectStore('settings');
@@ -37,7 +37,7 @@ async function pushAccount(value) {
     return await new Promise((resolve, reject) => {
       const transaction = db.transaction('settings', value === undefined ? 'readonly' : 'readwrite');
       const store = transaction.objectStore('settings');
-      const request = value === undefined ? store.get('account') : store.put(value, 'account');
+      const request = value === undefined ? store.get(key) : store.put(value, key);
       let result;
       request.onsuccess = () => result = request.result;
       transaction.oncomplete = () => resolve(result);
@@ -46,26 +46,48 @@ async function pushAccount(value) {
     });
   } finally { db.close(); }
 }
+function inQuietHours(now, quiet) {
+  if (!quiet || !quiet.enabled) return false;
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  const start = quiet.startHour * 60;
+  const end = quiet.endHour * 60;
+  if (start === end) return false;
+  if (start < end) return minutes >= start && minutes < end;
+  return minutes >= start || minutes < end;
+}
+const PUSH_META = {
+  'new-message': { category: 'messages', body: 'New messages on Locat', url: '/messages', tag: 'locat-inbox' },
+  'sentinel-alert': { category: 'sentinel', body: 'New Sentinel security alert', url: '/sentinel', tag: 'locat-sentinel' },
+};
 self.addEventListener('message', event => {
   if (event.data?.type === 'locat-push-account' && Number.isSafeInteger(event.data.userId) && event.data.userId >= 0) {
-    event.waitUntil(pushAccount(event.data.userId).then(() => event.ports[0]?.postMessage({ saved: true })));
+    event.waitUntil(pushStore('account', event.data.userId).then(() => event.ports[0]?.postMessage({ saved: true })));
+  } else if (event.data?.type === 'locat-push-prefs' && event.data.prefs && typeof event.data.prefs === 'object') {
+    // Device-local notification preferences (categories + quiet hours) are
+    // mirrored into the worker so background pushes honour the same rules.
+    event.waitUntil(pushStore('prefs', event.data.prefs).then(() => event.ports[0]?.postMessage({ saved: true })));
   }
 });
 self.addEventListener('push', event => {
   event.waitUntil((async () => {
     let payload;
     try { payload = event.data?.json(); } catch { return; }
-    if (payload?.type !== 'new-message' || !payload.userId || payload.userId !== await pushAccount()) return;
+    const meta = payload && PUSH_META[payload.type];
+    if (!meta || !payload.userId || payload.userId !== await pushStore('account')) return;
+    const prefs = await pushStore('prefs').catch(() => undefined);
+    if (prefs?.categories && prefs.categories[meta.category] === false) return;
+    if (prefs?.quietHours && inQuietHours(new Date(), prefs.quietHours)) return;
     // Firefox counts silent pushes against its quota. Every valid opted-in push displays an alert.
-    await self.registration.showNotification('Locat', { body: 'New messages on Locat', icon: '/icon-192.png', badge: '/icon-192.png', tag: 'locat-inbox', data: { url: '/' } });
+    await self.registration.showNotification('Locat', { body: meta.body, icon: '/icon-192.png', badge: '/icon-192.png', tag: meta.tag, data: { url: meta.url } });
   })());
 });
 self.addEventListener('notificationclick', event => {
   event.notification.close();
+  const target = event.notification.data?.url || '/';
   event.waitUntil((async () => {
     const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for (const client of clients) if (new URL(client.url).origin === self.location.origin) { await client.focus(); return; }
-    await self.clients.openWindow('/');
+    for (const client of clients) if (new URL(client.url).origin === self.location.origin) { await client.focus(); if ('navigate' in client) await client.navigate(target).catch(() => {}); return; }
+    await self.clients.openWindow(target);
   })());
 });
 `);

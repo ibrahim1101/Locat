@@ -50,3 +50,26 @@ export async function stopDeviceNotifications(): Promise<void> {
   for (const notification of await registration.getNotifications()) notification.close();
   await (await registration.pushManager.getSubscription())?.unsubscribe();
 }
+
+/**
+ * Mirror the device-local notification preferences (categories + quiet hours)
+ * into the service worker so background pushes honour the same rules. The
+ * message body never contains conversation ids, names or message content.
+ */
+export async function syncNotificationPrefs(
+  registration: ServiceWorkerRegistration,
+  prefs: { categories: Record<string, boolean>; quietHours: { enabled: boolean; startHour: number; endHour: number } },
+): Promise<void> {
+  const worker = registration.active;
+  if (!worker) return;
+  await new Promise<void>((resolve) => {
+    const channel = new MessageChannel();
+    const timer = setTimeout(() => { channel.port1.close(); resolve(); }, 5_000);
+    channel.port1.onmessage = () => {
+      clearTimeout(timer);
+      channel.port1.close();
+      resolve();
+    };
+    worker.postMessage({ type: "locat-push-prefs", prefs }, [channel.port2]);
+  });
+}

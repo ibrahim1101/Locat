@@ -134,9 +134,10 @@ export async function handleSentinelWebhook(c: Context): Promise<Response> {
 
   // Critical/high NEW incidents trigger a notification via the existing Web Push
   // channel (no-op when push is unconfigured). Fire-and-forget; never blocks the
-  // webhook response or leaks token/body details.
+  // webhook response or leaks token/body details. The payload carries only the
+  // sentinel-alert kind — never the incident title, source or severity.
   if (result.action === "created" && (incident.severity === "critical" || incident.severity === "high")) {
-    void notifyUsers([record.userId]).catch(() => {});
+    void notifyUsers([record.userId], "sentinel-alert").catch(() => {});
   }
 
   return c.json({ ok: true, ...result }, result.action === "created" ? 201 : 200);
