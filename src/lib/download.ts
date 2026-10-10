@@ -24,11 +24,13 @@ export type DownloadDependencies = {
   createLink(): DownloadLink;
   appendLink(link: DownloadLink): void;
   schedule(callback: () => void, delayMs: number): unknown;
+  isNativeShell(): boolean;
 };
 
 function browserDependencies(): DownloadDependencies {
   return {
     saveSelected: saveToSelectedFolder,
+    isNativeShell: () => typeof window !== "undefined" && Boolean(window.Capacitor?.isNativePlatform?.()),
     createObjectURL: (blob) => URL.createObjectURL(blob),
     revokeObjectURL: (url) => URL.revokeObjectURL(url),
     createLink: () => document.createElement("a"),
@@ -51,6 +53,9 @@ export async function downloadBlob(
     throw new Error(
       "Locat could not write to the selected Android folder. Open Settings & backups, choose the folder again, then retry. No browser copy was created.",
     );
+  }
+  if (dependencies.isNativeShell()) {
+    throw new Error("Android native downloads are not available in this build. Open Settings & backups and select a folder with the LocatStorage plugin, or download from a desktop browser. No file was saved.");
   }
   const url = dependencies.createObjectURL(blob);
   const link = dependencies.createLink();
