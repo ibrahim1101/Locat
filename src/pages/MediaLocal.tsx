@@ -11,10 +11,10 @@ export default function MediaLocal({ kind }: { kind: "cinema" | "music" }) {
   const { state } = useAuth();
   const libraries = trpc.media.libraries.useQuery(undefined, { enabled: state.status === "ready", retry: false });
   const hostedItems = trpc.media.items.useQuery(undefined, { enabled: state.status === "ready", retry: false });
-  const inspection = trpc.media.probe.useQuery({ libraryId: hostedSelection?.libraryId ?? 0, id: hostedSelection?.id ?? "" }, { enabled: !music && state.status === "ready" && hostedSelection !== null, retry: false });
   const [files, setFiles] = useState<File[]>([]);
   const [selected, setSelected] = useState(0);
   const [hostedSelection, setHostedSelection] = useState<{ id: string; libraryId: number; name: string } | null>(null);
+  const inspection = trpc.media.probe.useQuery({ libraryId: hostedSelection?.libraryId ?? 0, id: hostedSelection?.id ?? "" }, { enabled: !music && state.status === "ready" && hostedSelection !== null, retry: false });
   const file = files[selected] ?? null;
 
   function choose(next: File[]) {
