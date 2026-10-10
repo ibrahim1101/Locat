@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 
-export function CinemaHlsPlayer({ url }: { url: string }) {
+export function CinemaHlsPlayer({ url, durationSeconds }: { url: string; durationSeconds?: number }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("Preparing transcoded playback…");
@@ -54,10 +54,11 @@ export function CinemaHlsPlayer({ url }: { url: string }) {
       video.removeEventListener("progress", update);
     };
   }, [url]);
+  const formatTime = (seconds: number) => { const n = Math.floor(seconds); return `${Math.floor(n / 3600)}:${String(Math.floor(n / 60) % 60).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`; };
   return <div className="space-y-2">
     <video ref={videoRef} controls playsInline preload="metadata" className="max-h-[55vh] w-full rounded-xl bg-black" />
-    <div className="flex items-center justify-between text-xs text-secondary">
-      <span aria-live="polite">{status}</span><span>Buffered: {buffered}%</span>
+    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-secondary">
+      <span aria-live="polite">{status}</span><span>{durationSeconds && durationSeconds > 0 ? `Source duration: ${formatTime(durationSeconds)} · ` : ""}Buffered: {buffered}%</span>
     </div>
     {error && <p role="alert" className="rounded-lg border border-destructive/50 p-2 text-sm text-destructive">{error}</p>}
   </div>;
