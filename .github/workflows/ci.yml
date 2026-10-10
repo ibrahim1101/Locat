@@ -2,7 +2,7 @@ name: Locat checks
 
 on:
   push:
-    branches: [main, feat/locat-1.0]
+    branches: [main, feat/locat-1.0, feat/locat-2.0, 'chore/locat-2.0-*', 'fix/locat-2.0-*']
   pull_request:
   workflow_dispatch:
 
@@ -41,6 +41,8 @@ jobs:
       - run: npm run lint
       - name: Passwordless crypto regression tests
         run: npx vitest run src/lib/quickSignIn.test.ts src/lib/deviceLink.test.ts
+      - name: Stabilization security regressions
+        run: npx vitest run src/lib/appLock.test.ts src/lib/draft.test.ts src/lib/homeNavigation.test.ts
       - run: npm test
       - run: npm run build
       - name: Validate additive database bootstrap on MariaDB
