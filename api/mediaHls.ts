@@ -52,19 +52,21 @@ function evictIdle() {
 const cleanupTimer = setInterval(evictIdle, 60_000);
 cleanupTimer.unref();
 
-async function getSession(key: string, file: string) {
+async function getSession(key: string, file: string, quality: "1080p" | "4k") {
   evictIdle();
   const existing = sessions.get(key);
   if (existing) { existing.touched = Date.now(); return existing; }
   if (sessions.size >= MAX_SESSIONS) return null;
   const dir = await mkdtemp(path.join(os.tmpdir(), "locat-hls-"));
   const nvenc = process.env.LOCAT_TRANSCODE_ENCODER === "h264_nvenc";
+  const maxHeight = quality === "4k" ? 2160 : 1080;
   const child = spawn(process.env.LOCAT_FFMPEG_PATH || "ffmpeg", [
     "-hide_banner", "-loglevel", "error", "-nostdin", "-i", file,
     "-map", "0:v:0", "-map", "0:a:0?",
     "-c:v", nvenc ? "h264_nvenc" : "libx264",
     "-preset", nvenc ? "p4" : "veryfast", "-pix_fmt", "yuv420p",
-    "-vf", "scale=w=1920:h=1080:force_original_aspect_ratio=decrease",
+    ...(nvenc ? ["-rc", "vbr", "-cq", quality === "4k" ? "19" : "21", "-b:v", "0"] : ["-crf", quality === "4k" ? "18" : "20"]),
+    "-vf", `scale=w=${quality === "4k" ? 3840 : 1920}:h=${maxHeight}:force_original_aspect_ratio=decrease:force_divisible_by=2`,
     "-g", "120", "-keyint_min", "120", "-sc_threshold", "0",
     "-c:a", "aac", "-b:a", "160k",
     "-sn", "-dn", "-f", "hls", "-hls_time", "4",
@@ -99,9 +101,10 @@ export async function handleMediaHls(req: Request): Promise<Response> {
   if (!probe || probe.strategy !== "transcode") return new Response("Transcoding not required or probe unavailable", { status: 415 });
   const asset = params.get("asset") || "index.m3u8";
   if (asset !== "index.m3u8" && !/^segment-\d{6}\.ts$/.test(asset)) return new Response("Invalid segment", { status: 400 });
+  const quality = params.get("quality") === "4k" ? "4k" : "1080p";
   const userId = String(ctx.user.id);
-  const key = createHash("sha256").update(userId + "\0" + file).digest("hex");
-  const session = await getSession(key, file);
+  const key = createHash("sha256").update(userId + "\0" + file + "\0" + quality).digest("hex");
+  const session = await getSession(key, file, quality);
   if (!session) return new Response("HLS capacity reached", { status: 503, headers: { "Retry-After": "10" } });
   const filename = path.join(session.dir, asset);
   let data: Buffer | null = null;
