@@ -5,7 +5,7 @@ import path from "node:path";
 import { createContext } from "./context";
 import { parseMediaRange } from "./mediaRange";
 import { probeVideo } from "./mediaProbe";
-import { createRemuxStream } from "./mediaRemux";
+import { createRemuxStream, RemuxBusyError } from "./mediaRemux";
 
 const MIME: Record<string, string> = {
   ".mp4": "video/mp4", ".m4v": "video/mp4", ".mov": "video/quicktime",
@@ -41,7 +41,12 @@ export async function handleMediaStream(req: Request): Promise<Response> {
     try { probe = await probeVideo(file); }
     catch { return new Response("FFprobe unavailable", { status: 503 }); }
     if (probe.strategy !== "remux") return new Response("Stream copy unavailable for this codec combination", { status: 415 });
-    const stream = createRemuxStream(file, req.signal);
+    let stream: ReadableStream<Uint8Array>;
+    try { stream = createRemuxStream(file, req.signal); }
+    catch (error) {
+      if (error instanceof RemuxBusyError) return new Response("Too many active remux streams", { status: 503, headers: { "Retry-After": "10" } });
+      return new Response("Unable to start remux", { status: 503 });
+    }
     return new Response(stream, { status: 200, headers: {
       "Content-Type": "video/mp4",
       "Cache-Control": "private, no-store",
