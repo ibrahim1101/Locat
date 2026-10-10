@@ -17,7 +17,7 @@ export function createRemuxStream(file: string, signal: AbortSignal, transcode =
     child = spawn(process.env.LOCAT_FFMPEG_PATH || "ffmpeg", [
       "-hide_banner", "-loglevel", "error", "-nostdin",
       "-i", file, "-map", "0:v:0", "-map", "0:a:0?",
-      ...(transcode ? ["-c:v", process.env.LOCAT_TRANSCODE_ENCODER === "h264_nvenc" ? "h264_nvenc" : "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-vf", "scale=w=1920:h=1080:force_original_aspect_ratio=decrease", "-c:a", "aac", "-b:a", "160k"] : ["-c", "copy"]), "-sn", "-dn",
+      ...(transcode ? ["-c:v", process.env.LOCAT_TRANSCODE_ENCODER === "h264_nvenc" ? "h264_nvenc" : "libx264", "-preset", process.env.LOCAT_TRANSCODE_ENCODER === "h264_nvenc" ? "p4" : "veryfast", "-pix_fmt", "yuv420p", "-vf", "scale=w=1920:h=1080:force_original_aspect_ratio=decrease", "-c:a", "aac", "-b:a", "160k"] : ["-c", "copy"]), "-sn", "-dn",
       "-movflags", "frag_keyframe+empty_moov+default_base_moof",
       "-f", "mp4", "pipe:1",
     ], { shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
