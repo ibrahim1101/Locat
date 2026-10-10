@@ -105,12 +105,13 @@ export async function handleMediaHls(req: Request): Promise<Response> {
   if (asset !== "index.m3u8" && !/^segment-\d{6}\.ts$/.test(asset)) return new Response("Invalid segment", { status: 400 });
   const filename = path.join(session.dir, asset);
   let data: Buffer | null = null;
-  for (let attempt = 0; attempt < (asset === "index.m3u8" ? 40 : 1); attempt++) {
+  for (let attempt = 0; attempt < 60; attempt++) {
     data = await readFile(filename).catch(() => null);
+    // A playlist with no completed segment is not yet playable.
+    if (data && asset === "index.m3u8" && !/^segment-\\d{6}\\.ts$/m.test(data.toString("utf8"))) data = null;
     if (data) break;
     if (session.failed) return new Response("FFmpeg HLS transcoding failed", { status: 503 });
     if (session.done) break;
-    if (asset !== "index.m3u8") break;
     await new Promise(resolve => setTimeout(resolve, 250));
   }
   if (!data) return new Response("Segment not ready", { status: 404 });
