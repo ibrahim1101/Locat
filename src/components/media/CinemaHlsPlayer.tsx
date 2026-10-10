@@ -13,6 +13,8 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     if (!video) return;
     let hls: Hls | null = null;
     let cancelled = false;
+    let manifestRetries = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const update = () => {
       if (!video.duration || !Number.isFinite(video.duration)) { setBuffered(0); return; }
       const end = video.buffered.length ? video.buffered.end(video.buffered.length - 1) : 0;
@@ -32,7 +34,11 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!cancelled) { setStatus("Ready"); if (autoplay) void video.play().catch(() => setStatus("Press Play to begin")); else setStatus("Paused at restored position"); } });
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (!data.fatal || cancelled) return;
-        if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+        if (data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR && manifestRetries < 3) {
+          manifestRetries += 1;
+          setStatus(`Preparing stream… retry ${manifestRetries}/3`);
+          retryTimer = setTimeout(() => { if (!cancelled) hls?.loadSource(url); }, 2000);
+        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
           setStatus("Recovering decoder…");
           hls?.recoverMediaError();
         } else {
@@ -51,6 +57,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     }
     return () => {
       cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
       hls?.destroy();
       // Release server-side FFmpeg and temporary HLS segments on player exit/quality change.
       const releaseUrl = new URL(url, window.location.origin);
