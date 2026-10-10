@@ -15,7 +15,9 @@ const capabilities: PlatformCapabilities = {
   // Capacitor's Notification API requires a plugin + runtime permission.
   // Expose it as unavailable until wired in a follow-up commit.
   nativeNotifications: base.capabilities.nativeNotifications,
-  nativeFileSave: true, // Backed by the existing storagePreference folder bridge.
+  // A native file save is available only when the actual Android plugin is registered.
+  // A TypeScript bridge declaration alone does not mean the native plugin exists.
+  nativeFileSave: typeof window !== "undefined" && Boolean(window.Capacitor?.Plugins?.LocatStorage?.writeFile),
   nativeOpenExternal: true,
   nativeSecureStorage: false,
   systemTray: false,
