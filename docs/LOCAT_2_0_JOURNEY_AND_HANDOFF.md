@@ -87,3 +87,84 @@ Updated: 2026-10-10. This is an editable, living record. Record both successes a
 - Committed `7f372a1857e6a1b04aa62ba391e7d2866585dfd0` on `feat/locat-2.0`: `NativeServerSetup.tsx` now calls `parseNativeServerOrigin` before `/api/health`, enforcing strict HTTPS-only origin with no credentials/path/query/fragment. Health check remains mandatory and native server URL persists only after success.
 - No build, CI rerun, emulator HTTPS handshake or Android login was executed in this cycle. Next: add regression coverage for onboarding and negative health responses, verify CI; validate localhost Caddy/debug CA/ADB reverse on user's Windows emulator. Link key possession/revocation remains unresolved.
 - Production Raspberry Pi/database, original Android APK, stable/main branches and draft PRs untouched.
+
+## 2026-02-?? — Emergent Phase 1 session on `feat/locat-2.0-emergent-final`
+
+Working branch forked from `feat/locat-2.0` at `334ff1f`. Target is Phase 1
+(M0 Core Messenger) plus the cross-platform directive added mid-session.
+
+### Commits landed in this session
+
+* `af6855c` — **M0 nav: unified mobile bottom bar, Home button, draft
+  persistence.** Extracted `MobileBottomNav` from `AppShell` and mounted it
+  on the Messages conversation list so a single tap on "Home" returns to the
+  Dashboard. Hamburger drawer dropped the duplicated "Ecosystem home" and
+  "Chats" entries. New `src/lib/draft.ts` persists composer text per
+  conversation in `localStorage` so backgrounding / Home / switching chats
+  no longer loses drafts. 15 new tests, no regressions.
+* `ca74f33` — **M0 device lock: real passcode + biometric + auto-lock +
+  background lock.** Replaced the misleading "Protect device storage"
+  button with a full `AppLockSection`, backed by `src/lib/appLock.ts`
+  (PBKDF2-SHA-256 310 000 iterations, random salt, constant-time compare,
+  configurable auto-lock, lock-on-background, optional WebAuthn platform
+  authenticator). New `AppLockGate` mounts between `AuthProvider` and the
+  router: it does **not** touch the server session or identity keys — the
+  gate only blocks the UI until the device-local passcode / biometric is
+  satisfied. 24 new tests, no regressions.
+* `TBD` — **Platform adapter scaffold for Tauri 2 desktop.**
+  Added `src/lib/platform/{index,browser,capacitor,tauri}.ts` so native
+  capabilities (notifications, file save, open-external, secure storage,
+  system tray, deep links, signed updates) sit behind a shared `PlatformAdapter`
+  interface. The browser and Capacitor adapters are live; the Tauri adapter is
+  a scaffold that currently delegates to the browser fallback and advertises
+  only the capabilities actually implemented. **No installer / packaging
+  work was performed** — this stays within the stated budget.
+
+### Validation
+* `npx tsc -b` — clean.
+* `npx vitest run` — 190+ passing / 26 skipped / 1 file skipped. Baseline
+  on `feat/locat-2.0` was 151 passing / 26 skipped; the delta is the new
+  Phase 1 tests. No regressions.
+* No Android build, no emulator run, no production access.
+
+### Cross-platform desktop directive (recorded verbatim)
+Locat 2.0 must support **Windows (EXE/MSI)**, **Linux (AppImage/DEB/RPM)**
+and **macOS (APP/DMG)** desktop builds using **Tauri 2**, reusing the
+existing React/Vite/TypeScript frontend. Electron / Expo migrations are
+forbidden. Capacitor Android stays unchanged.
+
+Architecture rules enforced in this session:
+1. Shared UI and business logic are platform-independent. Every native call
+   routes through `src/lib/platform/*` and returns `null` / `false` /
+   `UnsupportedCapability` when the capability is honestly unavailable.
+2. Capability surface documented in `PlatformCapabilities`:
+   `nativeNotifications`, `nativeFileSave`, `nativeOpenExternal`,
+   `nativeSecureStorage`, `systemTray`, `deepLinks`, `signedUpdates`.
+3. The Tauri adapter advertises only shipped capabilities. The
+   `plannedCapabilities` map in `src/lib/platform/tauri.ts` is the target
+   set for a future dedicated Tauri branch.
+
+### Follow-up work parked for a dedicated Tauri branch
+* Add Rust Tauri project (`src-tauri/`) wired to the existing Vite bundle.
+* Replace Tauri adapter stubs with plugin calls:
+  `@tauri-apps/plugin-notification`, `-dialog`, `-fs`, `-opener`,
+  `-updater`, and either `-stronghold` or an OS keyring plugin.
+* System-tray / deep-link listeners in `src/main.tsx` gated by the
+  `tauri-desktop` platform kind.
+* Signed update manifest endpoint on the Hono API, scoped to deployment
+  identity. Public key committed; private key kept in deployment secrets.
+* CI pipelines for Windows / Linux / macOS artefacts; code-signing
+  certificates procured separately.
+* QA runbook equivalent to `docs/ANDROID_LOCAL_HTTPS_PREVIEW.md` covering
+  macOS Gatekeeper and Windows SmartScreen trust.
+
+No desktop packaging work was performed in this session per the explicit
+budget constraint. The directive is recorded so the next session can pick
+up from this adapter layer without re-planning the architecture.
+
+### Still open from previous sessions
+* Android HTTPS loopback verification on the user's emulator.
+* Link device proof-of-possession challenge-response (PR #3 open draft).
+* Docker Hub rate-limit on CI for the Node runtime image.
+* Notifications wiring per Phase 1 (quiet hours, mute per-conversation,
+  category toggles) — next commit in this session.
