@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 
-export function CinemaHlsPlayer({ url, durationSeconds }: { url: string; durationSeconds?: number }) {
+export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autoplay = true, onPositionChange }: { url: string; durationSeconds?: number; startSeconds?: number; autoplay?: boolean; onPositionChange?: (position: number, playing: boolean) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("Preparing transcoded playback…");
@@ -16,14 +16,18 @@ export function CinemaHlsPlayer({ url, durationSeconds }: { url: string; duratio
       const end = video.buffered.length ? video.buffered.end(video.buffered.length - 1) : 0;
       setBuffered(Math.min(100, Math.round(end / video.duration * 100)));
     };
-    const onPlaying = () => { setError(""); setStatus("Playing"); };
+    const report = () => onPositionChange?.(startSeconds + video.currentTime, !video.paused);
+    const onPlaying = () => { setError(""); setStatus("Playing"); report(); };
+    const onPause = () => { setStatus("Paused"); report(); };
     const onWaiting = () => setStatus("Buffering…");
     video.addEventListener("playing", onPlaying);
+    video.addEventListener("pause", onPause);
+    video.addEventListener("timeupdate", report);
     video.addEventListener("waiting", onWaiting);
     video.addEventListener("progress", update);
     if (Hls.isSupported()) {
       hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: 20, backBufferLength: 30 });
-      hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!cancelled) { setStatus("Ready"); void video.play().catch(() => setStatus("Press Play to begin")); } });
+      hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!cancelled) { setStatus("Ready"); if (autoplay) void video.play().catch(() => setStatus("Press Play to begin")); else setStatus("Paused at restored position"); } });
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (!data.fatal || cancelled) return;
         if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
@@ -50,19 +54,20 @@ export function CinemaHlsPlayer({ url, durationSeconds }: { url: string; duratio
       const releaseUrl = new URL(url, window.location.origin);
       releaseUrl.searchParams.set("action", "release");
       void fetch(releaseUrl, { method: "POST", credentials: "same-origin", keepalive: true }).catch(() => {});
-      video.pause();
       video.removeAttribute("src");
       video.load();
       video.removeEventListener("playing", onPlaying);
+      video.removeEventListener("pause", onPause);
+      video.removeEventListener("timeupdate", report);
       video.removeEventListener("waiting", onWaiting);
       video.removeEventListener("progress", update);
     };
-  }, [url]);
+  }, [url, startSeconds, autoplay, onPositionChange]);
   const formatTime = (seconds: number) => { const n = Math.floor(seconds); return `${Math.floor(n / 3600)}:${String(Math.floor(n / 60) % 60).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`; };
   return <div className="space-y-2">
     <video ref={videoRef} controls playsInline preload="metadata" className="max-h-[55vh] w-full rounded-xl bg-black" />
     <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-secondary">
-      <span aria-live="polite">{status}</span><span>{durationSeconds && durationSeconds > 0 ? `Source duration: ${formatTime(durationSeconds)} · ` : ""}Buffered: {buffered}%</span>
+      <span aria-live="polite">{status}</span><span>{durationSeconds && durationSeconds > 0 ? `Position: ${formatTime(startSeconds)} + stream time · Source duration: ${formatTime(durationSeconds)} · ` : ""}Buffered: {buffered}%</span>
     </div>
     {error && <p role="alert" className="rounded-lg border border-destructive/50 p-2 text-sm text-destructive">{error}</p>}
   </div>;
