@@ -98,7 +98,7 @@ export async function handleMediaHls(req: Request): Promise<Response> {
   const session = await getSession(key, file);
   if (!session) return new Response("HLS capacity reached", { status: 503, headers: { "Retry-After": "10" } });
   const asset = params.get("asset") || "index.m3u8";
-  if (asset !== "index.m3u8" && !/^segment-\\d{6}\\.ts$/.test(asset)) return new Response("Invalid segment", { status: 400 });
+  if (asset !== "index.m3u8" && !/^segment-\d{6}\.ts$/.test(asset)) return new Response("Invalid segment", { status: 400 });
   const filename = path.join(session.dir, asset);
   let data: Buffer | null = null;
   for (let attempt = 0; attempt < (asset === "index.m3u8" ? 40 : 1); attempt++) {
@@ -115,7 +115,7 @@ export async function handleMediaHls(req: Request): Promise<Response> {
     // Rewrite each segment reference to a same-origin authenticated endpoint.
     const base = new URL(req.url);
     base.searchParams.delete("asset");
-    const manifest = data.toString("utf8").replace(/^segment-\\d{6}\\.ts$/gm, segment => {
+    const manifest = data.toString("utf8").replace(/^segment-\d{6}\.ts$/gm, segment => {
       const url = new URL(base);
       url.searchParams.set("asset", segment);
       return url.pathname + url.search;
