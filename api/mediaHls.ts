@@ -63,6 +63,11 @@ async function getSession(key: string, file: string, quality: "1080p" | "4k", st
   evictIdle();
   const existing = sessions.get(key);
   if (existing) { existing.touched = Date.now(); return existing; }
+  // Switching quality can arrive before the old rendition's release completes.
+  if (sessions.size >= MAX_SESSIONS) {
+    const oldest = [...sessions.entries()].sort((a, b) => a[1].touched - b[1].touched)[0];
+    if (oldest) await clearSession(oldest[0], oldest[1]);
+  }
   if (sessions.size >= MAX_SESSIONS) return null;
   const dir = await mkdtemp(path.join(os.tmpdir(), "locat-hls-"));
   const nvenc = process.env.LOCAT_TRANSCODE_ENCODER === "h264_nvenc";
@@ -131,7 +136,7 @@ export async function handleMediaHls(req: Request): Promise<Response> {
   if (!session) return new Response("HLS capacity reached", { status: 503, headers: { "Retry-After": "10" } });
   const filename = path.join(session.dir, asset);
   let data: Buffer | null = null;
-  for (let attempt = 0; attempt < 60; attempt++) {
+  for (let attempt = 0; attempt < 120; attempt++) {
     data = await readFile(filename).catch(() => null);
     // A playlist with no completed segment is not yet playable.
     if (data && asset === "index.m3u8" && !/^segment-\d{6}\.ts$/m.test(data.toString("utf8"))) data = null;
@@ -140,7 +145,7 @@ export async function handleMediaHls(req: Request): Promise<Response> {
     if (session.done) break;
     await new Promise(resolve => setTimeout(resolve, 250));
   }
-  if (!data) return new Response("Segment not ready", { status: 404 });
+  if (!data) return new Response("Segment not ready", { status: 503, headers: { "Retry-After": "2" } });
   if (asset === "index.m3u8") {
     // Relative playlist URLs inherit library and id only if supplied explicitly.
     // Rewrite each segment reference to a same-origin authenticated endpoint.
