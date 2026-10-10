@@ -104,14 +104,15 @@ export function ChatWindow({
   onToggleMessageHidden: (message: LocalMessage) => void;
 }) {
   const [draft, setDraft] = useState(() => loadDraft(conversation.id, myId));
-  // Reload the draft whenever the active conversation changes so switching
-  // chats never shows the previous conversation's text.
+  const draftOwner = useRef(`${myId}:${conversation.id}`);
+  // On conversation/account switches, avoid saving the previous chat's text
+  // under the newly selected conversation before the state update takes effect.
   useEffect(() => {
+    draftOwner.current = `${myId}:${conversation.id}`;
     setDraft(loadDraft(conversation.id, myId));
   }, [conversation.id, myId]);
-  // Persist drafts on every edit so navigating home, locking the device, or
-  // backgrounding the native shell preserves what the user was typing.
   useEffect(() => {
+    if (draftOwner.current !== `${myId}:${conversation.id}`) return;
     saveDraft(conversation.id, myId, draft);
   }, [conversation.id, myId, draft]);
 
@@ -123,7 +124,7 @@ export function ChatWindow({
     const refresh = () => setMuted(isConversationMuted(conversation.id, loadPrefs()));
     window.addEventListener(PREFS_EVENT, refresh);
     return () => window.removeEventListener(PREFS_EVENT, refresh);
-  }, [conversation.id, myId]);
+  }, [conversation.id]);
   const toggleMute = () => {
     toggleMutedConversation(conversation.id);
     setMuted((prev) => !prev);
