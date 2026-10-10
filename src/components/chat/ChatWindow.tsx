@@ -5,6 +5,7 @@ import type { ConversationSummary } from "@contracts/types";
 import { downloadFilePayload, imageUrl, voiceUrl } from "@/lib/crypto";
 import { dayLabel, sameDay, timeLabel } from "@/lib/format";
 import { messageComposerState } from "@/lib/controlStates";
+import { clearDraft, loadDraft, saveDraft } from "@/lib/draft";
 import { Avatar, AvatarStack } from "./Avatar";
 import { FriendProfileDialog } from "./FriendProfileDialog";
 import {
@@ -95,7 +96,17 @@ export function ChatWindow({
   onToggleHidden: () => void;
   onToggleMessageHidden: (message: LocalMessage) => void;
 }) {
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(() => loadDraft(conversation.id));
+  // Reload the draft whenever the active conversation changes so switching
+  // chats never shows the previous conversation's text.
+  useEffect(() => {
+    setDraft(loadDraft(conversation.id));
+  }, [conversation.id]);
+  // Persist drafts on every edit so navigating home, locking the device, or
+  // backgrounding the native shell preserves what the user was typing.
+  useEffect(() => {
+    saveDraft(conversation.id, draft);
+  }, [conversation.id, draft]);
   const [showHiddenMessages, setShowHiddenMessages] = useState(false);
   const [profileId, setProfileId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
@@ -201,6 +212,7 @@ export function ChatWindow({
     const text = draft.trim();
     if (!text) return;
     setDraft("");
+    clearDraft(conversation.id);
     onSendText(reply ? `> ${reply.replaceAll("\n", "\n> ")}\n\n${text}` : text);
     setReply(null);
   }

@@ -2,18 +2,16 @@ import { type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 import { MODULES, type LocatModule } from "@/modules/registry";
 import { LocatMark, LocatWordmark } from "@/components/LocatBrand";
-import { useAuth } from "@/state/auth";
+import { MobileBottomNav } from "./MobileBottomNav";
 
 /**
  * Responsive ecosystem shell: a vertical rail on desktop and a bottom nav on
  * mobile. Wraps dashboard + module pages. The Messages module renders its own
- * full-screen two-pane layout and is intentionally NOT wrapped by this shell.
+ * full-screen two-pane layout and mounts {@link MobileBottomNav} directly so
+ * the shell stays single-purpose.
  */
 export function AppShell({ children, active }: { children: ReactNode; active: string }) {
-  const { state } = useAuth();
-  const user = state.status === "ready" ? state.user : null;
   const navItems = MODULES.filter((m) => m.primary || m.status !== "planned");
-  const mobileItems = MODULES.filter((m) => m.primary).slice(0, 4);
 
   return (
     <div className="locat-mesh flex app-height text-foreground">
@@ -36,37 +34,7 @@ export function AppShell({ children, active }: { children: ReactNode; active: st
       </div>
 
       {/* Mobile bottom nav */}
-      <nav
-        aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-border/70 bg-background/95 pb-safe backdrop-blur md:hidden"
-      >
-        {mobileItems.map((m) => {
-          const isActive = active === m.id;
-          const disabled = m.status === "planned";
-          const Icon = m.icon;
-          const inner = (
-            <span className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium ${isActive ? "ember-text" : "text-secondary"} ${disabled ? "opacity-40" : ""}`}>
-              <Icon className="h-5 w-5" />
-              {m.name}
-            </span>
-          );
-          return disabled ? (
-            <span key={m.id} className="flex flex-1" aria-disabled>{inner}</span>
-          ) : (
-            <Link key={m.id} to={m.route} className="flex flex-1" data-testid={`bottomnav-${m.id}`} aria-current={isActive ? "page" : undefined}>
-              {inner}
-            </Link>
-          );
-        })}
-        {user?.isAdmin && (
-          <Link to="/admin" className="flex flex-1" aria-label="Server administration">
-            <span className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium text-secondary">
-              <span className="font-mono-ui text-lg leading-none">⌘</span>
-              Admin
-            </span>
-          </Link>
-        )}
-      </nav>
+      <MobileBottomNav active={active} />
     </div>
   );
 }
