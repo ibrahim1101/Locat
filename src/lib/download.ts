@@ -73,10 +73,11 @@ export function downloadBlob(
 ): Promise<DownloadDestination> {
   // Coalesce overlapping requests for the same attachment; do not suppress later intentional saves.
   const key = filename + "\\0" + blob.size + "\\0" + blob.type;
+  const dependencies = { ...browserDependencies(), ...overrides };
   const existing = activeDownloads.get(key);
   if (existing) return existing;
   const previous = recentlySaved.get(key);
-  if (previous && Date.now() < previous.until) {
+  if (previous && Date.now() < previous.until && !(dependencies.isNativeShell() && previous.destination === "browser")) {
     notifyDownload(filename, "saved", previous.destination);
     return Promise.resolve(previous.destination);
   }
@@ -90,7 +91,6 @@ export function downloadBlob(
   const operation = (async (): Promise<DownloadDestination> => {
     notifyDownload(filename, "saving");
     try {
-      const dependencies = { ...browserDependencies(), ...overrides };
       let destination: DownloadDestination;
       try {
         if (await dependencies.saveSelected(filename, blob.type, await blobBase64(blob))) {
@@ -112,7 +112,7 @@ export function downloadBlob(
         if (error instanceof Error && error.message.startsWith("Android native downloads")) throw error;
         throw new Error("Locat could not save the attachment. Open Settings & backups, choose the folder again, then retry. No file was saved.");
       }
-      recentlySaved.set(key, { destination, until: Date.now() + DUPLICATE_TAP_WINDOW_MS });
+      if (destination === "selected-folder") recentlySaved.set(key, { destination, until: Date.now() + DUPLICATE_TAP_WINDOW_MS });
       if (destination === "selected-folder") rememberSaved(key);
       notifyDownload(filename, "saved", destination);
       return destination;
