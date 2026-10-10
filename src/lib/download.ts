@@ -30,6 +30,23 @@ export type DownloadDependencies = {
 const activeDownloads = new Map<string, Promise<DownloadDestination>>();
 const recentlySaved = new Map<string, { destination: DownloadDestination; until: number }>();
 const DUPLICATE_TAP_WINDOW_MS = 5_000;
+const SAVED_DOWNLOADS_KEY = "locat-saved-attachments-v1";
+
+function previouslySaved(key: string): boolean {
+  try {
+    const entries = JSON.parse(localStorage.getItem(SAVED_DOWNLOADS_KEY) || "[]") as unknown;
+    return Array.isArray(entries) && entries.includes(key);
+  } catch { return false; }
+}
+
+function rememberSaved(key: string): void {
+  try {
+    const entries = JSON.parse(localStorage.getItem(SAVED_DOWNLOADS_KEY) || "[]") as unknown;
+    const keys = Array.isArray(entries) ? entries.filter((v): v is string => typeof v === "string" && v !== key) : [];
+    localStorage.setItem(SAVED_DOWNLOADS_KEY, JSON.stringify([...keys.slice(-199), key]));
+  } catch { /* Storage may be disabled; saving itself still works. */ }
+}
+
 
 function notifyDownload(filename: string, status: "saving" | "saved" | "failed", detail?: string): void {
   if (typeof window !== "undefined")
@@ -64,6 +81,11 @@ export function downloadBlob(
     return Promise.resolve(previous.destination);
   }
   recentlySaved.delete(key);
+  // Remember successful saves across restarts. This is history, not proof the file still exists.
+  if (typeof window !== "undefined" && previouslySaved(key) &&
+      !window.confirm(`You previously downloaded "${filename}". Download it again?`)) {
+    return Promise.resolve("selected-folder");
+  }
 
   const operation = (async (): Promise<DownloadDestination> => {
     notifyDownload(filename, "saving");
@@ -91,6 +113,7 @@ export function downloadBlob(
         throw new Error("Locat could not save the attachment. Open Settings & backups, choose the folder again, then retry. No file was saved.");
       }
       recentlySaved.set(key, { destination, until: Date.now() + DUPLICATE_TAP_WINDOW_MS });
+      if (destination === "selected-folder") rememberSaved(key);
       notifyDownload(filename, "saved", destination);
       return destination;
     } catch (error) {
