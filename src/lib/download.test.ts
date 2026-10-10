@@ -9,6 +9,7 @@ function testDependencies(saveSelected: DownloadDependencies["saveSelected"]) {
   let scheduled: (() => void) | undefined;
   const dependencies: DownloadDependencies = {
     saveSelected,
+    isNativeShell: () => false,
     createObjectURL: vi.fn(() => "blob:test"),
     revokeObjectURL,
     createLink: vi.fn(() => link),
@@ -43,6 +44,15 @@ describe("downloadBlob", () => {
     expect(fixture.revokeObjectURL).not.toHaveBeenCalled();
     fixture.runScheduled();
     expect(fixture.revokeObjectURL).toHaveBeenCalledWith("blob:test");
+  });
+
+  it("does not report a successful browser download inside native Android", async () => {
+    const fixture = testDependencies(vi.fn(async () => false));
+    fixture.dependencies.isNativeShell = () => true;
+    await expect(downloadBlob(new Blob(["backup"]), "backup.locat", fixture.dependencies))
+      .rejects.toThrow("No file was saved");
+    expect(fixture.click).not.toHaveBeenCalled();
+    expect(fixture.dependencies.createObjectURL).not.toHaveBeenCalled();
   });
 
   it("fails closed when selected-folder access is revoked", async () => {
