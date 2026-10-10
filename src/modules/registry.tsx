@@ -1,6 +1,6 @@
 import {
   MessageCircle, ShieldAlert, Radio, Lock, Users, Server, WifiOff,
-  KeyRound, Workflow, Search, Calendar, Share2, Puzzle, LayoutDashboard,
+  KeyRound, Workflow, Search, Calendar, Share2, Puzzle, LayoutDashboard, Film, Music2, Activity,
   type LucideIcon,
 } from "lucide-react";
 
@@ -47,6 +47,21 @@ export const MODULES: LocatModule[] = [
     id: "link", name: "Link", tagline: "Secure device transfer",
     description: "Pair your devices and move files, clipboard and actions between them, encrypted.",
     icon: Radio, route: "/link", status: "available", milestone: "M2",
+  },
+  {
+    id: "cinema", name: "Cinema", tagline: "Your personal screening room",
+    description: "Local video playback now; server libraries and advanced playback are in integration.",
+    icon: Film, route: "/cinema", status: "beta", milestone: "Media Hub",
+  },
+  {
+    id: "music", name: "Music", tagline: "Your music, your sound",
+    description: "Local audio playback now; lossless library, EQ and DSP integration is underway.",
+    icon: Music2, route: "/music", status: "beta", milestone: "Media Hub",
+  },
+  {
+    id: "performance", name: "Performance", tagline: "Playback diagnostics",
+    description: "Performance monitoring integration is in progress.",
+    icon: Activity, route: "/performance", status: "planned", milestone: "Media Hub",
   },
   {
     id: "vault", name: "Vault", tagline: "Encrypted file storage",
