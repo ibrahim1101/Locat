@@ -174,4 +174,34 @@ describe("downloadBlob", () => {
     expect(stored.size).toBe(1);
   });
 
+  it("does not dispatch a new save event when a repeat download is declined", async () => {
+    const stored = new Map<string, string>();
+    const confirm = vi.fn(() => false);
+    const dispatchEvent = vi.fn();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => { stored.set(key, value); },
+    });
+    vi.stubGlobal("window", { confirm, dispatchEvent });
+    vi.stubGlobal("CustomEvent", class {
+      constructor() {}
+    });
+    const saveSelected = vi.fn(async () => true);
+    const fixture = testDependencies(saveSelected);
+    fixture.dependencies.isNativeShell = () => true;
+    const blob = new Blob(["declined-save"], { type: "text/plain" });
+    const filename = "declined-event-test.txt";
+
+    await expect(downloadBlob(blob, filename, fixture.dependencies))
+      .resolves.toBe("selected-folder");
+    expect(dispatchEvent).toHaveBeenCalledTimes(2);
+    dispatchEvent.mockClear();
+
+    await expect(downloadBlob(blob, filename, fixture.dependencies))
+      .resolves.toBe("cancelled");
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(saveSelected).toHaveBeenCalledTimes(1);
+    expect(dispatchEvent).not.toHaveBeenCalled();
+  });
+
 });
