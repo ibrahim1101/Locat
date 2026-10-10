@@ -300,10 +300,8 @@ export function shouldAutoLock(
 }
 
 // ─── Biometric (WebAuthn) ───────────────────────────────────────────────────
-// We register a platform authenticator so an unlock prompt can use the OS
-// fingerprint / Face ID / Windows Hello flow. The server never participates:
-// successful WebAuthn assertion simply flips the local unlocked flag. The
-// passcode remains the recovery path.
+// Biometric unlock is disabled until cryptographic assertion verification is
+// implemented and reviewed. Passcode unlock remains the recovery path.
 
 // WebAuthn is deliberately fail-closed until the app can verify the signed
 // assertion against a trusted credential public key and challenge. Previously
