@@ -113,4 +113,36 @@ describe("downloadBlob", () => {
     expect(stored.size).toBe(0);
   });
 
+  it("coalesces simultaneous saves of the same attachment into one operation", async () => {
+    let finishSave: ((value: boolean) => void) | undefined;
+    const saveSelected = vi.fn(() => new Promise<boolean>((resolve) => { finishSave = resolve; }));
+    const fixture = testDependencies(saveSelected);
+    const blob = new Blob(["same-attachment"], { type: "text/plain" });
+    const first = downloadBlob(blob, "parallel-download-test.txt", fixture.dependencies);
+    const second = downloadBlob(blob, "parallel-download-test.txt", fixture.dependencies);
+
+    expect(second).toBe(first);
+    await vi.waitFor(() => expect(saveSelected).toHaveBeenCalledOnce());
+    expect(finishSave).toBeDefined();
+    finishSave?.(true);
+    await expect(first).resolves.toBe("selected-folder");
+    await expect(second).resolves.toBe("selected-folder");
+    expect(saveSelected).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows retry after a failed attachment save", async () => {
+    const saveSelected = vi.fn()
+      .mockRejectedValueOnce(new Error("permission revoked"))
+      .mockResolvedValueOnce(true);
+    const fixture = testDependencies(saveSelected);
+    const blob = new Blob(["retry"], { type: "text/plain" });
+    const filename = "retry-after-failure-test.txt";
+
+    await expect(downloadBlob(blob, filename, fixture.dependencies))
+      .rejects.toThrow("choose the folder again");
+    await expect(downloadBlob(blob, filename, fixture.dependencies))
+      .resolves.toBe("selected-folder");
+    expect(saveSelected).toHaveBeenCalledTimes(2);
+  });
+
 });
