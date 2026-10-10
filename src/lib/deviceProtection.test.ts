@@ -61,7 +61,7 @@ describe("device app lock surface", () => {
 describe("app lock gate", () => {
   it("mounts between AuthProvider and App to block signed-in UI when locked", () => {
     expect(main).toContain('import { AppLockGate } from "./components/AppLockGate"');
-    expect(main).toContain("<AuthProvider><AppLockGate><App /></AppLockGate></AuthProvider>");
+    expect(main).toContain("<AuthProvider><AppLockGate><><App /><DownloadStatusHost /></></AppLockGate></AuthProvider>");
   });
 
   it("renders a modal dialog with passcode input and optional biometric button", () => {
