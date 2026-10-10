@@ -66,7 +66,7 @@ export function downloadBlob(
         if (await dependencies.saveSelected(filename, blob.type, await blobBase64(blob))) {
           destination = "selected-folder";
         } else if (dependencies.isNativeShell()) {
-          throw new Error("Android native downloads are not available in this build. Select an Android folder in Settings & backups.");
+          throw new Error("Android native downloads are not available in this build. Select an Android folder in Settings & backups. No file was saved.");
         } else {
           const url = dependencies.createObjectURL(blob);
           const link = dependencies.createLink();
@@ -80,7 +80,7 @@ export function downloadBlob(
         }
       } catch (error) {
         if (error instanceof Error && error.message.startsWith("Android native downloads")) throw error;
-        throw new Error("Locat could not save the attachment. Check your selected folder in Settings & backups and retry.");
+        throw new Error("Locat could not save the attachment. Open Settings & backups, choose the folder again, then retry. No file was saved.");
       }
       notifyDownload(filename, "saved", destination);
       return destination;
