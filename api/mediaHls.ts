@@ -97,12 +97,12 @@ export async function handleMediaHls(req: Request): Promise<Response> {
   if (!file) return new Response("Not found", { status: 404 });
   const probe = await probeVideo(file).catch(() => null);
   if (!probe || probe.strategy !== "transcode") return new Response("Transcoding not required or probe unavailable", { status: 415 });
+  const asset = params.get("asset") || "index.m3u8";
+  if (asset !== "index.m3u8" && !/^segment-\d{6}\.ts$/.test(asset)) return new Response("Invalid segment", { status: 400 });
   const userId = String(ctx.user.id);
   const key = createHash("sha256").update(userId + "\0" + file).digest("hex");
   const session = await getSession(key, file);
   if (!session) return new Response("HLS capacity reached", { status: 503, headers: { "Retry-After": "10" } });
-  const asset = params.get("asset") || "index.m3u8";
-  if (asset !== "index.m3u8" && !/^segment-\d{6}\.ts$/.test(asset)) return new Response("Invalid segment", { status: 400 });
   const filename = path.join(session.dir, asset);
   let data: Buffer | null = null;
   for (let attempt = 0; attempt < 60; attempt++) {
