@@ -28,6 +28,8 @@ export type DownloadDependencies = {
 };
 
 const activeDownloads = new Map<string, Promise<DownloadDestination>>();
+const recentlySaved = new Map<string, { destination: DownloadDestination; until: number }>();
+const DUPLICATE_TAP_WINDOW_MS = 5_000;
 
 function notifyDownload(filename: string, status: "saving" | "saved" | "failed", detail?: string): void {
   if (typeof window !== "undefined")
@@ -56,6 +58,12 @@ export function downloadBlob(
   const key = filename + "\\0" + blob.size + "\\0" + blob.type;
   const existing = activeDownloads.get(key);
   if (existing) return existing;
+  const previous = recentlySaved.get(key);
+  if (previous && Date.now() < previous.until) {
+    notifyDownload(filename, "saved", previous.destination);
+    return Promise.resolve(previous.destination);
+  }
+  recentlySaved.delete(key);
 
   const operation = (async (): Promise<DownloadDestination> => {
     notifyDownload(filename, "saving");
@@ -82,6 +90,7 @@ export function downloadBlob(
         if (error instanceof Error && error.message.startsWith("Android native downloads")) throw error;
         throw new Error("Locat could not save the attachment. Open Settings & backups, choose the folder again, then retry. No file was saved.");
       }
+      recentlySaved.set(key, { destination, until: Date.now() + DUPLICATE_TAP_WINDOW_MS });
       notifyDownload(filename, "saved", destination);
       return destination;
     } catch (error) {
