@@ -175,3 +175,12 @@ up from this adapter layer without re-planning the architecture.
   that toggles the muted state via the shared prefs store. Prefs stay on
   the device; the Web Push payload still contains no plaintext — only the
   shell decides when to alert. 23 new tests, no regressions.
+
+## 2026-10-10 — Independent stabilization review and fresh-workspace handoff
+
+- Reviewed feat/locat-2.0 at `30fcd931aaba1a298c348873c80e4bb3d09a5528`, including the new navigation, app-lock, notification, media and desktop-adapter work.
+- Created separate documentation-only branch `chore/locat-2.0-stabilization-handoff`; did not merge, deploy or modify production.
+- Added `docs/EMERGENT_HANDOFF.md`, `docs/FEATURE_MATRIX.md`, `docs/SECURITY_MODEL.md`, `docs/PLATFORM_ROADMAP.md`, and `docs/TESTING_STATUS.md` to support a new development workspace without previous chat history.
+- Confirmed source-level limitations: app lock is a client-controlled UI gate rather than encrypted device storage; drafts are plaintext in localStorage; browser-anchor fallback cannot guarantee Android WebView downloads; service-worker notification code does not prove native Android push.
+- Emergent commit messages report 226 passing Vitest tests / 26 skipped after media work, but these tests were not independently executed in this review. No GitHub Actions runs were returned for the feature branch during the audit.
+- Next: independently run typecheck/tests/build in an appropriate checkout; prioritize secure drafts, app-lock threat model, native Android file save/notifications, and Link security before expansion. Preserve user's uncommitted Windows Capacitor preview project.
