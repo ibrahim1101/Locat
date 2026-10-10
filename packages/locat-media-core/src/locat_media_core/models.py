@@ -55,9 +55,13 @@ class VideoStreamInfo(_MediaBase):
     bit_rate: Optional[int] = None  # bits/sec
     fps: Optional[float] = None
     pixel_format: Optional[str] = None
-    hdr: Optional[str] = None    # None, "hdr10", "hlg", "dovi"
+    hdr: Optional[str] = None    # None, "hdr10", "hdr10+", "hlg", "dovi"
     profile: Optional[str] = None
     level: Optional[str] = None
+    color_space: Optional[str] = None
+    color_transfer: Optional[str] = None
+    color_primaries: Optional[str] = None
+    mastering_display: Optional[str] = None
 
 
 class AudioStreamInfo(_MediaBase):

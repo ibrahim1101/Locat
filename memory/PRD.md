@@ -52,7 +52,18 @@ preamp, ReplayGain, limiter, presets).
 
 ## What's been implemented (dates)
 
-### 2026-02 — Milestones A + B + partial D/E/F
+## Completed work in this session
+
+### Phase 2 — Milestones C/E/F (2026-02, same session)
+- Server-side **real** `ffmpeg -c copy` remux worker (MKV → fragmented MP4) with cancellation, bounded chunks, lossless output verified in tests.
+- Universal format expansion: 24 video containers, 15 audio formats, HDR metadata (color space/transfer/primaries, mastering display), hwaccel detection (`vdpau`, `cuda`, `vaapi`, `vulkan`, NVENC/NVDEC availability flags).
+- Series rollups + Next Episode auto-advance + resume-from-position.
+- Playback info panel with full technical details (ffprobe stream data + HDR block + ffmpeg capabilities).
+- Performance Monitor dashboard: real `psutil` CPU/RAM/disk/net, optional NVML GPU, live Recharts time-series, pause/resume, 1/2/5 s cadence selector, server session table.
+- Parametric EQ (peaking/shelf/pass/notch) with live SVG frequency response graph via `OfflineAudioContext.getFrequencyResponse`.
+- Capacitor Audio Bridge scaffold (TypeScript facade + Kotlin `LocatMediaAudioBridgePlugin.kt` + README) — honest reporting, bit-perfect verification implementation listed as TODO.
+- Remote Desktop + Remote Play architecture docs (planning only, no implementation).
+- Backend test coverage: **37/37 pytest cases pass** (23 original + 14 new covering remux, series, info panel, telemetry, universal matrix, parametric EQ).
 
 - Package skeleton + Python module wiring into FastAPI host.
 - `MediaPersistence` protocol + Mongo implementation + prefs store.

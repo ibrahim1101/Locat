@@ -111,10 +111,10 @@ export function AudioEngineProvider({ children }) {
       return;
     }
 
-    // Enhanced DSP: build biquad chain
+    // Enhanced DSP: build biquad chain (graphic bands + parametric filters)
     const bands = preset?.bands || [];
     const bandsMode = preset?.bands_mode || "10";
-    const filters = bands.map((b, i) => {
+    const graphicFilters = bands.map((b, i) => {
       const node = ctx.createBiquadFilter();
       if (i === 0 && bandsMode !== "parametric") node.type = "lowshelf";
       else if (i === bands.length - 1 && bandsMode !== "parametric") node.type = "highshelf";
@@ -124,6 +124,15 @@ export function AudioEngineProvider({ children }) {
       node.Q.value = 1.0;
       return node;
     });
+    const parametricFilters = (preset?.parametric || []).filter((p) => p.enabled !== false).map((p) => {
+      const node = ctx.createBiquadFilter();
+      node.type = p.kind || "peaking";
+      node.frequency.value = p.frequency_hz;
+      node.gain.value = p.gain_db || 0;
+      node.Q.value = p.q || 1.0;
+      return node;
+    });
+    const filters = [...graphicFilters, ...parametricFilters];
     filterNodesRef.current = filters;
 
     // preamp

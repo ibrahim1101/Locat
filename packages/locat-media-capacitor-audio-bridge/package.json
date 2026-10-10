@@ -1,0 +1,18 @@
+{
+  "name": "@locat/media-capacitor-audio-bridge",
+  "version": "0.1.0-alpha",
+  "private": true,
+  "description": "Capacitor plugin that bridges Locat Music to Android's native AAudio output path, honestly reporting output capabilities (sample rate, bit depth, exclusive route) to the Locat media server.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "capacitor": {
+    "ios": { "src": "ios" },
+    "android": {
+      "src": "android",
+      "javaPackage": "com.locat.media"
+    }
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^6.0.0"
+  }
+}

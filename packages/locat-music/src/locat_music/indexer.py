@@ -20,7 +20,8 @@ from locat_media_adapters.storage import StorageAdapter
 logger = logging.getLogger("locat_music.indexer")
 
 AUDIO_EXTENSIONS = (
-    "flac", "wav", "alac", "m4a", "mp3", "aac", "ogg", "opus", "aiff", "aif",
+    "flac", "wav", "alac", "m4a", "mp3", "aac", "ogg", "opus",
+    "aiff", "aif", "wma", "ape", "wv", "dsf", "dff",
 )
 
 _CODEC_BY_EXT = {

@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Save, Sliders, Volume2 } from "lucide-react";
+import { Plus, Save, Sliders, Trash2, Volume2 } from "lucide-react";
 import { api } from "./api";
 import { useAudioEngine } from "./AudioEngine";
 import { BitPerfectChip } from "./chips";
+import { FrequencyResponseGraph } from "./freqResponse";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -255,6 +256,138 @@ export default function EqualizerPage() {
           <div className="text-[11px] font-mono text-zinc-500">
             Saved presets persist in Locat's media database and reload on restart.
           </div>
+        </div>
+      </section>
+
+      {/* Parametric EQ + live frequency response */}
+      <section className="locat-glass rounded-2xl p-6" data-testid="parametric-section">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+          <div className="flex items-center gap-2 text-white font-display text-lg">
+            <Sliders size={16} className="text-sky-300" />
+            Parametric filters
+            <span className="text-[11px] font-mono text-zinc-500 ml-2">
+              peaking · low/high shelf · low/high pass · notch
+            </span>
+          </div>
+          <Button
+            variant="outline"
+            disabled={disabled || !preset}
+            onClick={() => {
+              const parametric = [...(preset.parametric || []), {
+                kind: "peaking", frequency_hz: 1000, gain_db: 0, q: 1.0, enabled: true,
+              }];
+              setPreset({ ...preset, parametric, is_builtin: false });
+            }}
+            className="border-white/15 text-white hover:bg-white/10 bg-transparent"
+            data-testid="eq-add-parametric"
+          >
+            <Plus size={12} /> Add filter
+          </Button>
+        </div>
+
+        <FrequencyResponseGraph preset={preset} />
+
+        <div className="mt-5 space-y-2" data-testid="parametric-list">
+          {(preset?.parametric || []).map((p, i) => (
+            <div
+              key={i}
+              className="grid grid-cols-[auto,minmax(0,120px),minmax(0,1fr),minmax(0,1fr),minmax(0,1fr),auto] items-center gap-3 bg-black/30 rounded-lg px-3 py-2 border border-white/[0.05]"
+              data-testid={`parametric-row-${i}`}
+            >
+              <Switch
+                checked={p.enabled !== false}
+                disabled={disabled}
+                onCheckedChange={(v) => {
+                  const parametric = [...preset.parametric];
+                  parametric[i] = { ...p, enabled: v };
+                  setPreset({ ...preset, parametric, is_builtin: false });
+                }}
+              />
+              <select
+                disabled={disabled}
+                value={p.kind}
+                onChange={(e) => {
+                  const parametric = [...preset.parametric];
+                  parametric[i] = { ...p, kind: e.target.value };
+                  setPreset({ ...preset, parametric, is_builtin: false });
+                }}
+                className="bg-white/[0.04] border border-white/10 rounded-md px-2 py-1 text-xs font-mono text-white"
+                data-testid={`parametric-kind-${i}`}
+              >
+                {["peaking","lowshelf","highshelf","lowpass","highpass","notch"].map((k) => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
+              </select>
+              <div>
+                <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Frequency</div>
+                <div className="flex items-center gap-2">
+                  <Slider
+                    disabled={disabled}
+                    value={[Math.log10(p.frequency_hz)]}
+                    onValueChange={(v) => {
+                      const parametric = [...preset.parametric];
+                      parametric[i] = { ...p, frequency_hz: Math.round(Math.pow(10, v[0])) };
+                      setPreset({ ...preset, parametric, is_builtin: false });
+                    }}
+                    min={Math.log10(20)} max={Math.log10(20000)} step={0.01}
+                  />
+                  <span className="text-[11px] font-mono text-zinc-300 w-16 text-right">
+                    {p.frequency_hz >= 1000 ? `${(p.frequency_hz / 1000).toFixed(2)}k` : p.frequency_hz} Hz
+                  </span>
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Gain</div>
+                <div className="flex items-center gap-2">
+                  <Slider
+                    disabled={disabled || ["lowpass","highpass","notch"].includes(p.kind)}
+                    value={[p.gain_db]}
+                    onValueChange={(v) => {
+                      const parametric = [...preset.parametric];
+                      parametric[i] = { ...p, gain_db: v[0] };
+                      setPreset({ ...preset, parametric, is_builtin: false });
+                    }}
+                    min={-18} max={18} step={0.1}
+                  />
+                  <span className="text-[11px] font-mono text-zinc-300 w-14 text-right">
+                    {p.gain_db >= 0 ? `+${p.gain_db.toFixed(1)}` : p.gain_db.toFixed(1)} dB
+                  </span>
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Q</div>
+                <div className="flex items-center gap-2">
+                  <Slider
+                    disabled={disabled}
+                    value={[p.q]}
+                    onValueChange={(v) => {
+                      const parametric = [...preset.parametric];
+                      parametric[i] = { ...p, q: v[0] };
+                      setPreset({ ...preset, parametric, is_builtin: false });
+                    }}
+                    min={0.1} max={10} step={0.05}
+                  />
+                  <span className="text-[11px] font-mono text-zinc-300 w-10 text-right">{p.q.toFixed(2)}</span>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  const parametric = preset.parametric.filter((_, j) => j !== i);
+                  setPreset({ ...preset, parametric, is_builtin: false });
+                }}
+                disabled={disabled}
+                className="w-8 h-8 rounded-md text-zinc-500 hover:text-red-400 hover:bg-white/5 flex items-center justify-center"
+                data-testid={`parametric-del-${i}`}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+          {(preset?.parametric || []).length === 0 && (
+            <div className="text-xs text-zinc-500 font-mono">
+              No parametric filters yet. Add one to sculpt specific frequencies on top of the graphic EQ.
+            </div>
+          )}
         </div>
       </section>
     </div>

@@ -1,12 +1,14 @@
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Film, Music2, Settings2, LayoutGrid, PlugZap } from "lucide-react";
+import { Film, Music2, Settings2, LayoutGrid, PlugZap, Activity, Tv } from "lucide-react";
 
 const items = [
   { to: "/", label: "Hub", icon: LayoutGrid, testid: "nav-hub" },
   { to: "/cinema", label: "Cinema", icon: Film, testid: "nav-cinema" },
+  { to: "/cinema/series", label: "Series", icon: Tv, testid: "nav-series" },
   { to: "/music", label: "Music", icon: Music2, testid: "nav-music" },
   { to: "/music/eq", label: "Audio & EQ", icon: Settings2, testid: "nav-eq" },
+  { to: "/performance", label: "Performance", icon: Activity, testid: "nav-performance" },
   { to: "/integration", label: "Integration", icon: PlugZap, testid: "nav-integration" },
 ];
 

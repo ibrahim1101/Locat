@@ -23,7 +23,9 @@ from locat_media_adapters.storage import StorageAdapter
 logger = logging.getLogger("locat_cinema.indexer")
 
 VIDEO_EXTENSIONS = (
-    "mkv", "mp4", "mov", "webm", "avi", "m4v", "ts", "m2ts",
+    "mkv", "mp4", "mov", "webm", "avi", "m4v", "ts", "m2ts", "mts",
+    "mpg", "mpeg", "wmv", "flv", "3gp", "3g2", "ogv", "ogm",
+    "vob", "divx", "asf", "rm", "rmvb", "f4v", "mxf",
 )
 
 _FFPROBE = shutil.which("ffprobe") or "ffprobe"
@@ -67,7 +69,7 @@ async def _run_ffprobe(path: Path) -> Optional[dict]:
     cmd = [
         _FFPROBE,
         "-v", "error",
-        "-show_entries", "format=duration,bit_rate,size,format_name:stream=index,codec_type,codec_name,width,height,bit_rate,r_frame_rate,pix_fmt,profile,level,channels,channel_layout,sample_rate,bits_per_raw_sample,bits_per_sample,disposition,tags",
+        "-show_entries", "format=duration,bit_rate,size,format_name:stream=index,codec_type,codec_name,width,height,bit_rate,r_frame_rate,pix_fmt,profile,level,channels,channel_layout,sample_rate,bits_per_raw_sample,bits_per_sample,disposition,tags,color_space,color_transfer,color_primaries,side_data_list",
         "-of", "json",
         str(path),
     ]
@@ -106,12 +108,39 @@ def _fps_from_rate(rate: str) -> Optional[float]:
         return None
 
 
-def _hdr_from_pixfmt(pix_fmt: Optional[str]) -> Optional[str]:
-    if not pix_fmt:
-        return None
-    pf = pix_fmt.lower()
-    if "p10" in pf or "yuv420p10" in pf:
-        return "hdr10"
+def _hdr_from_stream(stream: dict) -> tuple[Optional[str], Optional[str]]:
+    """Return (hdr_label, mastering_display_summary)."""
+    pix = (stream.get("pix_fmt") or "").lower()
+    xfer = (stream.get("color_transfer") or "").lower()
+    primaries = (stream.get("color_primaries") or "").lower()
+    sides = stream.get("side_data_list") or []
+    side_types = {(sd.get("side_data_type") or "").lower() for sd in sides}
+
+    hdr = None
+    if "dovi configuration record" in side_types or "dovi_rpu" in side_types or "dolby vision" in side_types:
+        hdr = "dovi"
+    elif xfer == "arib-std-b67" or "hlg" in xfer:
+        hdr = "hlg"
+    elif xfer in {"smpte2084", "bt2020-10", "bt2020-12"} or "smpte-st-2094" in side_types:
+        hdr = "hdr10+" if "smpte-st-2094" in side_types or "hdr dynamic metadata" in side_types else "hdr10"
+    elif "p10" in pix and primaries in {"bt2020", "bt2020nc"}:
+        hdr = "hdr10"
+
+    mastering = None
+    for sd in sides:
+        t = (sd.get("side_data_type") or "").lower()
+        if "mastering display" in t:
+            mastering = (
+                f"R({sd.get('red_x')},{sd.get('red_y')}) "
+                f"G({sd.get('green_x')},{sd.get('green_y')}) "
+                f"B({sd.get('blue_x')},{sd.get('blue_y')}) "
+                f"max={sd.get('max_luminance')} min={sd.get('min_luminance')}"
+            )
+            break
+    return hdr, mastering
+
+
+def _hdr_from_pixfmt(pix_fmt: Optional[str]) -> Optional[str]:  # legacy
     return None
 
 
@@ -172,6 +201,7 @@ class CinemaIndexer:
         for s in (probe or {}).get("streams", []):
             ctype = s.get("codec_type")
             if ctype == "video":
+                hdr_label, mastering = _hdr_from_stream(s)
                 v_streams.append(VideoStreamInfo(
                     codec=s.get("codec_name", "") or "",
                     width=int(s.get("width") or 0),
@@ -179,9 +209,13 @@ class CinemaIndexer:
                     bit_rate=int(s["bit_rate"]) if s.get("bit_rate") else bit_rate,
                     fps=_fps_from_rate(s.get("r_frame_rate")),
                     pixel_format=s.get("pix_fmt"),
-                    hdr=_hdr_from_pixfmt(s.get("pix_fmt")),
+                    hdr=hdr_label,
                     profile=str(s.get("profile")) if s.get("profile") else None,
                     level=str(s.get("level")) if s.get("level") else None,
+                    color_space=s.get("color_space"),
+                    color_transfer=s.get("color_transfer"),
+                    color_primaries=s.get("color_primaries"),
+                    mastering_display=mastering,
                 ))
             elif ctype == "audio":
                 a_streams.append(AudioStreamInfo(

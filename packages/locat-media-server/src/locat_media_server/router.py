@@ -39,10 +39,13 @@ from locat_media_adapters import (
 )
 
 from locat_cinema import CinemaIndexer, ClientCapabilities, PlaybackDecider, RangeStreamer
+from locat_cinema import FfmpegRemuxWorker
+from locat_cinema.hwaccel import probe_ffmpeg_capabilities, common_container_matrix
 from locat_music import MusicIndexer, AudioModeService, builtin_eq_presets
 
 from .diagnostics import DiagnosticsRegistry
 from .settings import MediaServerSettings
+from .telemetry import TelemetryService
 
 logger = logging.getLogger("locat_media_server.router")
 
@@ -84,12 +87,21 @@ class EqBandBody(BaseModel):
     gain_db: float = 0.0
 
 
+class ParametricFilterBody(BaseModel):
+    kind: str = "peaking"
+    frequency_hz: float = 1000.0
+    gain_db: float = 0.0
+    q: float = 1.0
+    enabled: bool = True
+
+
 class SaveEqPresetBody(BaseModel):
     id: Optional[str] = None
     name: str
     bands_mode: str = "10"
     preamp_db: float = 0.0
     bands: List[EqBandBody] = Field(default_factory=list)
+    parametric: List[ParametricFilterBody] = Field(default_factory=list)
     replaygain_mode: str = "off"
     limiter_enabled: bool = False
     balance: float = 0.0
@@ -126,6 +138,8 @@ def create_media_router(
     streamer = RangeStreamer(chunk_size=settings.chunk_size_bytes)
     audio_mode_service = AudioModeService(persistence=persistence, host=host)
     decider = PlaybackDecider()
+    remuxer = FfmpegRemuxWorker()
+    telemetry = TelemetryService(diagnostics)
 
     # ---------------- Dependencies ----------------
 
@@ -183,16 +197,31 @@ def create_media_router(
     @router.get("/capabilities/matrix")
     async def capability_matrix(user: UserContext = Depends(_require_user)):
         decoders = await host.native_decoder_matrix()
+        hw = await probe_ffmpeg_capabilities()
         return {
             "runtime": host.runtime_name,
             "decoders": [d.__dict__ for d in decoders],
+            "ffmpeg": {
+                "version": hw.ffmpeg_version,
+                "hwaccels": hw.hwaccels,
+                "nvenc_available": hw.nvenc_available,
+                "nvdec_available": hw.nvdec_available,
+                "vaapi_available": hw.vaapi_available,
+                "qsv_available": hw.qsv_available,
+                "videotoolbox_available": hw.videotoolbox_available,
+            },
+            "container_matrix": common_container_matrix(),
             "notes": (
-                "Browsers reliably Direct Play H.264+AAC in MP4. HEVC/MKV/EAC3 "
-                "and HDR require either a native host adapter (Locat Windows "
-                "WASAPI/NVENC or Locat Android MediaCodec) OR server-side "
-                "remux/transcode."
+                "Browsers reliably Direct Play H.264+AAC in MP4. Everything else is served "
+                "via server-side stream-copy remux to fragmented MP4 (lossless) unless the "
+                "video codec itself is incompatible, in which case transcoding is required."
             ),
         }
+
+    @router.get("/capabilities/ffmpeg")
+    async def ffmpeg_caps(user: UserContext = Depends(_require_user)):
+        hw = await probe_ffmpeg_capabilities()
+        return hw.__dict__
 
     # ---------------- Libraries ----------------
 
@@ -364,9 +393,65 @@ def create_media_router(
             request, Path(it.path),
             on_bytes=_on_bytes, on_disconnect=_on_disconnect,
         )
-        # Expose the session id so the client can poll diagnostics.
         response.headers["X-Locat-Session-Id"] = session.id
         return response
+
+    @router.get("/items/{item_id}/remux.mp4")
+    async def remux_item(
+        item_id: str,
+        request: Request,
+        start: float = Query(0.0, ge=0),
+        session_id: Optional[str] = Query(default=None),
+        user: UserContext = Depends(_require_user),
+    ):
+        """Server-side STREAM-COPY remux to fragmented MP4.
+
+        No re-encoding. Original video and (where possible) audio are
+        preserved byte-for-byte. Used when the client cannot handle the
+        source container but can decode the elementary streams.
+        """
+        it = await persistence.get_item(item_id)
+        if not it:
+            raise HTTPException(status_code=404, detail="Item not found")
+        if not storage.is_authorized_path(it.path):
+            raise HTTPException(status_code=403, detail="Media path is not within an authorized library")
+
+        session = diagnostics.get_session(session_id) if session_id else None
+        if session is None:
+            session = diagnostics.start_session(PlaybackSession(
+                item_id=item_id,
+                client_id=user.device_id,
+                client_info={"user_id": user.user_id, "mode": "remux"},
+            ))
+
+        import asyncio as _asyncio
+        cancel = _asyncio.Event()
+
+        async def _iter():
+            try:
+                async for chunk in remuxer.stream(
+                    Path(it.path),
+                    start_seconds=start,
+                    on_bytes=lambda n: diagnostics.record_bytes(session.id, n),
+                    cancel_event=cancel,
+                ):
+                    if await request.is_disconnected():
+                        cancel.set()
+                        break
+                    yield chunk
+            finally:
+                diagnostics.end_session(session.id)
+
+        from starlette.responses import StreamingResponse
+        return StreamingResponse(
+            _iter(),
+            media_type="video/mp4",
+            headers={
+                "X-Locat-Session-Id": session.id,
+                "X-Locat-Playback-Path": "remux-stream-copy",
+                "Cache-Control": "no-cache",
+            },
+        )
 
     @router.get("/items/{item_id}/diagnostics")
     async def item_diagnostics(
@@ -416,6 +501,122 @@ def create_media_router(
         if not updated:
             raise HTTPException(status_code=404, detail="Item not found")
         return {"ok": True, "last_position_seconds": updated.last_position_seconds}
+
+    # ---------------- Series rollups ----------------
+
+    @router.get("/series")
+    async def list_series(user: UserContext = Depends(_require_user)):
+        """Aggregate episodes by series name + season."""
+        episodes = await persistence.list_items(media_type="episode", limit=5000)
+        series_map: dict = {}
+        for ep in episodes:
+            name = ep.series_name or "(Unknown Series)"
+            s = series_map.setdefault(name, {
+                "series_name": name,
+                "seasons": {},
+                "episode_count": 0,
+                "last_watched_at": None,
+            })
+            s["episode_count"] += 1
+            season_key = ep.season_number or 1
+            season = s["seasons"].setdefault(season_key, {
+                "season_number": season_key,
+                "episodes": [],
+            })
+            season["episodes"].append({
+                "id": ep.id,
+                "title": ep.title or f"Episode {ep.episode_number or len(season['episodes']) + 1}",
+                "season_number": ep.season_number,
+                "episode_number": ep.episode_number,
+                "duration_seconds": ep.duration_seconds,
+                "last_position_seconds": ep.last_position_seconds,
+                "play_count": ep.play_count,
+                "favorite": ep.favorite,
+                "poster_url": ep.poster_url,
+            })
+            if ep.last_played_at and (s["last_watched_at"] is None or
+                                       ep.last_played_at.isoformat() > s["last_watched_at"]):
+                s["last_watched_at"] = ep.last_played_at.isoformat()
+
+        series_out = []
+        for s in series_map.values():
+            seasons = sorted(s["seasons"].values(), key=lambda x: x["season_number"])
+            for season in seasons:
+                season["episodes"].sort(key=lambda e: (e["episode_number"] or 0))
+            series_out.append({
+                "series_name": s["series_name"],
+                "episode_count": s["episode_count"],
+                "season_count": len(seasons),
+                "seasons": seasons,
+                "last_watched_at": s["last_watched_at"],
+            })
+        series_out.sort(key=lambda x: x["series_name"].lower())
+        return series_out
+
+    @router.get("/series/{series_name}")
+    async def get_series(series_name: str, user: UserContext = Depends(_require_user)):
+        all_series = await list_series(user)  # type: ignore[arg-type]
+        for s in all_series:
+            if s["series_name"].lower() == series_name.lower():
+                return s
+        raise HTTPException(status_code=404, detail="Series not found")
+
+    @router.get("/items/{item_id}/next-episode")
+    async def next_episode(item_id: str, user: UserContext = Depends(_require_user)):
+        current = await persistence.get_item(item_id)
+        if not current or current.media_type != MediaType.EPISODE:
+            raise HTTPException(status_code=404, detail="Item is not an episode")
+        episodes = await persistence.list_items(media_type="episode", limit=5000)
+        same_series = [
+            e for e in episodes
+            if (e.series_name or "").lower() == (current.series_name or "").lower()
+        ]
+        same_series.sort(key=lambda e: (e.season_number or 0, e.episode_number or 0))
+        for i, ep in enumerate(same_series):
+            if ep.id == current.id and i + 1 < len(same_series):
+                nxt = same_series[i + 1]
+                return nxt.model_dump(mode="json")
+        return None
+
+    # ---------------- Playback info panel ----------------
+
+    @router.get("/items/{item_id}/info")
+    async def item_info(item_id: str, user: UserContext = Depends(_require_user)):
+        """Rich expandable info for the player panel.
+
+        Everything is sourced from ffprobe/mutagen or the live diagnostics
+        registry — no fabricated values.
+        """
+        it = await persistence.get_item(item_id)
+        if not it:
+            raise HTTPException(status_code=404, detail="Item not found")
+        v = it.video_streams[0] if it.video_streams else None
+        a = it.audio_streams[0] if it.audio_streams else None
+        hw = await probe_ffmpeg_capabilities()
+        info = {
+            "filename": Path(it.path).name,
+            "container": it.container,
+            "file_size": it.size_bytes,
+            "duration_seconds": it.duration_seconds,
+            "video": v.model_dump(mode="json") if v else None,
+            "audio_tracks": [s.model_dump(mode="json") for s in it.audio_streams],
+            "subtitle_tracks": [s.model_dump(mode="json") for s in it.subtitle_streams],
+            "hdr": {
+                "format": v.hdr if v else None,
+                "color_space": v.color_space if v else None,
+                "color_transfer": v.color_transfer if v else None,
+                "color_primaries": v.color_primaries if v else None,
+                "mastering_display": v.mastering_display if v else None,
+            } if v else None,
+            "last_position_seconds": it.last_position_seconds,
+            "ffmpeg": {
+                "version": hw.ffmpeg_version,
+                "nvenc_available": hw.nvenc_available,
+                "nvdec_available": hw.nvdec_available,
+                "hwaccels": hw.hwaccels,
+            },
+        }
+        return info
 
     # ---------------- Music ----------------
 
@@ -516,7 +717,7 @@ def create_media_router(
 
     @router.post("/music/eq/presets")
     async def save_eq_preset(body: SaveEqPresetBody, user: UserContext = Depends(_require_user)):
-        from locat_media_core import EqBand as _EqBand
+        from locat_media_core import EqBand as _EqBand, ParametricFilter as _ParametricFilter
         import uuid as _uuid
         preset = EqPreset(
             id=body.id or _uuid.uuid4().hex,
@@ -524,6 +725,7 @@ def create_media_router(
             bands_mode=body.bands_mode,
             preamp_db=body.preamp_db,
             bands=[_EqBand(frequency_hz=b.frequency_hz, gain_db=b.gain_db) for b in body.bands],
+            parametric=[_ParametricFilter(**p.model_dump()) for p in body.parametric],
             replaygain_mode=body.replaygain_mode,
             limiter_enabled=body.limiter_enabled,
             balance=body.balance,
@@ -574,5 +776,76 @@ def create_media_router(
     async def list_devices(user: UserContext = Depends(_require_user)):
         devs = await device_pairing.list_devices(user.user_id)
         return [d.__dict__ for d in devs]
+
+    # ---------------- Telemetry / Performance Monitor ----------------
+
+    @router.get("/telemetry/overview")
+    async def telemetry_overview(user: UserContext = Depends(_require_user)):
+        return telemetry.overview()
+
+    @router.get("/telemetry/cinema")
+    async def telemetry_cinema(user: UserContext = Depends(_require_user)):
+        return telemetry.cinema()
+
+    @router.get("/telemetry/music")
+    async def telemetry_music(user: UserContext = Depends(_require_user)):
+        caps = await audio_mode_service.capabilities(runtime=host.runtime_name)
+        return {
+            "capabilities": caps.model_dump(mode="json"),
+            **telemetry.music(audio_mode_service),
+        }
+
+    @router.get("/telemetry/network")
+    async def telemetry_network(user: UserContext = Depends(_require_user)):
+        return telemetry.network()
+
+    @router.get("/telemetry/server")
+    async def telemetry_server(user: UserContext = Depends(_require_user)):
+        hw = await probe_ffmpeg_capabilities()
+        return {
+            "ffmpeg_version": hw.ffmpeg_version,
+            "hwaccels": hw.hwaccels,
+            "nvenc_available": hw.nvenc_available,
+            "nvdec_available": hw.nvdec_available,
+            "active_sessions": diagnostics.active_count(),
+        }
+
+    @router.get("/telemetry/history")
+    async def telemetry_history(user: UserContext = Depends(_require_user)):
+        return telemetry.history()
+
+    class ClientTelemetryBody(BaseModel):
+        session_id: str
+        buffered_seconds: Optional[float] = None
+        dropped_frames: Optional[int] = None
+        bytes_received_last_second: Optional[int] = None
+        notes: Optional[str] = None
+
+    @router.post("/telemetry/client")
+    async def ingest_client_telemetry(
+        body: ClientTelemetryBody,
+        user: UserContext = Depends(_require_user),
+    ):
+        """The browser/native client POSTs its own measurements here.
+
+        Server never fabricates FPS/latency/dropped frames; it accepts
+        them from the real playing client.
+        """
+        session = diagnostics.get_session(body.session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Unknown session")
+        snap = diagnostics.get_diagnostics(body.session_id) or None
+        from locat_media_core import DiagnosticsSnapshot
+        if snap is None:
+            snap = DiagnosticsSnapshot(session_id=body.session_id, item_id=session.item_id)
+        if body.buffered_seconds is not None:
+            snap.buffered_seconds = body.buffered_seconds
+        if body.dropped_frames is not None:
+            snap.dropped_frames = body.dropped_frames
+        if body.notes:
+            if body.notes not in snap.notes:
+                snap.notes.append(body.notes)
+        diagnostics.set_diagnostics(snap)
+        return {"ok": True}
 
     return router

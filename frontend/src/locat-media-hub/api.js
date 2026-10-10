@@ -54,6 +54,20 @@ export const api = {
   favoriteTrack: (id, value) =>
     j(`${API_ROOT}/music/tracks/${id}/favorite?value=${value ? "true" : "false"}`, { method: "POST" }),
 
+  // Build + telemetry endpoints
+  telemetry: (section = "overview") => j(`${API_ROOT}/telemetry/${section}`),
+  reportClientTelemetry: (body) =>
+    j(`${API_ROOT}/telemetry/client`, { method: "POST", body: JSON.stringify(body) }),
+
+  // Series
+  series: () => j(`${API_ROOT}/series`),
+  seriesDetail: (name) => j(`${API_ROOT}/series/${encodeURIComponent(name)}`),
+  nextEpisode: (itemId) => j(`${API_ROOT}/items/${itemId}/next-episode`),
+  itemInfo: (itemId) => j(`${API_ROOT}/items/${itemId}/info`),
+  remuxUrl: (itemId, startSeconds = 0) =>
+    `${API_ROOT}/items/${itemId}/remux.mp4${startSeconds ? `?start=${startSeconds}` : ""}`,
+  ffmpegCaps: () => j(`${API_ROOT}/capabilities/ffmpeg`),
+
   getAudioMode: (deviceId = "web-preview") =>
     j(`${API_ROOT}/music/audio-mode?device_id=${encodeURIComponent(deviceId)}&runtime=web`),
   setAudioMode: (mode, deviceId = "web-preview") =>

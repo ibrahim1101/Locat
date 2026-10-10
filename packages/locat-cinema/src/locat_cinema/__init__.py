@@ -2,6 +2,7 @@
 from .indexer import CinemaIndexer, VIDEO_EXTENSIONS
 from .playback import ClientCapabilities, PlaybackDecider
 from .streaming import RangeStreamer, parse_range_header
+from .remux import FfmpegRemuxWorker, FfmpegRemuxError
 
 __all__ = [
     "CinemaIndexer",
@@ -10,4 +11,6 @@ __all__ = [
     "PlaybackDecider",
     "RangeStreamer",
     "parse_range_header",
+    "FfmpegRemuxWorker",
+    "FfmpegRemuxError",
 ]
