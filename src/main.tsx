@@ -8,7 +8,6 @@ import { DownloadStatusHost } from "./components/DownloadStatusHost";
 import "./index.css";
 import { startAppearance } from "./lib/appearance";
 import { isNativeShell, nativeServerUrl } from "./lib/native";
-import { NativeServerSetup } from "./components/NativeServerSetup";
 import { NativeOfflineHome } from "./components/NativeOfflineHome";
 import { AppLockGate } from "./components/AppLockGate";
 
