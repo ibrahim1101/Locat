@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { Readable } from "node:stream";
+import { PassThrough, Readable } from "node:stream";
 
 const MAX_RUNTIME_MS = 4 * 60 * 60 * 1000;
 const MAX_CONCURRENT_REMUXES = 2;
@@ -33,10 +33,18 @@ export function createRemuxStream(file: string, signal: AbortSignal): ReadableSt
     activeRemuxes--;
     throw new Error("FFmpeg stdout/stderr pipes are unavailable");
   }
+  const output = new PassThrough();
   let finished = false;
-  let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
-  const abort = () => child.kill();
-  const timeout = setTimeout(abort, MAX_RUNTIME_MS);
+  let canceled = false;
+  const abort = () => {
+    canceled = true;
+    child.kill();
+    output.destroy();
+  };
+  const timeout = setTimeout(() => {
+    child.kill();
+    output.destroy(new Error("FFmpeg remux timed out"));
+  }, MAX_RUNTIME_MS);
   const cleanup = () => {
     if (finished) return;
     finished = true;
@@ -46,35 +54,31 @@ export function createRemuxStream(file: string, signal: AbortSignal): ReadableSt
   };
   signal.addEventListener("abort", abort, { once: true });
   stderr.resume();
-  const source = Readable.toWeb(stdout) as ReadableStream<Uint8Array>;
-  const reader = source.getReader();
-
-  // Ensure process failure cannot turn into a silent, successful partial response.
+  stdout.pipe(output, { end: false });
   child.on("error", error => {
-    if (!finished) {
-      cleanup();
-      controller?.error(error);
-      void reader.cancel().catch(() => undefined);
+    output.destroy(error);
+    cleanup();
+  });
+  child.on("close", (code, childSignal) => {
+    cleanup();
+    if (canceled) {
+      output.destroy();
+    } else if (code !== 0 || childSignal) {
+      output.destroy(new Error("FFmpeg remux failed"));
+    } else {
+      output.end();
     }
   });
-  child.on("close", code => {
-    cleanup();
-    if (code !== 0 && code !== null) controller?.error(new Error("FFmpeg remux failed"));
-  });
-
+  const reader = (Readable.toWeb(output) as ReadableStream<Uint8Array>).getReader();
   return new ReadableStream<Uint8Array>({
-    async pull(current) {
-      controller = current;
+    async pull(controller) {
       try {
         const { value, done } = await reader.read();
-        if (done) {
-          current.close();
-        } else {
-          current.enqueue(value);
-        }
+        if (done) controller.close();
+        else controller.enqueue(value);
       } catch (error) {
-        current.error(error);
-        abort();
+        controller.error(error);
+        child.kill();
       }
     },
     async cancel() {
