@@ -15,6 +15,10 @@ import {
   shouldAutoLock,
   updatePolicy,
   verifyPasscode,
+  verifyBiometric,
+  hasBiometricSupport,
+  isBiometricAvailable,
+  registerBiometric,
 } from "./appLock";
 
 function memoryStorage() {
@@ -167,5 +171,20 @@ describe("auto-lock options", () => {
     expect(autoLockOptionById("1m").ms).toBe(60_000);
     // Unknown ids fall back to the 5-minute default rather than crashing.
     expect(autoLockOptionById("something" as never).id).toBe("5m");
+  });
+});
+
+describe("biometric authentication safety gate", () => {
+  it("never advertises an unverified biometric unlock path", async () => {
+    expect(hasBiometricSupport()).toBe(false);
+    expect(await isBiometricAvailable()).toBe(false);
+  });
+
+  it("fails closed even when a legacy credential id is stored", async () => {
+    const storage = memoryStorage();
+    await setPasscode("safe-passcode", {}, storage);
+    updatePolicy({ biometricCredentialId: "ZmFrZS1jcmVkZW50aWFs" }, storage);
+    expect(await verifyBiometric(storage)).toBe(false);
+    await expect(registerBiometric(1, "test-user", storage)).rejects.toBeInstanceOf(AppLockError);
   });
 });
