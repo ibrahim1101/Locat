@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { downloadBlob, type DownloadDependencies } from "./download";
 
 function testDependencies(saveSelected: DownloadDependencies["saveSelected"]) {
@@ -20,6 +20,8 @@ function testDependencies(saveSelected: DownloadDependencies["saveSelected"]) {
 }
 
 describe("downloadBlob", () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
   it("writes encrypted exports to the selected Android folder", async () => {
     const saveSelected = vi.fn(async () => true);
     const fixture = testDependencies(saveSelected);
@@ -62,4 +64,53 @@ describe("downloadBlob", () => {
       .rejects.toThrow("choose the folder again");
     expect(fixture.click).not.toHaveBeenCalled();
   });
+  it("asks before re-downloading a previously saved native attachment", async () => {
+    const stored = new Map<string, string>();
+    const confirm = vi.fn(() => false);
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => { stored.set(key, value); },
+    });
+    vi.stubGlobal("window", { confirm, dispatchEvent: vi.fn() });
+    vi.stubGlobal("CustomEvent", class {
+      constructor(_name: string, _options: unknown) {}
+    });
+    const saveSelected = vi.fn(async () => true);
+    const fixture = testDependencies(saveSelected);
+    fixture.dependencies.isNativeShell = () => true;
+    const filename = "duplicate-test-unique-image.png";
+    const blob = new Blob(["image"], { type: "image/png" });
+
+    await expect(downloadBlob(blob, filename, fixture.dependencies)).resolves.toBe("selected-folder");
+    expect(saveSelected).toHaveBeenCalledTimes(1);
+
+    await expect(downloadBlob(blob, filename, fixture.dependencies)).resolves.toBe("selected-folder");
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(saveSelected).toHaveBeenCalledTimes(1);
+
+    confirm.mockReturnValue(true);
+    await expect(downloadBlob(blob, filename, fixture.dependencies)).resolves.toBe("selected-folder");
+    expect(saveSelected).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not treat browser downloads as native saved history", async () => {
+    const stored = new Map<string, string>();
+    const confirm = vi.fn(() => false);
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => { stored.set(key, value); },
+    });
+    vi.stubGlobal("window", { confirm, dispatchEvent: vi.fn() });
+    vi.stubGlobal("CustomEvent", class {
+      constructor(_name: string, _options: unknown) {}
+    });
+    const fixture = testDependencies(vi.fn(async () => false));
+    const filename = "browser-only-unique-image.png";
+    const blob = new Blob(["image"], { type: "image/png" });
+
+    await expect(downloadBlob(blob, filename, fixture.dependencies)).resolves.toBe("browser");
+    expect(confirm).not.toHaveBeenCalled();
+    expect(stored.size).toBe(0);
+  });
+
 });
