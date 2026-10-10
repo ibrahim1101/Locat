@@ -64,7 +64,7 @@ export const mediaRouter = createRouter({
     const configured = roots[input.libraryId];
     if (!configured || !/^[A-Za-z0-9_-]+$/.test(input.id)) throw new TRPCError({ code: "NOT_FOUND" });
     const relative = Buffer.from(input.id, "base64url").toString("utf8");
-    if (!relative || path.isAbsolute(relative) || relative.split(/[\\\\/]/).some(segment => !segment || segment === "." || segment === "..")) throw new TRPCError({ code: "BAD_REQUEST" });
+    if (!relative || path.isAbsolute(relative) || relative.split(path.sep).some(segment => !segment || segment === "." || segment === "..")) throw new TRPCError({ code: "BAD_REQUEST" });
     const root = await realpath(configured).catch(() => "");
     const file = root ? await realpath(path.resolve(root, relative)).catch(() => "") : "";
     if (!root || !file.startsWith(root + path.sep) || ![".mp4", ".m4v", ".mov", ".mkv", ".webm", ".avi"].includes(path.extname(file).toLowerCase())) throw new TRPCError({ code: "NOT_FOUND" });
