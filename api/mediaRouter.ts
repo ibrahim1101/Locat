@@ -21,6 +21,7 @@ export type IndexedMediaItem = {
   sizeBytes: number;
   relativePath: string;
   library: string;
+  libraryId: number;
 };
 
 async function scanRoot(root: string, kind: "cinema" | "music"): Promise<IndexedMediaItem[]> {
@@ -46,7 +47,7 @@ async function scanRoot(root: string, kind: "cinema" | "music"): Promise<Indexed
         if (!metadata?.isFile()) continue;
         const relativePath = path.relative(root, full);
         items.push({ id: Buffer.from(relativePath).toString("base64url"), name: entry.name,
-          kind, sizeBytes: metadata.size, relativePath, library: path.basename(root) });
+          kind, sizeBytes: metadata.size, relativePath, library: path.basename(root), libraryId: -1 });
       }
     }
   }
@@ -68,7 +69,7 @@ export const mediaRouter = createRouter({
       if (!actual) continue;
       for (const kind of ["cinema", "music"] as const) {
         const items = await scanRoot(actual, kind);
-        output.push(...items);
+        output.push(...items.map(item => ({ ...item, libraryId: roots.indexOf(root) })));
       }
     }
     return output;
