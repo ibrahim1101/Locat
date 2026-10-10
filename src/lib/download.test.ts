@@ -145,4 +145,33 @@ describe("downloadBlob", () => {
     expect(saveSelected).toHaveBeenCalledTimes(2);
   });
 
+  it("does not record a failed native save as previously downloaded", async () => {
+    const stored = new Map<string, string>();
+    const confirm = vi.fn(() => false);
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => { stored.set(key, value); },
+    });
+    vi.stubGlobal("window", { confirm, dispatchEvent: vi.fn() });
+    vi.stubGlobal("CustomEvent", class {
+      constructor() {}
+    });
+    const saveSelected = vi.fn()
+      .mockRejectedValueOnce(new Error("storage unavailable"))
+      .mockResolvedValueOnce(true);
+    const fixture = testDependencies(saveSelected);
+    fixture.dependencies.isNativeShell = () => true;
+    const blob = new Blob(["failed-then-success"], { type: "text/plain" });
+    const filename = "failed-history-native-test.txt";
+
+    await expect(downloadBlob(blob, filename, fixture.dependencies))
+      .rejects.toThrow("choose the folder again");
+    expect(stored.size).toBe(0);
+    await expect(downloadBlob(blob, filename, fixture.dependencies))
+      .resolves.toBe("selected-folder");
+    expect(confirm).not.toHaveBeenCalled();
+    expect(saveSelected).toHaveBeenCalledTimes(2);
+    expect(stored.size).toBe(1);
+  });
+
 });
