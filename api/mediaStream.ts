@@ -51,11 +51,12 @@ export async function handleMediaStream(req: Request): Promise<Response> {
   }
   if (size === 0) return new Response(null, { status: range ? 416 : 200, headers: { "Content-Length": "0", "Accept-Ranges": "bytes" } });
   end = Math.min(end, start + MAX_RANGE - 1, size - 1);
+  const partial = Boolean(range) || end < size - 1;
   const headers = new Headers({ "Content-Type": MIME[ext], "Content-Length": String(end - start + 1),
     "Accept-Ranges": "bytes", "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" });
-  if (range) headers.set("Content-Range", `bytes ${start}-${end}/${size}`);
-  if (req.method === "HEAD") return new Response(null, { status: range ? 206 : 200, headers });
+  if (partial) headers.set("Content-Range", `bytes ${start}-${end}/${size}`);
+  if (req.method === "HEAD") return new Response(null, { status: partial ? 206 : 200, headers });
   const stream = createReadStream(file, { start, end });
   req.signal.addEventListener("abort", () => stream.destroy(), { once: true });
-  return new Response(Readable.toWeb(stream) as ReadableStream<Uint8Array>, { status: range ? 206 : 200, headers });
+  return new Response(Readable.toWeb(stream) as ReadableStream<Uint8Array>, { status: partial ? 206 : 200, headers });
 }
