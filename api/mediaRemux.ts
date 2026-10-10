@@ -14,8 +14,8 @@ export function createRemuxStream(file: string, signal: AbortSignal): ReadableSt
     "-f", "mp4", "pipe:1",
   ], { shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
   const timer = setTimeout(() => child.kill(), MAX_RUNTIME_MS);
-  let errorOutput = "";
-  child.stderr.on("data", (part: Buffer) => { if (errorOutput.length < 2048) errorOutput += String(part).slice(0, 2048); });
+  child.stderr.resume();
+  child.on("error", () => child.stdout.destroy());
   const destroy = () => child.kill();
   if (signal.aborted) destroy();
   signal.addEventListener("abort", destroy, { once: true });
