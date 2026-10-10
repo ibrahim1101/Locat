@@ -30,7 +30,7 @@ export type DownloadDependencies = {
 function browserDependencies(): DownloadDependencies {
   return {
     saveSelected: saveToSelectedFolder,
-    isNativeShell: () => typeof window !== "undefined" && Boolean(window.Capacitor?.isNativePlatform?.()),
+    isNativeShell: () => typeof window !== "undefined" && Boolean((window.Capacitor as { isNativePlatform?: () => boolean } | undefined)?.isNativePlatform?.()),
     createObjectURL: (blob) => URL.createObjectURL(blob),
     revokeObjectURL: (url) => URL.revokeObjectURL(url),
     createLink: () => document.createElement("a"),
