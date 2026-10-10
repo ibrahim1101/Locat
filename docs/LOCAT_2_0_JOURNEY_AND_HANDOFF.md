@@ -201,3 +201,10 @@ up from this adapter layer without re-planning the architecture.
 - Added `purgeLegacyDrafts()` on auth provider startup, successful account transition and logout, and `clearAllDrafts()` on account transition/logout. Legacy plaintext `locat-draft:` entries are deleted best-effort without importing their contents.
 - Updated `ChatWindow` to load per-user drafts and save only on actual textarea edits, avoiding cross-conversation overwrites caused by effect ordering. Updated `draft.test.ts` and `homeNavigation.test.ts` for new API.
 - No browser, native Android or GitHub Actions execution evidence yet. This branch requires TypeScript, Vitest, lint and build verification before integration; user local Android preview remains untouched.
+
+## 2026-10-10 — CI green; native download failure reporting
+
+- GitHub Actions run 38045696452 passed both `verify` and `docker-smoke` at commit `3af5d2c`: TypeScript, lint, targeted regressions, full Vitest, build, MariaDB bootstrap and Docker smoke.
+- Next stabilization step: `src/lib/download.ts` now refuses the browser Blob-anchor fallback when Capacitor explicitly reports a native platform, rather than returning `"browser"` as if the file had been saved. Added a regression test.
+- Native Android folder selection and writing still require the **LocatStorage** plugin in the local Android project. This patch does not implement native DownloadManager or claim to fix APK downloads. The platform probe depends on `Capacitor.isNativePlatform()`; verify behavior in a real WebView and any legacy shell variant before release.
+- New download commits require a fresh successful CI run. No production server, stable branch or local Android files were changed.
