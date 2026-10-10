@@ -81,9 +81,11 @@ async function getSession(key: string, file: string, quality: "1080p" | "4k", st
     "-map", "0:v:0", "-map", "0:a:0?",
     "-c:v", nvenc ? "h264_nvenc" : "libx264",
     "-preset", nvenc ? "p4" : "veryfast", "-pix_fmt", "yuv420p",
-    ...(nvenc ? ["-rc", "vbr", "-cq", quality === "4k" ? "19" : "21", "-b:v", "0"] : ["-crf", quality === "4k" ? "18" : "20"]),
+    ...(nvenc ? ["-rc", "vbr", "-cq", quality === "4k" ? "23" : "21", "-b:v", quality === "4k" ? "12M" : "5M", "-maxrate", quality === "4k" ? "16M" : "8M", "-bufsize", quality === "4k" ? "32M" : "16M"] : ["-crf", quality === "4k" ? "21" : "20", "-maxrate", quality === "4k" ? "16M" : "8M", "-bufsize", quality === "4k" ? "32M" : "16M"]),
     "-vf", `scale=w=${quality === "4k" ? 3840 : 1920}:h=${maxHeight}:force_original_aspect_ratio=decrease:force_divisible_by=2`,
+    // 2-second closed GOP at 60 fps reduces startup and segment latency.
     "-g", "120", "-keyint_min", "120", "-sc_threshold", "0",
+    "-profile:v", "high", "-level:v", quality === "4k" ? "5.2" : "4.2",
     "-c:a", "aac", "-b:a", "160k",
     "-sn", "-dn", "-f", "hls", "-hls_time", "4",
     "-hls_list_size", "0", "-hls_playlist_type", "event",
