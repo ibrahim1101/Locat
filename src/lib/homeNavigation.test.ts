@@ -54,7 +54,7 @@ describe("ephemeral composer drafts", () => {
     expect(chatWindow).toContain('import { clearDraft, loadDraft, saveDraft } from "@/lib/draft";');
     expect(chatWindow).toContain("useState(() => loadDraft(conversation.id, myId))");
     expect(chatWindow).toContain("setDraft(loadDraft(conversation.id, myId));");
-    expect(chatWindow).toContain("saveDraft(conversation.id, myId, draft);");
+    expect(chatWindow).toContain("saveDraft(conversation.id, myId, e.target.value);");
   });
 
   it("clears the in-memory draft after a send", () => {
