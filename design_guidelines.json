@@ -1,0 +1,58 @@
+{
+  "app_name": "Locat Media Hub - Integration Module & Architecture Preview",
+  "context": "Dashboards & Admin Panels / High-Performance Media Module (Milestone A Foundation)",
+  "emotional_tone": "Cinematic precision, technical authority, uncompromising fidelity",
+  "typography": {
+    "heading_font": "Outfit, sans-serif",
+    "body_font": "JetBrains Mono, monospace",
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight font-extrabold text-white",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight font-bold text-white/90",
+      "h3": "text-xl sm:text-2xl font-semibold text-white/80",
+      "h4": "text-lg sm:text-xl font-medium text-white/90",
+      "body": "text-base text-zinc-300 font-normal leading-relaxed",
+      "small": "text-sm text-zinc-400 font-mono"
+    }
+  },
+  "colors": {
+    "archetype": "Luxury / Performance Pro Dark",
+    "palette": {
+      "primary": "#3B82F6",
+      "accent": "#10B981",
+      "background": "#090A0F",
+      "surface": "#12141C",
+      "surface_border": "rgba(255, 255, 255, 0.08)",
+      "text_main": "#F8FAFC",
+      "text_muted": "#94A3B8"
+    }
+  },
+  "visual_enhancers": {
+    "surface_strategy": "Crystal Glass & Grid Borders",
+    "shadows": "shadow-[0_8px_32px_rgba(0,0,0,0.4)]",
+    "border_radius": "rounded-xl",
+    "glow": "drop-shadow-[0_0_15px_rgba(59,130,246,0.25)]"
+  },
+  "packages": [
+    "packages/locat-media-core",
+    "packages/locat-cinema",
+    "packages/locat-music",
+    "packages/locat-media-ui",
+    "packages/locat-media-server",
+    "packages/locat-media-adapters"
+  ],
+  "feature_flags": {
+    "LOCAT_MEDIA_ENABLED": true
+  },
+  "image_urls": [
+    {
+      "category": "cinema_preview",
+      "url": "https://images.unsplash.com/photo-1535016120720-40c646be5580?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTF8MHwxfHNlYXJjaHwxfHxjaW5lbWElMjBwcm9qZWN0b3IlMjBmaWxtJTIwZGFya3xlbnwwfHx8fDE3OTE2NDIyNTV8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Cinema projector and optical stream"
+    },
+    {
+      "category": "music_preview",
+      "url": "https://images.unsplash.com/photo-1789493706145-68e13e8fb1eb?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODh8MHwxfHNlYXJjaHwyfHxkYXJrJTIwZGFzaGJvYXJkJTIwbXVzaWMlMjBwbGF5ZXJ8ZW58MHx8fHwxNzkxNjQyMjUzfDA&ixlib=rb-4.1.0&q=85",
+      "description": "High fidelity audio dashboard interface"
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Locat Media Hub — Obsidian dark palette.
+   Font faces: Outfit for display, JetBrains Mono for body & numeric data. */
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap");
+
+:root {
+  --locat-bg: #090a0f;
+  --locat-surface: #12141c;
+  --locat-surface-raised: #171a24;
+  --locat-border: rgba(255, 255, 255, 0.08);
+  --locat-text: #f8fafc;
+  --locat-muted: #94a3b8;
+  --locat-primary: #3b82f6;    /* titanium blue */
+  --locat-accent: #10b981;     /* mint accent */
+  --locat-warning: #f59e0b;
+  --locat-danger: #ef4444;
+}
+
+html, body, #root { background: var(--locat-bg); min-height: 100%; }
+
+body {
+  margin: 0;
+  color: var(--locat-text);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgba(59, 130, 246, 0.08), transparent 60%),
+    radial-gradient(1000px 500px at 110% 10%, rgba(16, 185, 129, 0.06), transparent 60%),
+    var(--locat-bg);
+}
+
+.font-display { font-family: "Outfit", "Inter", system-ui, sans-serif; letter-spacing: -0.01em; }
+.font-mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.locat-grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.locat-glass {
+  background: rgba(18, 20, 28, 0.72);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid var(--locat-border);
+}
+
+.locat-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 10px; border-radius: 999px;
+  font-size: 11px; letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid var(--locat-border);
+}
+
+.locat-divider { height: 1px; background: var(--locat-border); }
+
+/* Keyframe for subtle entrance */
+@keyframes locat-rise { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.animate-rise { animation: locat-rise 420ms cubic-bezier(.2,.9,.3,1) both; }
+
+/* Scrollbar in dark palette */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
+
+@layer base {
+  :root {
+    --background: 222 32% 5%;
+    --foreground: 210 40% 98%;
+    --card: 222 24% 10%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 24% 10%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 32% 5%;
+    --secondary: 222 24% 14%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 222 24% 14%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 160 84% 39%;
+    --accent-foreground: 222 32% 5%;
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 222 24% 18%;
+    --input: 222 24% 18%;
+    --ring: 217 91% 60%;
+    --radius: 0.75rem;
+  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
+}
