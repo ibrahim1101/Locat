@@ -127,6 +127,19 @@ async def _on_startup():
     except Exception as e:  # noqa: BLE001
         logging.getLogger("locat").warning("EQ preset seeding soft-fail: %s", e)
 
+    # Drop stale libraries whose root is no longer authorized or no longer
+    # exists on disk. Keeps the Hub view honest after env changes / failed
+    # library create attempts in dev.
+    try:
+        existing = await persistence.list_libraries()
+        for lib in existing:
+            if not storage_adapter.is_authorized_path(lib.root_path) or not Path(lib.root_path).exists():
+                await persistence.delete_items_for_library(lib.id)
+                await persistence.delete_tracks_for_library(lib.id)
+                await persistence.delete_library(lib.id)
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("locat").warning("stale-library cleanup soft-fail: %s", e)
+
     # Auto-register the dev sample library so first-run isn't empty.
     sample_root = Path(settings.sample_root)
     if sample_root.exists():
