@@ -305,91 +305,33 @@ export function shouldAutoLock(
 // successful WebAuthn assertion simply flips the local unlocked flag. The
 // passcode remains the recovery path.
 
+// WebAuthn is deliberately fail-closed until the app can verify the signed
+// assertion against a trusted credential public key and challenge. Previously
+// any non-null navigator.credentials.get() result unlocked the UI, which is
+// insufficient authentication. Existing passcode unlock remains available.
 export function hasBiometricSupport(): boolean {
-  const w = typeof window === "undefined" ? undefined : (window as unknown as {
-    PublicKeyCredential?: {
-      isUserVerifyingPlatformAuthenticatorAvailable?: () => Promise<boolean>;
-    };
-  });
-  return Boolean(w?.PublicKeyCredential && navigator?.credentials?.create);
+  return false;
 }
 
 export async function isBiometricAvailable(): Promise<boolean> {
-  if (!hasBiometricSupport()) return false;
-  const pkc = (window as unknown as {
-    PublicKeyCredential?: {
-      isUserVerifyingPlatformAuthenticatorAvailable?: () => Promise<boolean>;
-    };
-  }).PublicKeyCredential;
-  try {
-    return Boolean(
-      await pkc?.isUserVerifyingPlatformAuthenticatorAvailable?.(),
-    );
-  } catch {
-    return false;
-  }
+  return false;
 }
 
 export async function registerBiometric(
-  userId: number,
-  username: string,
-  storage: AppLockStorage | undefined = defaultStorage(),
+  _userId: number,
+  _username: string,
+  _storage: AppLockStorage | undefined = defaultStorage(),
 ): Promise<AppLockConfig | null> {
-  if (!hasBiometricSupport()) throw new AppLockError(
-    "Biometrics are not available in this browser or Android WebView.",
+  throw new AppLockError(
+    "Biometric unlock is temporarily disabled pending verified WebAuthn assertions. Use your device passcode.",
     "storage-unavailable",
   );
-  const challenge = globalThis.crypto.getRandomValues(new Uint8Array(32));
-  const userIdBytes = new TextEncoder().encode(`locat:${userId}`);
-  const credential = await navigator.credentials.create({
-    publicKey: {
-      challenge,
-      rp: { name: "Locat", id: window.location.hostname },
-      user: { id: userIdBytes, name: username, displayName: username },
-      pubKeyCredParams: [
-        { type: "public-key", alg: -7 }, // ES256
-        { type: "public-key", alg: -257 }, // RS256
-      ],
-      authenticatorSelection: {
-        authenticatorAttachment: "platform",
-        userVerification: "required",
-        residentKey: "preferred",
-      },
-      timeout: 60_000,
-      attestation: "none",
-    },
-  }) as PublicKeyCredential | null;
-  if (!credential) return null;
-  const credId = b64encode(credential.rawId);
-  return updatePolicy({ biometricCredentialId: credId }, storage);
 }
 
 export async function verifyBiometric(
-  storage: AppLockStorage | undefined = defaultStorage(),
+  _storage: AppLockStorage | undefined = defaultStorage(),
 ): Promise<boolean> {
-  const config = readConfig(storage);
-  if (!config?.biometricCredentialId) return false;
-  if (!hasBiometricSupport()) return false;
-  const challenge = globalThis.crypto.getRandomValues(new Uint8Array(32));
-  try {
-    const assertion = await navigator.credentials.get({
-      publicKey: {
-        challenge,
-        allowCredentials: [
-          {
-            id: b64decode(config.biometricCredentialId) as BufferSource,
-            type: "public-key",
-            transports: ["internal"],
-          },
-        ],
-        userVerification: "required",
-        timeout: 60_000,
-      },
-    });
-    return Boolean(assertion);
-  } catch {
-    return false;
-  }
+  return false;
 }
 
 export function removeBiometric(storage: AppLockStorage | undefined = defaultStorage()): AppLockConfig | null {
