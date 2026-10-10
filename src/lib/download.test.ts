@@ -204,4 +204,21 @@ describe("downloadBlob", () => {
     expect(dispatchEvent).not.toHaveBeenCalled();
   });
 
+  it("does not coalesce distinct blobs with identical filename, size and MIME type", async () => {
+    const resolvers: Array<(value: boolean) => void> = [];
+    const saveSelected = vi.fn(() => new Promise<boolean>((resolve) => { resolvers.push(resolve); }));
+    const fixture = testDependencies(saveSelected);
+    const firstBlob = new Blob(["AAAA"], { type: "text/plain" });
+    const secondBlob = new Blob(["BBBB"], { type: "text/plain" });
+    const first = downloadBlob(firstBlob, "same-metadata.txt", fixture.dependencies);
+    const second = downloadBlob(secondBlob, "same-metadata.txt", fixture.dependencies);
+
+    expect(first).not.toBe(second);
+    await vi.waitFor(() => expect(saveSelected).toHaveBeenCalledTimes(2));
+    expect(saveSelected.mock.calls[0]?.[2]).toBe("QUFBQQ==");
+    expect(saveSelected.mock.calls[1]?.[2]).toBe("QkJCQg==");
+    resolvers.forEach((resolve) => resolve(true));
+    await expect(Promise.all([first, second])).resolves.toEqual(["selected-folder", "selected-folder"]);
+  });
+
 });
