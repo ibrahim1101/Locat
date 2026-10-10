@@ -94,7 +94,7 @@ describe("Tauri adapter capability honesty", () => {
 describe("Capacitor adapter wraps the browser adapter", () => {
   it("inherits the browser secret store until a secure plugin lands", async () => {
     const { capacitorAdapter } = await import("./capacitor");
-    expect(capacitorAdapter.capabilities.nativeFileSave).toBe(true);
+    expect(capacitorAdapter.capabilities.nativeFileSave).toBe(false); // No native plugin is registered in the test runtime.
     expect(capacitorAdapter.capabilities.nativeSecureStorage).toBe(false);
   });
 });
