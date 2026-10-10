@@ -40,7 +40,7 @@ describe("ephemeral message drafts", () => {
 
   it("handles blocked legacy storage gracefully", () => {
     expect(() => purgeLegacyDrafts({
-      get length() { throw new Error("blocked"); },
+      get length(): number { throw new Error("blocked"); },
       key() { return null; },
       removeItem() { throw new Error("blocked"); },
     })).not.toThrow();
