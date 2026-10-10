@@ -8,7 +8,8 @@ const PRESETS: Record<string, number[]> = {
   Clarity: [-2, -1, 0, 0, 1, 2, 2, 2, 1, 0],
 };
 
-export function MusicEqualizer({ audioRef }: { audioRef: React.RefObject<HTMLAudioElement | null> }) {
+export function MusicEqualizer({ src, onEnded }: { src: string; onEnded: () => void }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
   const [mode, setMode] = useState<Mode>("pure");
   const [gains, setGains] = useState<number[]>(() => [...PRESETS.Flat]);
   const [preset, setPreset] = useState("Flat");
@@ -66,7 +67,7 @@ export function MusicEqualizer({ audioRef }: { audioRef: React.RefObject<HTMLAud
     }
   }, [mode, gains]);
 
-  return <section className="rounded-2xl border border-border bg-card/80 p-5 space-y-4" aria-label="Music equalizer">
+  return <div className="space-y-4"><audio ref={audioRef} src={src} controls onEnded={onEnded} className="w-full" /><section className="rounded-2xl border border-border bg-card/80 p-5 space-y-4" aria-label="Music equalizer">
     <div><h2 className="font-semibold">Audio modes & 10-band EQ</h2><p className="text-xs text-secondary">Pure bypasses EQ; browser output is not verified bit-perfect.</p></div>
     <div className="flex flex-wrap gap-2">
       <button type="button" aria-pressed={mode === "pure"} onClick={() => setMode("pure")} className={`rounded-lg border px-3 py-2 text-sm ${mode === "pure" ? "border-primary ember-text" : "text-secondary"}`}>Pure Audio</button>
@@ -86,5 +87,5 @@ export function MusicEqualizer({ audioRef }: { audioRef: React.RefObject<HTMLAud
       </label>)}
     </div>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-  </section>;
+  </section></div>;
 }
