@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Film, Music2, ArrowLeft, FolderOpen, Server } from "lucide-react";
 import { AppShell } from "@/components/shell/AppShell";
+import { MusicEqualizer } from "@/components/media/MusicEqualizer";
 
 export default function MediaLocal({ kind }: { kind: "cinema" | "music" }) {
   const music = kind === "music";
@@ -35,7 +36,7 @@ export default function MediaLocal({ kind }: { kind: "cinema" | "music" }) {
           <input type="file" multiple accept={music ? "audio/*,.flac,.alac,.wav" : "video/*,.mkv,.mov,.mp4"} onChange={e => { choose(Array.from(e.target.files ?? [])); e.target.value = ""; }} aria-label="Select local media" className="w-full text-sm" />
           {url && file && <div className="mt-5 space-y-3">
             <p className="truncate text-sm">{file.name}</p>
-            {music ? <audio key={url} src={url} controls onEnded={() => setSelected(i => Math.min(i + 1, files.length - 1))} className="w-full" /> : <video key={url} src={url} controls playsInline className="max-h-[65vh] w-full rounded-xl bg-black" />}
+            {music ? <MusicEqualizer src={url} onEnded={() => setSelected(i => Math.min(i + 1, files.length - 1))} /> : <video key={url} src={url} controls playsInline className="max-h-[65vh] w-full rounded-xl bg-black" />}
             <div className="flex flex-wrap items-center gap-3 text-sm"><button type="button" disabled={selected === 0} className="rounded-lg border px-3 py-2 disabled:opacity-40" onClick={() => setSelected(i => Math.max(0, i - 1))}>Previous</button><span className="text-secondary">{selected + 1} / {files.length}</span><button type="button" disabled={selected >= files.length - 1} className="rounded-lg border px-3 py-2 disabled:opacity-40" onClick={() => setSelected(i => Math.min(files.length - 1, i + 1))}>Next</button><button type="button" className="text-secondary underline" onClick={() => { setFiles([]); setUrl(""); }}>Close media</button></div>{files.length > 1 && <ol aria-label="Local playback queue" className="max-h-48 space-y-1 overflow-y-auto">{files.map((track, index) => <li key={index}><button type="button" aria-current={selected === index ? "true" : undefined} onClick={() => setSelected(index)} className={`w-full truncate rounded-lg px-3 py-2 text-left text-sm ${selected === index ? "bg-primary/15 ember-text" : "text-secondary hover:bg-accent"}`}>{index + 1}. {track.name}</button></li>)}</ol>}
           </div>}
         </section>
