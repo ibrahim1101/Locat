@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Plus, Save, Sliders, Trash2, Volume2 } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Plus, RotateCcw, Save, Sliders, Trash2, Volume2 } from "lucide-react";
 import { api } from "./api";
 import { useAudioEngine } from "./AudioEngine";
 import { BitPerfectChip } from "./chips";
@@ -10,31 +10,136 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
-function BandSlider({ band, disabled, onChange, idx }) {
+const BAND_FREQS = {
+  "10": [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000],
+  "15": [25, 40, 63, 100, 160, 250, 400, 630, 1000, 1600, 2500, 4000, 6300, 10000, 16000],
+  "31": [20, 25, 31, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800,
+         1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000],
+};
+
+/** Custom vertical slider: 0 dB centered, draggable with pointer AND touch. */
+function VerticalSlider({ value, onChange, min = -12, max = 12, step = 0.1,
+                         height = 160, disabled = false, testId }) {
+  const trackRef = useRef(null);
+  const [dragging, setDragging] = useState(false);
+
+  const setFromClientY = (clientY) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const y = Math.max(0, Math.min(rect.height, clientY - rect.top));
+    const pct = y / rect.height;                       // 0 top → 1 bottom
+    const raw = max - pct * (max - min);               // max at top, min at bottom
+    const stepped = Math.round(raw / step) * step;
+    const clamped = Math.max(min, Math.min(max, stepped));
+    const rounded = Math.round(clamped * 10) / 10;
+    if (rounded !== value) onChange(rounded);
+  };
+
+  const onPointerDown = (e) => {
+    if (disabled) return;
+    e.preventDefault();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+    setDragging(true);
+    setFromClientY(e.clientY);
+  };
+  const onPointerMove = (e) => {
+    if (!dragging) return;
+    setFromClientY(e.clientY);
+  };
+  const onPointerUp = (e) => {
+    setDragging(false);
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+  };
+  const onKeyDown = (e) => {
+    if (disabled) return;
+    const bigStep = e.shiftKey ? step * 10 : step;
+    if (e.key === "ArrowUp") { onChange(Math.min(max, Math.round((value + bigStep) * 10) / 10)); e.preventDefault(); }
+    else if (e.key === "ArrowDown") { onChange(Math.max(min, Math.round((value - bigStep) * 10) / 10)); e.preventDefault(); }
+    else if (e.key === "Home") { onChange(max); e.preventDefault(); }
+    else if (e.key === "End") { onChange(min); e.preventDefault(); }
+    else if (e.key === "0") { onChange(0); e.preventDefault(); }
+  };
+  const onDoubleClick = () => { if (!disabled) onChange(0); };
+
+  const pct = (max - value) / (max - min);              // 0..1 top→bottom
+  const zeroPct = (max - 0) / (max - min);
+  const fillTop = Math.min(zeroPct, pct);
+  const fillBot = Math.max(zeroPct, pct);
+
   return (
-    <div className="flex flex-col items-center gap-2" data-testid={`eq-band-${idx}`}>
-      <div className="h-28 flex flex-col items-center justify-end">
-        <div className="text-[10px] font-mono text-zinc-400 mb-1">
-          {band.gain_db >= 0 ? `+${band.gain_db.toFixed(1)}` : band.gain_db.toFixed(1)}
-        </div>
-        <input
-          type="range"
-          disabled={disabled}
-          min={-12} max={12} step={0.1}
-          value={band.gain_db}
-          onChange={(e) => onChange(parseFloat(e.target.value))}
-          className="h-24 appearance-none locat-vertical-slider"
-          style={{
-            WebkitAppearance: "slider-vertical",
-            width: 20,
-            background: "transparent",
-          }}
-          data-testid={`eq-band-input-${idx}`}
-        />
+    <div
+      role="slider"
+      aria-valuemin={min} aria-valuemax={max} aria-valuenow={value}
+      aria-orientation="vertical"
+      tabIndex={disabled ? -1 : 0}
+      data-testid={testId}
+      ref={trackRef}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onKeyDown={onKeyDown}
+      onDoubleClick={onDoubleClick}
+      className={`relative w-7 select-none focus:outline-none ${
+        disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-400/60 rounded-full"
+      }`}
+      style={{ height, touchAction: "none" }}
+    >
+      {/* track */}
+      <div className="absolute left-1/2 top-0 bottom-0 -translate-x-1/2 w-[3px] bg-white/10 rounded-full" />
+      {/* +6 / -6 tick marks */}
+      {[-6, 6].map((db) => (
+        <div key={db} className="absolute left-1/2 -translate-x-1/2 w-2 h-[1px] bg-white/15"
+             style={{ top: `${((max - db) / (max - min)) * 100}%` }} />
+      ))}
+      {/* 0 dB center mark */}
+      <div className="absolute left-1/2 -translate-x-1/2 w-3 h-[1px] bg-white/30"
+           style={{ top: `${zeroPct * 100}%` }} />
+      {/* fill from 0 dB to current value */}
+      <div
+        className={`absolute left-1/2 -translate-x-1/2 w-[3px] rounded-full ${
+          value > 0.05 ? "bg-emerald-400" : value < -0.05 ? "bg-sky-400" : "bg-white/20"
+        }`}
+        style={{ top: `${fillTop * 100}%`, height: `${(fillBot - fillTop) * 100}%` }}
+      />
+      {/* thumb */}
+      <div
+        className="absolute left-1/2 w-4 h-4 rounded-full bg-white shadow-[0_0_14px_rgba(255,255,255,0.5)] border border-white/60 pointer-events-none"
+        style={{
+          top: `${pct * 100}%`,
+          transform: `translate(-50%, -50%) scale(${dragging ? 1.2 : 1})`,
+          transition: dragging ? "none" : "transform 120ms",
+        }}
+      />
+    </div>
+  );
+}
+
+function BandSlider({ band, disabled, onChange, idx }) {
+  const freqLabel =
+    band.frequency_hz >= 1000
+      ? `${(band.frequency_hz / 1000).toFixed(band.frequency_hz < 10000 ? 1 : 0)}k`
+      : `${band.frequency_hz}`;
+  const gainTxt = band.gain_db >= 0 ? `+${band.gain_db.toFixed(1)}` : band.gain_db.toFixed(1);
+  const gainColor =
+    band.gain_db > 0.05 ? "text-emerald-300" :
+    band.gain_db < -0.05 ? "text-sky-300" : "text-zinc-400";
+  return (
+    <div className="flex flex-col items-center gap-2 min-w-[40px]" data-testid={`eq-band-${idx}`}>
+      <div className={`text-[11px] font-mono tabular-nums w-10 text-center ${gainColor}`}
+           data-testid={`eq-band-value-${idx}`}>
+        {gainTxt}
       </div>
-      <div className="text-[10px] font-mono text-zinc-500">
-        {band.frequency_hz >= 1000 ? `${(band.frequency_hz / 1000).toFixed(band.frequency_hz < 10000 ? 1 : 0)}k` : band.frequency_hz}
-      </div>
+      <VerticalSlider
+        value={band.gain_db}
+        onChange={onChange}
+        min={-12} max={12} step={0.1}
+        height={160}
+        disabled={disabled}
+        testId={`eq-band-input-${idx}`}
+      />
+      <div className="text-[10px] font-mono text-zinc-500">{freqLabel}</div>
     </div>
   );
 }
@@ -148,10 +253,49 @@ export default function EqualizerPage() {
             <Sliders size={16} className="text-emerald-300" />
             Graphic equalizer
             <span className="text-[11px] font-mono text-zinc-500 ml-2">
-              {bandsCount}-band · peak +{maxGain.toFixed(1)} dB
+              {bandsCount}-band · peak {maxGain.toFixed(1)} dB
             </span>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {/* 10 / 15 / 31 mode selector */}
+            <div className="flex items-center gap-1 mr-2" data-testid="eq-bands-mode">
+              {["10", "15", "31"].map((m) => (
+                <button
+                  key={m}
+                  disabled={disabled || !preset}
+                  onClick={() => {
+                    const freqs = BAND_FREQS[m];
+                    setPreset({
+                      ...preset,
+                      bands_mode: m,
+                      bands: freqs.map((f) => ({ frequency_hz: f, gain_db: 0 })),
+                      is_builtin: false,
+                    });
+                  }}
+                  data-testid={`eq-mode-${m}`}
+                  className={`font-mono text-xs px-2.5 py-1.5 rounded border ${
+                    preset?.bands_mode === m
+                      ? "bg-emerald-400 text-black border-emerald-400"
+                      : "bg-transparent text-zinc-300 border-white/15 hover:bg-white/5"
+                  }`}
+                >
+                  {m}-band
+                </button>
+              ))}
+            </div>
+            <button
+              disabled={disabled || !preset}
+              onClick={() => {
+                const bands = (preset?.bands || []).map((b) => ({ ...b, gain_db: 0 }));
+                const parametric = (preset?.parametric || []).map((p) => ({ ...p, gain_db: 0 }));
+                setPreset({ ...preset, bands, parametric, preamp_db: 0, is_builtin: false });
+              }}
+              data-testid="eq-flat-reset"
+              className="font-mono text-xs px-3 py-1.5 rounded-md border border-white/15 text-zinc-200 hover:bg-white/5 inline-flex items-center gap-1"
+              title="Reset all bands to 0 dB"
+            >
+              <RotateCcw size={12} /> Flat
+            </button>
             {presets.map((p) => (
               <button key={p.id}
                       onClick={() => setPreset(p)}

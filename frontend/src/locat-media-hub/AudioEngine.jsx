@@ -153,7 +153,18 @@ export function AudioEngineProvider({ children }) {
     }
   }, [mode, preset]);
 
-  // Rewire when mode or preset changes
+  // Signature that triggers a FULL structural rewire (mode, number of
+  // bands, number of enabled parametrics, limiter on/off).
+  const structuralKey = useMemo(() => {
+    const bandCount = preset?.bands?.length || 0;
+    const paramKinds = (preset?.parametric || [])
+      .filter((p) => p.enabled !== false)
+      .map((p) => p.kind).join(",");
+    const paramCount = (preset?.parametric || []).filter((p) => p.enabled !== false).length;
+    return `${mode}|${preset?.bands_mode}|${bandCount}|${paramCount}|${paramKinds}|${!!preset?.limiter_enabled}`;
+  }, [mode, preset]);
+
+  // Full rewire ONLY on structural change.
   useEffect(() => {
     if (!audioRef.current) return;
     try {
@@ -162,7 +173,44 @@ export function AudioEngineProvider({ children }) {
     } catch (e) {
       console.warn("rewire failed", e);
     }
-  }, [mode, preset, ensureGraph, rewireChain]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [structuralKey]);
+
+  // Live AudioParam updates on every param change — no chain rebuild.
+  // Guarantees that slider drags produce audible output changes without
+  // the clicks/pops of a full disconnect/connect cycle.
+  useEffect(() => {
+    const ctx = ctxRef.current;
+    if (!ctx || mode === "pure_audio") return;
+    const nodes = filterNodesRef.current;
+    const t = ctx.currentTime;
+    const bands = preset?.bands || [];
+    const parametric = (preset?.parametric || []).filter((p) => p.enabled !== false);
+    bands.forEach((b, i) => {
+      const n = nodes[i];
+      if (!n) return;
+      try {
+        n.frequency.setValueAtTime(b.frequency_hz, t);
+        n.gain.setValueAtTime(b.gain_db || 0, t);
+      } catch { /* noop */ }
+    });
+    parametric.forEach((p, i) => {
+      const n = nodes[bands.length + i];
+      if (!n) return;
+      try {
+        n.frequency.setValueAtTime(p.frequency_hz, t);
+        n.gain.setValueAtTime(p.gain_db || 0, t);
+        n.Q.setValueAtTime(p.q || 1.0, t);
+      } catch { /* noop */ }
+    });
+    if (preampRef.current) {
+      try {
+        preampRef.current.gain.setValueAtTime(
+          Math.pow(10, (preset?.preamp_db || 0) / 20), t,
+        );
+      } catch { /* noop */ }
+    }
+  }, [preset, mode]);
 
   // Audio element wiring
   useEffect(() => {
