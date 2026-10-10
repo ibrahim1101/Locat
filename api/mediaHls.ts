@@ -108,7 +108,7 @@ export async function handleMediaHls(req: Request): Promise<Response> {
   for (let attempt = 0; attempt < 60; attempt++) {
     data = await readFile(filename).catch(() => null);
     // A playlist with no completed segment is not yet playable.
-    if (data && asset === "index.m3u8" && !/^segment-\\d{6}\\.ts$/m.test(data.toString("utf8"))) data = null;
+    if (data && asset === "index.m3u8" && !/^segment-\d{6}\.ts$/m.test(data.toString("utf8"))) data = null;
     if (data) break;
     if (session.failed) return new Response("FFmpeg HLS transcoding failed", { status: 503 });
     if (session.done) break;
