@@ -80,3 +80,10 @@ Updated: 2026-10-10. This is an editable, living record. Record both successes a
 - Committed a new runbook at `docs/ANDROID_LOCAL_HTTPS_PREVIEW.md` describing loopback-only Caddy HTTPS, `adb reverse tcp:8443 tcp:8443`, exact `https://localhost:8443` hostname, debug-only trust of the preview development CA, original APK preservation, and positive/negative acceptance checks. This **does not mean connectivity was run or verified**: the assistant cannot access the user's running Windows emulator, Caddy instance, isolated MariaDB or local uncommitted Capacitor project.
 - Next implementation after user/local acceptance: automate **only the separate preview debug variant's** local HTTPS trust setup without committing private CA material; verify Android native transport and login/logout; add automated HTTPS rejection tests and secure Link device proof-of-possession challenge-response tests.
 - No merge, production Pi access, original app replacement, or production database changes occurred.
+
+## 2026-10-10 — Active development: strict Android origin integration
+
+- Rechecked branch heads, open PRs, Actions and both handoff documents before editing. `feat/locat-2.0` was at `6bf5d655385c61c9b0aad997e398aeb9a3c87bb7`; draft PR #2 and #3 remain open and unmerged. Quality branch run `37988534534` passed; last reviewed security run `37991441744` failed (Docker Hub image 429 per previous investigation).
+- Committed `7f372a1857e6a1b04aa62ba391e7d2866585dfd0` on `feat/locat-2.0`: `NativeServerSetup.tsx` now calls `parseNativeServerOrigin` before `/api/health`, enforcing strict HTTPS-only origin with no credentials/path/query/fragment. Health check remains mandatory and native server URL persists only after success.
+- No build, CI rerun, emulator HTTPS handshake or Android login was executed in this cycle. Next: add regression coverage for onboarding and negative health responses, verify CI; validate localhost Caddy/debug CA/ADB reverse on user's Windows emulator. Link key possession/revocation remains unresolved.
+- Production Raspberry Pi/database, original Android APK, stable/main branches and draft PRs untouched.
