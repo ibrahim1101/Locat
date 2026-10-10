@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Radio, Smartphone, Monitor, Trash2, ShieldCheck, Upload, Download, Clipboard, Check, X, Send } from "lucide-react";
 import { useAuth } from "@/state/auth";
 import { trpc } from "@/providers/trpc";
@@ -27,7 +27,7 @@ function useThisDevice(userId: number) {
   const [deviceId, setDeviceId] = useState<number | null>(null);
   const register = trpc.link.devices.register.useMutation();
   const registerRef = useRef(register);
-  registerRef.current = register;
+  useEffect(() => { registerRef.current = register; }, [register]);
   useEffect(() => {
     let cancelled = false;
     // Memoize bootstrap per account so React StrictMode's double-invoked effect
@@ -299,16 +299,24 @@ function Clip({ myId, identity }: { myId: number; identity: DeviceIdentity }) {
   const deviceMap = new Map(devices.map((d) => [d.id, d]));
   const verifiedTargets = devices.filter((d) => d.id !== myId && !d.revokedAt && (pairingsQ.data ?? []).some((p) => p.status === "verified" && p.deviceA === Math.min(myId, d.id) && p.deviceB === Math.max(myId, d.id)));
 
-  const decodeInbox = useCallback(async () => {
+  useEffect(() => {
+    let cancelled = false;
     const items = inboxQ.data ?? [];
-    const out: { id: number; text: string; kind: string }[] = [];
-    for (const m of items) {
-      const sender = deviceMap.get(m.fromDevice); if (!sender) continue;
-      try { const key = await deviceSharedKey(identity.privateKey, sender.publicKey); out.push({ id: m.id, text: await decryptText(key, m.iv, m.data), kind: m.kind }); } catch { /* skip undecryptable */ }
-    }
-    setReceived(out);
-  }, [inboxQ.data, identity.privateKey]);
-  useEffect(() => { void decodeInbox(); }, [decodeInbox]);
+    const senders = new Map((devicesQ.data ?? []).map((d) => [d.id, d]));
+    void (async () => {
+      const out: { id: number; text: string; kind: string }[] = [];
+      for (const m of items) {
+        const sender = senders.get(m.fromDevice);
+        if (!sender) continue;
+        try {
+          const key = await deviceSharedKey(identity.privateKey, sender.publicKey);
+          out.push({ id: m.id, text: await decryptText(key, m.iv, m.data), kind: m.kind });
+        } catch { /* skip undecryptable */ }
+      }
+      if (!cancelled) setReceived(out);
+    })();
+    return () => { cancelled = true; };
+  }, [inboxQ.data, devicesQ.data, identity.privateKey]);
 
   async function sendClip(kind: "clipboard" | "text" | "url") {
     if (!target || !text.trim()) return;
