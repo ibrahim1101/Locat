@@ -30,7 +30,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     video.addEventListener("waiting", onWaiting);
     video.addEventListener("progress", update);
     if (Hls.isSupported()) {
-      hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: 20, backBufferLength: 30 });
+      hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: 12, maxMaxBufferLength: 24, backBufferLength: 15, maxBufferSize: 40 * 1024 * 1024 });
       hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!cancelled) { setStatus("Ready"); if (autoplay) void video.play().catch(() => setStatus("Press Play to begin")); else setStatus("Paused at restored position"); } });
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (!data.fatal || cancelled) return;
