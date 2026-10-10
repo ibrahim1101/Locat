@@ -184,3 +184,12 @@ up from this adapter layer without re-planning the architecture.
 - Confirmed source-level limitations: app lock is a client-controlled UI gate rather than encrypted device storage; drafts are plaintext in localStorage; browser-anchor fallback cannot guarantee Android WebView downloads; service-worker notification code does not prove native Android push.
 - Emergent commit messages report 226 passing Vitest tests / 26 skipped after media work, but these tests were not independently executed in this review. No GitHub Actions runs were returned for the feature branch during the audit.
 - Next: independently run typecheck/tests/build in an appropriate checkout; prioritize secure drafts, app-lock threat model, native Android file save/notifications, and Link security before expansion. Preserve user's uncommitted Windows Capacitor preview project.
+
+## 2026-10-10 — App-lock biometric fail-closed security patch
+
+- Branch: `fix/locat-2.0-app-lock-biometric-guard`, based on the stabilization handoff branch.
+- Identified concrete vulnerability in `src/lib/appLock.ts`: `verifyBiometric()` returned `Boolean(assertion)` after `navigator.credentials.get()` without verifying the signed WebAuthn assertion against a trusted public key and challenge. This was not adequate to establish authentication.
+- Temporary mitigation: fail closed. `hasBiometricSupport()` and `isBiometricAvailable()` return false; `registerBiometric()` rejects with a clear message; `verifyBiometric()` returns false even with a legacy credential ID. Existing passcode unlock remains available.
+- Added regression tests to `src/lib/appLock.test.ts` for the fail-closed behavior. **Tests not independently executed:** local container cannot reach GitHub to clone/install the full repository. No claim of green CI.
+- Follow-up: implement real challenge-bound WebAuthn assertion verification using credential public key, origin/RP ID, UV flag, signature and counter policy; review server-backed or native hardware-backed unlock, then re-enable biometrics only after end-to-end tests.
+- No production deployment, PR merge or original Android app changes.
