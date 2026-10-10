@@ -40,7 +40,8 @@ export function CinemaHlsPlayer({ url }: { url: string }) {
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = url;
     } else {
-      setError("This browser does not support HLS playback or Media Source Extensions.");
+      // Schedule unsupported-browser feedback outside the synchronous effect body.
+      queueMicrotask(() => { if (!cancelled) setError("This browser does not support HLS playback or Media Source Extensions."); });
     }
     return () => {
       cancelled = true;
