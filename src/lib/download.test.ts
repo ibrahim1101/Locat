@@ -206,7 +206,10 @@ describe("downloadBlob", () => {
 
   it("does not coalesce distinct blobs with identical filename, size and MIME type", async () => {
     const resolvers: Array<(value: boolean) => void> = [];
-    const saveSelected = vi.fn((_filename: string, _mimeType: string, _base64: string) => new Promise<boolean>((resolve) => { resolvers.push(resolve); }));
+    const saveSelected = vi.fn((...args: [string, string, string]) => {
+      void args;
+      return new Promise<boolean>((resolve) => { resolvers.push(resolve); });
+    });
     const fixture = testDependencies(saveSelected);
     const firstBlob = new Blob(["AAAA"], { type: "text/plain" });
     const secondBlob = new Blob(["BBBB"], { type: "text/plain" });
