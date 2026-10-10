@@ -27,7 +27,7 @@ export type DownloadDependencies = {
   isNativeShell(): boolean;
 };
 
-const activeDownloads = new Map<string, Promise<DownloadDestination>>();
+const activeDownloads = new WeakMap<Blob, Map<string, Promise<DownloadDestination>>>();
 const SAVED_DOWNLOADS_KEY = "locat-saved-attachments-v1";
 
 function previouslySaved(key: string): boolean {
@@ -72,7 +72,9 @@ export function downloadBlob(
   // Coalesce overlapping requests for the same attachment; do not suppress later intentional saves.
   const key = filename + "\\0" + blob.size + "\\0" + blob.type;
   const dependencies = { ...browserDependencies(), ...overrides };
-  const existing = activeDownloads.get(key);
+  // Only coalesce the exact same Blob object and filename. Distinct same-sized files must not share an operation.
+  const blobOperations = activeDownloads.get(blob);
+  const existing = blobOperations?.get(filename);
   if (existing) return existing;
   // Remember successful saves across restarts. This is history, not proof the file still exists.
   if (dependencies.isNativeShell() && typeof window !== "undefined" && previouslySaved(key) &&
@@ -112,9 +114,12 @@ export function downloadBlob(
       throw error;
     }
   })();
-  activeDownloads.set(key, operation);
+  const operations = blobOperations ?? new Map<string, Promise<DownloadDestination>>();
+  operations.set(filename, operation);
+  activeDownloads.set(blob, operations);
   void operation.finally(() => {
-    if (activeDownloads.get(key) === operation) activeDownloads.delete(key);
+    if (operations.get(filename) === operation) operations.delete(filename);
+    if (operations.size === 0) activeDownloads.delete(blob);
   }).catch(() => undefined);
   return operation;
 }
