@@ -84,7 +84,7 @@ describe("downloadBlob", () => {
     await expect(downloadBlob(blob, filename, fixture.dependencies)).resolves.toBe("selected-folder");
     expect(saveSelected).toHaveBeenCalledTimes(1);
 
-    await expect(downloadBlob(blob, filename, fixture.dependencies)).resolves.toBe("selected-folder");
+    await expect(downloadBlob(blob, filename, fixture.dependencies)).resolves.toBe("cancelled");
     expect(confirm).toHaveBeenCalledOnce();
     expect(saveSelected).toHaveBeenCalledTimes(1);
 
