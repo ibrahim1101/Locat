@@ -73,3 +73,47 @@ E2EE, authentication and database compatibility. Official logo
 
 ## Test credentials
 See `memory/test_credentials.md` (disposable `locat_dev` only).
+
+---
+
+## Emergent session on `feat/locat-2.0-emergent-final` (fork of `feat/locat-2.0`)
+
+### Phase 1 completed
+
+| # | Goal | Status | Commit |
+|---|---|---|---|
+| 1 | Mobile Home button + de-duplicated hamburger drawer | ✅ Implemented & tested | `af6855c` |
+| 2 | Composer drafts preserved across navigation / background | ✅ Implemented & tested | `af6855c` |
+| 3 | Real device app lock (passcode + biometric + auto-lock + background lock) | ✅ Implemented & tested | `ca74f33` |
+| 4 | Honest device-storage protection UI (no fake green-checks) | ✅ Implemented & tested | `ca74f33` |
+| 5 | Platform-adapter scaffold for Tauri 2 desktop (no installer work) | ✅ Scaffolded + journal entry | `b78afb8` |
+| 6 | Notification prefs (categories, quiet hours, foreground alerts, per-chat mute) | ✅ Implemented & tested | `33e3d17` |
+| 7 | Journal + handoff updated with hashes, next steps | ✅ Updated | `829a2b3` |
+
+### New shared architecture
+- `src/lib/draft.ts` — per-conversation localStorage drafts.
+- `src/lib/appLock.ts` — PBKDF2-SHA-256 (310 000 iters) passcode, auto-lock, WebAuthn biometric.
+- `src/lib/notificationPrefs.ts` — categories, quiet hours, mute list, `shouldNotify` predicate.
+- `src/lib/platform/{index,browser,capacitor,tauri}.ts` — capability-driven adapter.
+- `src/components/shell/MobileBottomNav.tsx` — shared bottom nav.
+- `src/components/AppLockGate.tsx` — modal lock gate between AuthProvider and router.
+- `src/components/chat/{AppLockSection,NotificationPreferences}.tsx` — Settings panels.
+
+### Validation
+- `npx tsc -b` — clean.
+- `npx vitest run` — 218 tests passed / 26 skipped / 1 file skipped (baseline was 151 passing); 67 new tests, zero regressions.
+- `npx eslint` on changed files — 0 errors, 0 warnings.
+- No Android build, no Pi access, no deploy, no PR merges.
+
+### Explicit non-goals / deferred
+- Any merge to `main` / `stable` / `feat/locat-2.0`.
+- Rust Tauri project (`src-tauri/`), installer bundling, signed updates.
+- M1–M11 server-side work.
+
+### Resume plan
+1. `git checkout feat/locat-2.0-emergent-final`
+2. `npm ci && npx tsc -b && npx vitest run` to confirm baseline.
+3. Pick next item from `docs/LOCAT_2_0_JOURNEY_AND_HANDOFF.md`:
+   - Phase 2: Sentinel + Link hardening (Link proof-of-possession is the next P0 security item).
+   - Android HTTPS loopback verification on the user's emulator.
+   - Replace Tauri adapter stubs with real plugins once `src-tauri/` exists.
