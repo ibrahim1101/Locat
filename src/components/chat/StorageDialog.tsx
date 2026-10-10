@@ -4,6 +4,7 @@ import { chooseUserStorageFolder, selectInternalStorage, storagePreference, type
 import { isNativeShell } from "@/lib/native";
 import { Preferences } from "./Preferences";
 import { PrivacyCommandCenter } from "./PrivacyCommandCenter";
+import { AppLockSection } from "./AppLockSection";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -29,8 +30,7 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
     let cancelled = false;
     void (async () => {
       const estimate = await navigator.storage?.estimate?.();
-      const persistent = await navigator.storage?.persisted?.();
-      if (!cancelled) setStorage(`${((estimate?.usage ?? 0) / 1024 / 1024).toFixed(1)} MB used by Locat on this browser · ${persistent ? "persistent storage enabled" : "storage may be cleared by the browser"}`);
+      if (!cancelled) setStorage(`${((estimate?.usage ?? 0) / 1024 / 1024).toFixed(1)} MB used by Locat on this browser`);
     })().catch(() => { if (!cancelled) setStorage("Storage information unavailable in this browser."); });
     return () => { cancelled = true; };
   }, [open]);
@@ -56,6 +56,7 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
         Privacy Command Center <span aria-hidden="true">→</span>
       </Button>
       <Preferences />
+      <AppLockSection user={user} />
       <Notifications />
       <div className="emergent-locat-surface space-y-3 rounded-xl p-4">
         <div><p className="font-medium">Downloads & encrypted exports</p>
@@ -80,10 +81,6 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
       </div>
       <p className="text-xs text-secondary">One active login per account. Signing in on another device ends this session; saved history stays here.</p>
       <p className="text-sm text-secondary">{storage}</p>
-      <Button variant="outline" disabled={busy} onClick={() => void perform(async () => {
-        const allowed = await navigator.storage?.persist?.();
-        setFeedback(allowed ? "Persistent storage enabled. Backups are still recommended." : "Your browser did not grant persistent storage. Keep regular backups.");
-      })}>Protect device storage</Button>
       <div className="space-y-2">
         <Label htmlFor="backup-password">Backup password</Label>
         <Input id="backup-password" type="password" autoComplete="new-password" minLength={8}

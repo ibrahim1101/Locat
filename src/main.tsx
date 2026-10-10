@@ -8,6 +8,7 @@ import "./index.css";
 import { startAppearance } from "./lib/appearance";
 import { isNativeShell, nativeServerUrl } from "./lib/native";
 import { NativeServerSetup } from "./components/NativeServerSetup";
+import { AppLockGate } from "./components/AppLockGate";
 
 if (isNativeShell()) document.documentElement.classList.add("locat-native");
 
@@ -20,7 +21,7 @@ createRoot(document.getElementById("root")!).render(
       <NativeServerSetup />
     ) : (
       <BrowserRouter>
-        <TRPCProvider><AuthProvider><App /></AuthProvider></TRPCProvider>
+        <TRPCProvider><AuthProvider><AppLockGate><App /></AppLockGate></AuthProvider></TRPCProvider>
       </BrowserRouter>
     )}
   </StrictMode>,
