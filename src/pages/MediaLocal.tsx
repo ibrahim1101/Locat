@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router";
+import { Link } from "react-router";
 import { Film, Music2, ArrowLeft, FolderOpen, Server } from "lucide-react";
 import { AppShell } from "@/components/shell/AppShell";
 
-export default function MediaLocal() {
-  const { kind } = useParams();
+export default function MediaLocal({ kind }: { kind: "cinema" | "music" }) {
   const music = kind === "music";
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState("");
