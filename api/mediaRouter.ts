@@ -1,4 +1,7 @@
-import { readdir, stat } from "node:fs/promises";
+import { readdir, stat, realpath } from "node:fs/promises";
+import { z } from "zod";
+import { TRPCError } from "@trpc/server";
+import { probeVideo } from "./mediaProbe";
 import path from "node:path";
 import { createRouter, authedQuery } from "./middleware";
 
@@ -56,6 +59,19 @@ async function scanRoot(root: string, kind: "cinema" | "music"): Promise<Indexed
 }
 
 export const mediaRouter = createRouter({
+  probe: authedQuery.input(z.object({ libraryId: z.number().int().nonnegative(), id: z.string().min(1).max(2048) })).query(async ({ input }) => {
+    const roots = configuredRoots();
+    const configured = roots[input.libraryId];
+    if (!configured || !/^[A-Za-z0-9_-]+$/.test(input.id)) throw new TRPCError({ code: "NOT_FOUND" });
+    const relative = Buffer.from(input.id, "base64url").toString("utf8");
+    if (!relative || path.isAbsolute(relative) || relative.split(/[\\\\/]/).some(segment => !segment || segment === "." || segment === "..")) throw new TRPCError({ code: "BAD_REQUEST" });
+    const root = await realpath(configured).catch(() => "");
+    const file = root ? await realpath(path.resolve(root, relative)).catch(() => "") : "";
+    if (!root || !file.startsWith(root + path.sep) || ![".mp4", ".m4v", ".mov", ".mkv", ".webm", ".avi"].includes(path.extname(file).toLowerCase())) throw new TRPCError({ code: "NOT_FOUND" });
+    const metadata = await stat(file).catch(() => null);
+    if (!metadata?.isFile()) throw new TRPCError({ code: "NOT_FOUND" });
+    try { return await probeVideo(file); } catch { throw new TRPCError({ code: "PRECONDITION_FAILED", message: "FFprobe is unavailable or could not inspect this file" }); }
+  }),
   libraries: authedQuery.query(async () => {
     const roots = configuredRoots();
     return roots.map((root, index) => ({ id: index, name: path.basename(root) }));
