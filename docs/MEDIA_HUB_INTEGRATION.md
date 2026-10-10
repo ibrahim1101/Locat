@@ -1,39 +1,53 @@
-# Locat Media Hub — Node/Hono integration progress
+# Locat Media Hub — integration status
 
-This document tracks integration of the Emergent prototype into the existing Locat application. The prototype's Python FastAPI routes are **not** mounted into the shipping Node/Hono host.
+Locat's Node/Hono host provides session-authenticated media indexing and direct HTTP byte-range streaming. The Emergent Python prototype is **not** mounted into the shipping server.
 
-## Current slice: authenticated read-only indexing
+## Implemented (CI does not substitute for real-device testing)
 
-- The existing `api/router.ts` mounts `mediaRouter` using Locat's session-authenticated tRPC middleware.
-- `media.libraries` lists explicitly configured host media roots.
-- `media.items` scans configured roots for common video and audio extensions, capped per root and media type.
-- `src/pages/MediaLocal.tsx` displays server-indexed entries for signed-in users, while preserving local file playback and Locat's Obsidian Ember styling.
-- This slice **does not stream indexed files yet**. No Plex, Jellyfin, SMB or arbitrary network-source discovery is included.
+- `media.libraries` and `media.items` index only explicitly authorized host roots.
+- `GET/HEAD /api/media/stream?library=<index>&id=<base64url>` serves eligible media with HTTP Range support.
+- `media.probe` uses FFprobe to inspect codecs and recommend direct playback, stream-copy remuxing or transcoding.
+- `mode=remux` launches FFmpeg to stream-copy eligible video/audio into fragmented MP4; it is authenticated and limited to two concurrent sessions.
+- Cinema shows codec inspection and playback errors and offers a direct-play retry after remux failure.
+- Music retains local-file playback and its browser EQ; advanced native audio remains future work.
 
-## Host setup
+## Host configuration
 
-On the machine running the Locat server, set `LOCAT_MEDIA_AUTHORIZED_ROOTS` to an OS path-delimiter-separated list of directories the server operator explicitly permits sharing.
-
-Windows PowerShell example:
+Windows PowerShell:
 
 ```powershell
-$env:LOCAT_MEDIA_AUTHORIZED_ROOTS = 'D:\\Movies;D:\\Music'
+$env:LOCAT_MEDIA_AUTHORIZED_ROOTS = 'D:\Movies;D:\Music'
+ffmpeg -version
+ffprobe -version
 ```
 
-Linux example:
+Linux:
 
 ```bash
 export LOCAT_MEDIA_AUTHORIZED_ROOTS='/srv/movies:/srv/music'
+ffmpeg -version
+ffprobe -version
 ```
 
-Restart the Locat server after configuring the variable. Users must be signed in to see the index. Paths are never submitted from the browser for scanning. Symlink entries are skipped, and recursion and file counts are bounded.
+Install FFmpeg and FFprobe on the host PATH or set `LOCAT_FFMPEG_PATH` and `LOCAT_FFPROBE_PATH` to executable paths. Restart Locat after changing environment variables.
 
-## Remaining integration
+## Known limitations
 
-1. Build secure, authenticated HTTP Range streaming with explicit root containment and media IDs; test 200/206/416, HEAD, cancellation, and access controls.
-2. Add server playback controls to Cinema/Music, compatible codec checks and playback errors.
-3. Integrate metadata indexing, artwork, subtitles, progress and playback decision logic.
-4. Bring playlists, advanced EQ and diagnostics from Emergent's media prototype into the Locat host.
-5. Implement native Android/Windows playback capability bridges where web codecs are insufficient.
+- Stream-copy remuxing is progressive and does **not** implement seeking or Range requests.
+- Stream-copy does not make unsupported codecs playable; compatibility still depends on the browser.
+- FFmpeg process errors can occur after HTTP headers have been sent; the browser may report a generic media failure.
+- Android native origins and authentication for streaming require separate device verification.
+- Automatic transcoding, subtitles, metadata caching, artwork and NVENC are not implemented.
+- Browser audio EQ is not verified bit-perfect.
+- Current media-root containment uses resolved paths and should receive additional race-condition hardening before untrusted multi-user deployment.
 
-Do not advertise bit-perfect audio or universal MKV/HDR support until native capability checks verify it.
+## Validation checklist
+
+1. Run `npm run check`, `npm run lint`, and `npm test` in CI.
+2. Configure an authorized folder with a known-good H.264/AAC MP4 and H.264/AAC MKV.
+3. Sign in on the host; confirm direct MP4 playback and seeking.
+4. Select MKV; confirm FFprobe recommends remux and FFmpeg starts, plays and stops when canceled.
+5. Test FFmpeg missing from PATH, a corrupt media file, browser codec rejection, and three simultaneous remux requests.
+6. Verify Android and Windows clients separately before claiming cross-device compatibility.
+
+External Plex/Jellyfin/SMB sources remain intentionally out of scope until Locat's own Media Hub is stable.
