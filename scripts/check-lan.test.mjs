@@ -29,3 +29,11 @@ test('rejects unexpected redirects', async () => {
     output: () => {},
   }), /redirect/);
 });
+
+test('accepts ready Locat response', async () => {
+  await assert.doesNotReject(checkLan('https://locat.example.com', {
+    lookupImpl: async () => [{ address: '192.168.1.8' }],
+    fetchImpl: async () => ({ status: 200, json: async () => ({ app: 'Locat', status: 'ready' }) }),
+    output: () => {},
+  }));
+});
