@@ -4,7 +4,11 @@ $ErrorActionPreference = "Stop"
 Set-Location (Resolve-Path (Join-Path $PSScriptRoot ".."))
 $envFile = Join-Path (Get-Location) ".env"
 if (Test-Path $envFile) {
-  Write-Host "Existing .env preserved. No credentials changed."
+  $existing = Get-Content -Raw $envFile
+  if ($existing -notmatch "(?m)^LOCAT_DB_PASSWORD=\\S+" -or $existing -notmatch "(?m)^LOCAT_DB_ROOT_PASSWORD=\\S+") {
+    throw "Existing .env is missing Docker database credentials. Refusing to overwrite it; add LOCAT_DB_PASSWORD and LOCAT_DB_ROOT_PASSWORD manually."
+  }
+  Write-Host "Existing Docker credentials preserved."
   exit 0
 }
 function New-Secret {
