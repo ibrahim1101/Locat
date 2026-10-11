@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isLanAddress, parseLanOrigin, validateReadyResponse } from './check-lan.mjs';
+import { isLanAddress, parseLanOrigin, validateReadyResponse, checkLan } from './check-lan.mjs';
 
 test('private LAN addresses', () => {
   for (const address of ['192.168.1.5', '10.0.0.1', '172.16.1.2', 'fd00::1']) {
@@ -20,4 +20,12 @@ test('requires a clean HTTPS origin', () => {
 test('recognizes ready Locat backend', () => {
   assert.doesNotThrow(() => validateReadyResponse(200, { app: 'Locat', status: 'ready' }));
   assert.throws(() => validateReadyResponse(503, { app: 'Locat', status: 'unavailable' }));
+});
+
+test('rejects unexpected redirects', async () => {
+  await assert.rejects(checkLan('https://locat.example.com', {
+    lookupImpl: async () => [{ address: '192.168.1.8' }],
+    fetchImpl: async () => ({ status: 302 }),
+    output: () => {},
+  }), /redirect/);
 });
