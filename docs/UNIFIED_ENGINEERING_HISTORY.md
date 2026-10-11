@@ -64,3 +64,9 @@ Windows/Linux/macOS builds were compiling at this observation.
 Added explicit Remote cross-origin preflight/approval regressions: 47 Python
 tests pass. Added preview download and platform acceptance runbook, clearer
 native playback authorization states, and extension-aware local audio routing.
+
+Added mocked desktop adapter tests for save consent command, cancellation, size
+limits and unsafe URL rejection. Corrected desktop storage UI so it does not
+offer Android folder selection. Desktop preview builds now queue instead of
+cancelling an already-compiling native run, with Rust build caching for later
+updates. These are native contracts, not physical desktop acceptance.

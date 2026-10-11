@@ -8,7 +8,7 @@ permissions:
   contents: read
 concurrency:
   group: locat-desktop-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   native:
     strategy:
@@ -38,6 +38,9 @@ jobs:
       - name: Rust toolchain
         shell: bash
         run: rustup update stable && rustup default stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
       - run: npm ci
       - run: npm run check
       - run: npm run desktop:build -- --bundles ${{ matrix.bundles }}

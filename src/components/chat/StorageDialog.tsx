@@ -1,3 +1,4 @@
+import { detectPlatform } from "@/lib/platform";
 import { Notifications } from "./Notifications";
 import { NotificationPreferences } from "./NotificationPreferences";
 import { downloadBlob } from "@/lib/download";
@@ -62,18 +63,18 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
       <NotificationPreferences />
       <div className="emergent-locat-surface space-y-3 rounded-xl p-4">
         <div><p className="font-medium">Downloads & encrypted exports</p>
-          <p className="text-xs text-secondary">Choose where attachments and encrypted history backups are saved. Identity keys, login sessions and Locat's private runtime data always remain in protected app storage.</p></div>
+          <p className="text-xs text-secondary">Choose where attachments and encrypted history backups are saved. Identity keys and sessions stay in this installation’s local storage. App lock does not encrypt that storage.</p></div>
         <div className="emergent-locat-control rounded-lg p-3 text-sm">
-          <p className="font-medium">{destination.mode === "user-folder" ? "User-selected Android folder" : "Browser downloads"}</p>
+          <p className="font-medium">{detectPlatform() === "tauri-desktop" ? "Desktop Save dialog for each file" : destination.mode === "user-folder" ? "User-selected Android folder" : "Browser downloads"}</p>
           {destination.mode === "user-folder" && destination.label && <p className="mt-1 break-all text-xs text-secondary">{destination.label}</p>}
         </div>
         <div className="flex flex-wrap gap-2">
-          {isNativeShell() && <Button type="button" variant="outline" disabled={busy} onClick={() => void perform(async () => {
+          {isNativeShell() && detectPlatform() !== "tauri-desktop" && <Button type="button" variant="outline" disabled={busy} onClick={() => void perform(async () => {
             const next = await chooseUserStorageFolder();
             setDestination(next);
             setFeedback("Android folder selected. Attachments and encrypted exports will be saved there.");
           })}>Choose Android folder</Button>}
-          <Button type="button" variant="outline" disabled={busy || destination.mode === "internal"} onClick={() => {
+          <Button type="button" variant="outline" disabled={busy || destination.mode === "internal" || detectPlatform() === "tauri-desktop"} onClick={() => {
             setDestination(selectInternalStorage());
             setFeedback("Browser download handling selected.");
           }}>Use browser downloads</Button>

@@ -107,6 +107,7 @@ export function downloadBlob(
           destination = "browser";
         }
       } catch (error) {
+        if (typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) throw error;
         if (error instanceof Error && error.message.startsWith("Android native downloads")) throw error;
         throw new Error("Locat could not save the attachment. Open Settings & backups, choose the folder again, then retry. No file was saved.");
       }
