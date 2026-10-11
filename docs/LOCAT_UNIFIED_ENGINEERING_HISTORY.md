@@ -109,3 +109,35 @@ changes do not imply execution of blocked platform workflows.
 
 These checks do not establish native physical acceptance, Docker execution,
 actual browser-rendered audio output or a complete production release.
+
+
+## 2026-10-12 — authorized publication and LAN compatibility
+
+The user directly authorized publication with “Proceed”. Shell Git push had
+no credentials, so the connected GitHub account published the four reviewed
+commits. Every created Git tree matched its local counterpart exactly:
+local 5c0da67/c55f290/3b031a9/d6f0edb correspond to published
+06bcb44/16ccf7e/db6b013/87a7c9b. Commit metadata differs; source bytes do not.
+Draft PR #7 targets feat/locat-unified-platforms, stacked on draft PR #6.
+No main merge or production deployment occurred.
+
+The unified branch advanced independently to 7b50db7 with an opt-in Caddy
+LAN HTTPS overlay and acceptance documentation. These four files were
+merged into the ecosystem branch without conflict; no existing source or
+production configuration was replaced. Android trust of the private LAN CA
+and physical Windows/Raspberry Pi acceptance remain open.
+
+Initial published revision 87a7c9b passed core/database/Docker CI runs
+38174264658 and 38174290188. Both include real Chromium audio signal checks.
+Signed Android preview run 38174264681 succeeded. Desktop run 38174264666
+was still running when this entry was prepared. These results apply to
+87a7c9b and cannot be assumed for subsequent changes.
+
+Additional review found that Web Audio interprets highpass/lowpass node Q
+in decibels, while the UI and headroom model use conventional linear Q.
+The graph now converts pass-filter Q with 20*log10(Q), leaving peaking Q
+unchanged. Focused graph tests pass; the real Chromium regression now also
+measures Butterworth -3 dB cutoff and Q=20 resonance/headroom. Reference:
+https://www.w3.org/TR/webaudio-1.0/#dom-biquadfilternode-q .
+CI now validates combined LAN/media overlays with isolated synthetic
+settings. Final builds after this correction remain pending at this entry.

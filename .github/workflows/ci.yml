@@ -86,6 +86,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose config --quiet
+      - name: Validate optional LAN HTTPS and media overlays
+        env:
+          LOCAT_LAN_HOST: locat.local
+          PUBLIC_ORIGIN: https://locat.local
+          LOCAT_MEDIA_DIR: /tmp/locat-ci-media
+        run: docker compose -f compose.yaml -f compose.lan.yaml -f compose.media.yaml config --quiet
       - run: docker compose up -d --build --wait --wait-timeout 180
       - run: docker compose exec -T app npm run doctor
       - name: Verify packaged media tools

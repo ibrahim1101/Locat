@@ -43,5 +43,5 @@ it("applies resonant-pass headroom to the actual gain node", () => {
   connectEqGraph(source as unknown as MediaElementAudioSourceNode, context as unknown as AudioContext, [filter] as unknown as BiquadFilterNode[], preamp as unknown as GainNode, [point], 0, false);
   expect(preamp.gain.setTargetAtTime).toHaveBeenCalledWith(Math.pow(10, -filterHeadroom(point) / 20), 0, 0.02);
   expect(filter.type).toBe("highpass");
-  expect(filter.Q.setValueAtTime).toHaveBeenCalledWith(20, 0);
+  expect(filter.Q.setValueAtTime).toHaveBeenCalledWith(20 * Math.log10(20), 0);
 });

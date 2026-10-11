@@ -25,6 +25,8 @@ try {
       boost: await rms([{ ...peak[0], gain: 12 }], false),
       highpass: await rms([{ type: 'highpass', frequency: 1000, gain: 0, q: 0.707 }], false, 100),
       lowpass: await rms([{ type: 'lowpass', frequency: 1000, gain: 0, q: 0.707 }], false, 10000),
+      butterworth: await rms([{ type: 'lowpass', frequency: 1000, gain: 0, q: Math.SQRT1_2 }], false),
+      resonant: await rms([{ type: 'highpass', frequency: 1000, gain: 0, q: 20 }], false),
     };
   });
   assert.ok(measured.pure > 0.70 && measured.pure < 0.72, 'Pure bypass must preserve the oscillator signal');
@@ -32,5 +34,7 @@ try {
   assert.ok(measured.boost <= measured.pure * 1.03, 'Boost headroom must keep this signal bounded');
   assert.ok(measured.highpass < measured.pure * 0.02, 'High-pass must attenuate sub-cutoff audio');
   assert.ok(measured.lowpass < measured.pure * 0.02, 'Low-pass must attenuate above-cutoff audio');
+  assert.ok(measured.butterworth > measured.pure * 0.69 && measured.butterworth < measured.pure * 0.73, 'Conventional Butterworth Q must produce -3 dB at cutoff');
+  assert.ok(measured.resonant > measured.pure * 0.95 && measured.resonant < measured.pure * 1.03, 'Q=20 resonance and its matched headroom must produce a bounded cutoff signal');
   console.log('Real Chromium audio signal checks passed:', measured);
 } finally { await browser.close(); }

@@ -45,5 +45,7 @@ acceptance remain open in `LOCAT_COMPLETE_FEATURE_MATRIX.md` and
 
 Keep this PR in draft. No main merge, production deployment, live database
 migration, original app replacement or new production signing identity is
-included. The branch and PR are not yet published: automatic approval review
-rejected publication and requires direct user authorization.
+included. Publication was directly authorized on 2026-10-12. Draft PR #7 is open
+against feat/locat-unified-platforms; initial core/Docker/Chromium and signed
+Android checks passed. Follow-up pass-filter Q and LAN overlay validation
+changes require new checks. No main merge or production deployment occurred.

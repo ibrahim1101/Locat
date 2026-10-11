@@ -33,7 +33,10 @@ export function connectEqGraph(source: MediaElementAudioSourceNode, context: Aud
   points.forEach((point, index) => {
     const filter = filters[index]; filter.type = point.type;
     filter.frequency.setValueAtTime(Math.min(point.frequency, context.sampleRate / 2 - 1), context.currentTime);
-    filter.Q.setValueAtTime(point.q, context.currentTime);
+    // Controls use conventional Q. Web Audio's pass filters instead expect
+    // 20*log10(Q), unlike peaking filters: https://www.w3.org/TR/webaudio-1.0/#dom-biquadfilternode-q
+    const passFilter = point.type === "highpass" || point.type === "lowpass";
+    filter.Q.setValueAtTime(passFilter ? 20 * Math.log10(point.q) : point.q, context.currentTime);
     filter.gain.setTargetAtTime(point.gain, context.currentTime, 0.02);
     tail.connect(filter); tail = filter;
   });
