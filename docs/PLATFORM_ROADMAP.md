@@ -1,5 +1,5 @@
 # Locat 2.0 — Platform Roadmap
-Reviewed 2026-10-10.
+Reviewed 2026-10-10; updated for the unified preview on 2026-10-11.
 
 ## Shared core
 Keep React/Vite UI, WebCrypto/E2EE contracts, Hono/tRPC server, MariaDB/Drizzle and official Obsidian Ember brand. Use platform-specific adapters rather than framework migrations.
@@ -11,7 +11,7 @@ Supported client target. Browser file downloads and Web Push must be verified pe
 Preserve existing Capacitor design and HTTPS-only server onboarding. Preview application ID: com.shaikibrahim.locat.preview; original: com.shaikibrahim.locat. Prioritize Android native folder picker and file-save plugin, background notification registration/delivery, lock behavior, safe areas and emulator/physical-device tests. Local native Android project may be uncommitted on the user's Windows machine.
 
 ## Windows / Linux / macOS (Tauri 2)
-src/lib/platform adapters provide a preliminary scaffold only. No src-tauri Rust project or installers have been implemented.
+The unified branch now includes a src-tauri Rust client shell, wired Save dialog / HTTPS opener / notification adapters and OS preview build workflows. Initial Windows/Linux/macOS packages built successfully in run 38157171771. Physical runtime acceptance and final revision builds remain separate gates. Secure storage, tray, deep links and signed updates are still unimplemented.
 - Windows: target signed .exe/.msi packages and system tray.
 - Linux: target .deb, AppImage, optionally .rpm depending on build tooling.
 - macOS: target .app/.dmg with signing/notarization when credentials exist.

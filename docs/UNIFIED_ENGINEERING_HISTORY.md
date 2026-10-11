@@ -70,3 +70,27 @@ limits and unsafe URL rejection. Corrected desktop storage UI so it does not
 offer Android folder selection. Desktop preview builds now queue instead of
 cancelling an already-compiling native run, with Rust build caching for later
 updates. These are native contracts, not physical desktop acceptance.
+
+
+## Native artifact verification
+
+Initial native run 38157171771 completed successfully for all three OS jobs.
+Artifacts: Windows NSIS (11708931579), Linux DEB/AppImage (11709725619), macOS
+APP/DMG (11709800089), all built from bd62b3d. These prove compilation and
+packaging, not physical runtime acceptance. Final UI and Android metadata fixes
+are published as 4761649 and af63b2c. Latest local suite: 279 passed, 26 DB tests
+skipped locally; Remote: 47 passed. CI core/MariaDB/Docker already passed on the
+initial consolidated revision. Latest revision builds are being inspected.
+
+## Final preview validation
+
+Revision af63b2c: desktop run 38157585088 completed successfully on Windows,
+Linux and macOS. Android run 38157585251 completed successfully, including
+signing verification; artifact locat-2-preview-apk (11708836809). Core PR run
+38157587637 passed verification, MariaDB-dependent tests and Docker smoke.
+Remote run 38157587589 passed. Local tests: 279 passed / 26 DB tests skipped;
+47 Remote tests passed; typecheck and web/backend build passed; lint has zero
+errors and 12 existing warnings. Documentation-only follow-up does not change
+the tested application tree. Native compilation/package output is verified;
+physical device acceptance, GPU/codec behavior and browser UI runtime remain
+unverified. No production deployment or main merge occurred.

@@ -8,6 +8,13 @@ media. No database is installed on client machines.
 
 ## Downloads
 
+Verified preview revision: `af63b2c`. All Windows/Linux/macOS jobs succeeded in
+[desktop run 38157585088](https://github.com/ibrahim1101/Locat/actions/runs/38157585088).
+The signed APK succeeded in
+[Android run 38157585251](https://github.com/ibrahim1101/Locat/actions/runs/38157585251).
+The later documentation commit leaves the tested application source unchanged.
+
+
 GitHub Actions → **Locat desktop preview** → select a successful run for this
 branch and inspect its head commit. Download the matching artifact:
 

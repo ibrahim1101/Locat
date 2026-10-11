@@ -1,5 +1,15 @@
 # Locat — self-hosted encrypted messaging
 
+**Unified client preview:** This branch, `feat/locat-unified-platforms`, consolidates
+core messaging, Sentinel, Link, Cinema, Music EQ and the Remote prototype, with
+Capacitor Android and Tauri Windows/Linux/macOS packaging. Use the
+[platform download/testing guide](docs/UNIFIED_PLATFORM_TESTING.md),
+[branch audit](docs/BRANCH_AUDIT_2026-10-11.md) and
+[engineering history](docs/UNIFIED_ENGINEERING_HISTORY.md).
+This is a test preview, not a finished feature-complete release; advanced engines
+and roadmap-only modules remain incomplete. Main and other development branches
+are unchanged.
+
 **Development records and UI redesign:** [Documentation hub](docs/README.md) · [Next-chat handoff](docs/NEW_CHAT_HANDOFF_2026-10-09.md) · [Emergent UI handoff](docs/EMERGENT_UI_HANDOFF_2026-10-09.md)
 
 

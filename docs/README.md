@@ -2,6 +2,12 @@
 
 **Status:** Active pre-release development. This index is maintained alongside the engineering journal and UI handoff. Implemented, CI-verified, emulator-tested, and deployed are distinct statuses.
 
+## Unified client preview
+
+- [Platform downloads and physical acceptance](UNIFIED_PLATFORM_TESTING.md)
+- [Branch-by-branch audit](BRANCH_AUDIT_2026-10-11.md)
+- [Unified engineering history, failures and fixes](UNIFIED_ENGINEERING_HISTORY.md)
+
 ## Start here — development and new chats
 - [New-chat engineering handoff (2026-10-09)](NEW_CHAT_HANDOFF_2026-10-09.md) — recent commits, verified CI, pending work, emulator commands and safe working boundaries.
 - [Complete engineering journal (2026-10-08 onward)](DEVELOPMENT_HANDOFF_2026-10-08.md) — chronological decisions, implementation, trials, failures, fixes and successes.
