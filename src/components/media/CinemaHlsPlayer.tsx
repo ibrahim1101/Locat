@@ -19,6 +19,8 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     let waitingForBuffer = false;
     let initialPlaybackStarted = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let startupTimer: ReturnType<typeof setTimeout> | undefined;
+    let userPaused = false;
     const update = () => {
       let ahead = 0;
       for (let i = 0; i < video.buffered.length; i++) {
@@ -30,15 +32,16 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       setBufferedAhead(Math.round(ahead));
       const total = durationSeconds && durationSeconds > 0 ? durationSeconds : video.duration;
       setBuffered(Number.isFinite(total) && total > 0 ? Math.min(100, Math.round(ahead / total * 100)) : 0);
-      if (waitingForBuffer && ahead >= 12 && !cancelled) {
+      if (waitingForBuffer && ahead >= 12 && !cancelled && !userPaused) {
+        if (startupTimer) clearTimeout(startupTimer);
         waitingForBuffer = false;
         initialPlaybackStarted = true;
         void video.play().catch(() => setStatus("Press Play to begin"));
       }
     };
     const report = () => positionCallback.current?.(startSeconds + video.currentTime, !video.paused);
-    const onPlaying = () => { initialPlaybackStarted = true; waitingForBuffer = false; setError(""); setStatus("Playing"); report(); };
-    const onPause = () => { setStatus("Paused"); report(); };
+    const onPlaying = () => { if (startupTimer) clearTimeout(startupTimer); initialPlaybackStarted = true; waitingForBuffer = false; setError(""); setStatus("Playing"); report(); };
+    const onPause = () => { if (waitingForBuffer) { userPaused = true; waitingForBuffer = false; if (startupTimer) clearTimeout(startupTimer); } setStatus("Paused"); report(); };
     const onWaiting = () => setStatus("Buffering…");
     video.addEventListener("playing", onPlaying);
     video.addEventListener("pause", onPause);
@@ -48,7 +51,8 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     video.addEventListener("timeupdate", update);
     if (Hls.isSupported()) {
       hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: is4k ? 30 : 12, maxMaxBufferLength: is4k ? 60 : 24, backBufferLength: 15, maxBufferSize: is4k ? 120 * 1024 * 1024 : 40 * 1024 * 1024 });
-      hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!cancelled) { setStatus("Ready"); if (autoplay && is4k && !initialPlaybackStarted) { waitingForBuffer = true; setStatus("Pre-buffering 4K (target 12 seconds)…"); update(); } else if (autoplay) void video.play().catch(() => setStatus("Press Play to begin")); else setStatus("Paused at restored position"); } });
+      hls.on(Hls.Events.BUFFER_APPENDED, () => { if (!cancelled) update(); });
+      hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!cancelled) { setStatus("Ready"); if (autoplay && is4k && !initialPlaybackStarted) { waitingForBuffer = true; setStatus("Pre-buffering 4K (target 12 seconds)…"); update(); startupTimer = setTimeout(() => { if (!cancelled && waitingForBuffer && !userPaused) { waitingForBuffer = false; setStatus("Starting with available buffer…"); void video.play().catch(() => setStatus("Press Play to begin")); } }, 20000); } else if (autoplay) void video.play().catch(() => setStatus("Press Play to begin")); else setStatus("Paused at restored position"); } });
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (!data.fatal || cancelled) return;
         if (data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR && manifestRetries < 3) {
@@ -75,6 +79,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     return () => {
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
+      if (startupTimer) clearTimeout(startupTimer);
       hls?.destroy();
       // Release server-side FFmpeg and temporary HLS segments on player exit/quality change.
       const releaseUrl = new URL(url, window.location.origin);
