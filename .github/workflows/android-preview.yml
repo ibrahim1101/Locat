@@ -67,19 +67,53 @@ jobs:
           gradle.write_text(source)
           print("Configured isolated Locat preview package")
           PY
-      - name: Build preview debug APK
+      - name: Require dedicated preview signing secrets
+        env:
+          KEYSTORE: ${{ secrets.LOCAT_PREVIEW_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.LOCAT_PREVIEW_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.LOCAT_PREVIEW_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.LOCAT_PREVIEW_KEY_PASSWORD }}
+        run: |
+          for value in "$KEYSTORE" "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD"; do
+            if [ -z "$value" ]; then
+              echo "::error::Missing Locat preview signing secret. Follow docs/ANDROID_PREVIEW_APK.md"
+              exit 1
+            fi
+          done
+      - name: Build unsigned preview release APK
         working-directory: android
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleRelease
+      - name: Sign preview APK with persistent key
+        env:
+          KEYSTORE: ${{ secrets.LOCAT_PREVIEW_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.LOCAT_PREVIEW_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.LOCAT_PREVIEW_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.LOCAT_PREVIEW_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          keystore="$RUNNER_TEMP/locat-preview-signing.jks"
+          trap 'rm -f "$keystore"' EXIT
+          printf '%s' "$KEYSTORE" | base64 --decode > "$keystore"
+          sdk_root="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          apksigner="$(find "$sdk_root/build-tools" -mindepth 2 -maxdepth 2 -name apksigner | sort -V | tail -1)"
+          test -n "$apksigner"
+          unsigned="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          test -s "$unsigned"
+          mkdir -p preview-artifact
+          "$apksigner" sign --ks "$keystore" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD \
+            --out preview-artifact/locat-2-preview.apk "$unsigned"
+          "$apksigner" verify --verbose preview-artifact/locat-2-preview.apk
+          "$apksigner" verify --print-certs preview-artifact/locat-2-preview.apk | grep 'Signer #1 certificate SHA-256 digest' > preview-artifact/signing-certificate.txt
       - name: Check preview application ID
         run: |
           sdk_root="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
           aapt="$(find "$sdk_root/build-tools" -mindepth 2 -maxdepth 2 -name aapt | sort -V | tail -1)"
           test -n "$aapt"
-          "$aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk | grep "package: name='com.shaikibrahim.locat.preview'"
+          "$aapt" dump badging preview-artifact/locat-2-preview.apk | grep "package: name='com.shaikibrahim.locat.preview'"
       - name: Package preview APK and metadata
         run: |
-          mkdir -p preview-artifact
-          cp android/app/build/outputs/apk/debug/app-debug.apk preview-artifact/locat-2-preview.apk
           (cd preview-artifact && sha256sum locat-2-preview.apk > locat-2-preview.apk.sha256)
           printf 'commit=%s\nrun=%s\npackage=com.shaikibrahim.locat.preview\n' "$GITHUB_SHA" "$GITHUB_RUN_NUMBER" > preview-artifact/build-info.txt
       - uses: actions/upload-artifact@v4
