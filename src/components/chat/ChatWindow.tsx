@@ -1,3 +1,7 @@
+import { loadEncryptedDraft, saveEncryptedDraft, MAX_ENCRYPTED_DRAFT } from "@/lib/encryptedDraft";
+import type { IdentityKeys } from "@/lib/crypto";
+import { LocationShareDialog } from "./LocationShareDialog";
+import { locationMapUrl, type LocationPayload } from "@/lib/location";
 import { Bell, BellOff } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -35,6 +39,7 @@ import {
   Eye,
   Mic,
   Square,
+  MapPin,
 } from "lucide-react";
 
 export type UiMessage = LocalMessage & {
@@ -62,6 +67,8 @@ export function conversationTitle(
 
 export function ChatWindow({
   conversation,
+  draftIdentity,
+  draftServer,
   messages,
   myId,
   online,
@@ -70,6 +77,7 @@ export function ChatWindow({
   onSendImage,
   onSendFile,
   onSendVoice,
+  onSendLocation,
   onRetry,
   onShowSecurity,
   onShowGroup,
@@ -83,6 +91,8 @@ export function ChatWindow({
   onToggleMessageHidden,
 }: {
   conversation: ConversationSummary;
+  draftIdentity: IdentityKeys;
+  draftServer: string;
   messages: UiMessage[];
   myId: number;
   online: Set<number>;
@@ -91,6 +101,7 @@ export function ChatWindow({
   onSendImage: (file: File) => void;
   onSendFile: (file: File) => void;
   onSendVoice: (blob: Blob, durationMs: number) => void;
+  onSendLocation: (location: LocationPayload) => void;
   onRetry: (tempId: string) => void;
   onShowSecurity: () => void;
   onShowGroup: () => void;
@@ -103,13 +114,32 @@ export function ChatWindow({
   onToggleHidden: () => void;
   onToggleMessageHidden: (message: LocalMessage) => void;
 }) {
-  const [draft, setDraft] = useState(() => loadDraft(conversation.id, myId));
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [draft, setDraft] = useState(() => loadDraft(conversation.id, myId, draftServer));
+  const draftRevision = useRef(0);
+  const [draftError, setDraftError] = useState("");
+  function persistDraft(value: string) {
+    draftRevision.current += 1;
+    saveDraft(conversation.id, myId, value, draftServer);
+    void saveEncryptedDraft(draftIdentity, draftServer, myId, conversation.id, value)
+      .then(() => setDraftError(""))
+      .catch(() => setDraftError("Draft remains in this tab; encrypted device storage is unavailable."));
+  }
   // Drafts persist in memory on actual edits, never on a conversation-switch
   // effect (which could otherwise copy the previous conversation's text).
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset local UI state when the selected conversation or message changes
-    setDraft(loadDraft(conversation.id, myId));
-  }, [conversation.id, myId]);
+    setDraft(loadDraft(conversation.id, myId, draftServer));
+    let active = true;
+    const revision = draftRevision.current;
+    void loadEncryptedDraft(draftIdentity, draftServer, myId, conversation.id).then(value => {
+      if (active && revision === draftRevision.current && !loadDraft(conversation.id, myId, draftServer)) {
+        saveDraft(conversation.id, myId, value, draftServer);
+        setDraft(value);
+      }
+    }).catch(() => { if (active) setDraftError("Saved draft could not be unlocked on this device."); });
+    return () => { active = false; };
+  }, [conversation.id, myId, draftServer, draftIdentity]);
 
   // Per-conversation notification mute. Preferences are device-local so the
   // state lives next to the draft rather than in the server session.
@@ -230,7 +260,8 @@ export function ChatWindow({
     const text = draft.trim();
     if (!text) return;
     setDraft("");
-    clearDraft(conversation.id, myId);
+    clearDraft(conversation.id, myId, draftServer);
+    persistDraft("");
     onSendText(reply ? `> ${reply.replaceAll("\n", "\n> ")}\n\n${text}` : text);
     setReply(null);
   }
@@ -351,6 +382,7 @@ export function ChatWindow({
           />
         </div>
       )}
+      {locationOpen && composer.canAttach && <LocationShareDialog key={conversation.id} recipient={title} onSend={onSendLocation} onClose={() => setLocationOpen(false)} />}
       {/* messages */}
       <div
         ref={scrollRef}
@@ -436,6 +468,11 @@ export function ChatWindow({
           {/* composer */}
           <div className="smoked-glass emergent-locat-composer shrink-0 border-t px-3 py-3 pb-safe sm:px-6">
             <div className="mx-auto flex max-w-3xl items-end gap-2">
+              <button type="button" onClick={() => setLocationOpen(true)} disabled={!composer.canAttach || recording}
+                className="emergent-locat-control flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-secondary hover:bg-accent"
+                aria-label="Share location" title="Share a one-time encrypted location">
+                <MapPin className="h-5 w-5" />
+              </button>
               <input
                 ref={fileRef}
                 type="file"
@@ -489,11 +526,11 @@ export function ChatWindow({
                 spellCheck={true}
                 enterKeyHint="enter"
                 disabled={!composer.canType}
-                maxLength={10000}
+                maxLength={MAX_ENCRYPTED_DRAFT}
                 value={draft}
                 onChange={e => {
                   setDraft(e.target.value);
-                  saveDraft(conversation.id, myId, e.target.value);
+                  persistDraft(e.target.value);
                   e.target.style.height = "auto";
                   e.target.style.height = `${Math.min(e.target.scrollHeight, 144)}px`;
                 }}
@@ -533,6 +570,7 @@ export function ChatWindow({
                 {composer.unavailableReason}
               </p>
             )}
+            {draftError && <p role="status" className="mx-auto mt-2 max-w-3xl text-xs text-secondary">{draftError}</p>}
             {recordingError && <p role="alert" className="mx-auto mt-2 max-w-3xl text-xs text-destructive">{recordingError}</p>}
           </div>
         </>
@@ -701,6 +739,13 @@ function MessageBubble({
                 : "Unsupported image format"}
             </p>
           )}
+          {m.payload.type === "location" && <div className="space-y-2">
+            <p className="flex items-center gap-2"><MapPin className="h-4 w-4" /> Shared location snapshot</p>
+            <p>{m.payload.latitude.toFixed(5)}, {m.payload.longitude.toFixed(5)}</p>
+            <p className="text-xs opacity-75">Accuracy approximately {Math.ceil(m.payload.accuracyMeters)} m · {new Date(m.payload.capturedAt).toLocaleString()}</p>
+            <a href={locationMapUrl(m.payload)} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer" className="block min-h-11 rounded-md border px-3 py-2 underline">Open in OpenStreetMap</a>
+            <p className="max-w-64 text-xs opacity-75">Opening the map shares these coordinates with OpenStreetMap.</p>
+          </div>}
           {m.payload.type === "text" && (
             <p className="whitespace-pre-wrap break-words">{m.payload.text}</p>
           )}

@@ -12,6 +12,7 @@ export type EncryptedEnvelope = {
 
 /** Decrypted payload — only ever exists on devices. */
 export type MessagePayload =
+  | { type: "location"; latitude: number; longitude: number; accuracyMeters: number; capturedAt: number; messageRef?: string }
   | { type: "text"; text: string; messageRef?: string }
   | { type: "image"; mime: string; name: string; dataB64: string; messageRef?: string }
   | { type: "file"; mime: string; name: string; size: number; dataB64: string; messageRef?: string }

@@ -5,10 +5,11 @@ import packageInfo from "../../package.json";
 declare const __LOCAT_BUILD_ID__: string;
 import { relayPayloadSchema, type MessageControl } from "@contracts/messagePayload";
 import { userCode } from "@contracts/userCode";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
+import { conversationFromLink } from "@/lib/conversationLink";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/providers/trpc";
-import { isNativeShell } from "@/lib/native";
+import { isNativeShell, nativeServerUrl } from "@/lib/native";
 import { useAuth, type SessionUser } from "@/state/auth";
 import type {
   ConversationSummary,
@@ -81,6 +82,8 @@ export default function Chat() {
 }
 
 function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
+  const location = useLocation();
+  const consumedLink = useRef("");
   const { logout } = useAuth();
   const utils = trpc.useUtils();
 
@@ -605,6 +608,13 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
     [user.id]
   );
 
+  useEffect(() => {
+    if (!conversationsQ.isSuccess || !hiddenReady || consumedLink.current === location.search) return;
+    consumedLink.current = location.search;
+    const id = conversationFromLink(location.search, conversations, user.id, hiddenIds);
+    if (id) void openConversation(id);
+  }, [location.search, conversationsQ.isSuccess, hiddenReady, conversations, user.id, hiddenIds, openConversation]);
+
   // ── sending ──
   function pendingUi(item: PendingMessage): UiMessage {
     return {
@@ -935,7 +945,9 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
                           ? `${last.outgoing ? "you: " : ""}🎙 voice message`
                           : last.payload.type === "file"
                             ? `${last.outgoing ? "you: " : ""}📎 ${last.payload.name}`
-                            : `${last.outgoing ? "you: " : ""}${last.payload.text}`
+                            : last.payload.type === "location"
+                              ? `${last.outgoing ? "you: " : ""}📍 location snapshot`
+                              : `${last.outgoing ? "you: " : ""}${last.payload.text}`
                       : c.type === "group"
                         ? `${c.members.length} members`
                         : "say hello"}
@@ -1019,6 +1031,8 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         {activeConv ? (
           <ChatWindow
             key={activeConv.id}
+            draftIdentity={keys}
+            draftServer={nativeServerUrl()}
             conversation={activeConv}
             messages={messages}
             myId={user.id}
@@ -1065,6 +1079,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
                 .then(payload => sendPayload(activeConv, payload, crypto.randomUUID()))
                 .catch(error => setArchiveError(error instanceof Error ? error.message : "Could not prepare this file."))
             }
+            onSendLocation={point => void sendPayload(activeConv, point, crypto.randomUUID())}
             onSendVoice={(blob, durationMs) =>
               void voiceToPayload(blob, durationMs)
                 .then(payload => sendPayload(activeConv, payload, crypto.randomUUID()))

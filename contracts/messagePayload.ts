@@ -4,6 +4,14 @@ import { z } from "zod";
 // Extend this contract before adding new media or encrypted control events.
 const base64 = z.string().regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/);
 export const messagePayloadSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("location"),
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180),
+    accuracyMeters: z.number().min(0).max(1_000_000),
+    capturedAt: z.number().int().nonnegative().max(8_640_000_000_000_000),
+    messageRef: z.string().uuid().optional(),
+  }).strict(),
   z.object({ type: z.literal("text"), text: z.string().max(1_000_000), messageRef: z.string().uuid().optional() }).strict(),
   z.object({
     type: z.literal("image"),

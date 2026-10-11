@@ -1,27 +1,27 @@
-// Drafts are ephemeral and never written to persistent browser storage.
-// The map survives React navigation inside this tab, but not a page reload.
-// Each entry is scoped to the authenticated user and conversation.
+// Plaintext draft cache lives only in memory. encryptedDraft.ts persists authenticated
+// ciphertext separately. The optional server scope isolates matching account and
+// conversation IDs on different native server connections.
 const MAX_DRAFT = 4096;
 const drafts = new Map<string, string>();
 const LEGACY_PREFIX = "locat-draft:";
 
-export function draftStorageKey(conversationId: number, userId: number): string {
-  return `locat-draft:${userId}:${conversationId}`;
+export function draftStorageKey(conversationId: number, userId: number, scope = ""): string {
+  return `locat-draft:${scope ? `${scope}:` : ""}${userId}:${conversationId}`;
 }
 
-export function loadDraft(conversationId: number, userId: number): string {
-  return drafts.get(draftStorageKey(conversationId, userId)) ?? "";
+export function loadDraft(conversationId: number, userId: number, scope = ""): string {
+  return drafts.get(draftStorageKey(conversationId, userId, scope)) ?? "";
 }
 
-export function saveDraft(conversationId: number, userId: number, value: string): void {
-  const key = draftStorageKey(conversationId, userId);
+export function saveDraft(conversationId: number, userId: number, value: string, scope = ""): void {
+  const key = draftStorageKey(conversationId, userId, scope);
   const capped = value.slice(0, MAX_DRAFT);
   if (capped) drafts.set(key, capped);
   else drafts.delete(key);
 }
 
-export function clearDraft(conversationId: number, userId: number): void {
-  drafts.delete(draftStorageKey(conversationId, userId));
+export function clearDraft(conversationId: number, userId: number, scope = ""): void {
+  drafts.delete(draftStorageKey(conversationId, userId, scope));
 }
 
 /** Erase in-memory drafts on sign-out/account transitions. */

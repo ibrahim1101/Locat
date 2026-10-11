@@ -1,12 +1,12 @@
 export type Theme = "dark" | "light" | "system";
-export type Accent = "titanium" | "olive" | "teal" | "blue" | "violet" | "rose";
+export type Accent = "ember" | "titanium" | "olive" | "teal" | "blue" | "violet" | "rose";
 export type Appearance = { theme: Theme; accent: Accent };
 export const appearanceEvent = "locat-appearance-changed";
 export function parseAppearance(theme: string | null, accent: string | null): Appearance {
   return { theme: theme === "light" || theme === "system" ? theme : "dark",
-    accent: accent === "titanium" || accent === "olive" || accent === "teal" || accent === "blue" || accent === "violet" || accent === "rose" ? accent : "titanium" };
+    accent: accent === "ember" || accent === "titanium" || accent === "olive" || accent === "teal" || accent === "blue" || accent === "violet" || accent === "rose" ? accent : "ember" };
 }
-let current: Appearance = { theme: "dark", accent: "titanium" };
+let current: Appearance = { theme: "dark", accent: "ember" };
 function readAppearance(): Appearance {
   try { return parseAppearance(localStorage.getItem("locat-theme"), localStorage.getItem("locat-accent")); }
   catch { return current; }

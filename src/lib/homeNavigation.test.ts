@@ -49,15 +49,15 @@ describe("mobile home navigation", () => {
   });
 });
 
-describe("ephemeral composer drafts", () => {
+describe("scoped composer drafts", () => {
   it("hydrates the composer with an in-memory draft for the active conversation", () => {
     expect(chatWindow).toContain('import { clearDraft, loadDraft, saveDraft } from "@/lib/draft";');
-    expect(chatWindow).toContain("useState(() => loadDraft(conversation.id, myId))");
-    expect(chatWindow).toContain("setDraft(loadDraft(conversation.id, myId));");
-    expect(chatWindow).toContain("saveDraft(conversation.id, myId, e.target.value);");
+    expect(chatWindow).toContain("useState(() => loadDraft(conversation.id, myId, draftServer))");
+    expect(chatWindow).toContain("setDraft(loadDraft(conversation.id, myId, draftServer));");
+    expect(chatWindow).toContain("persistDraft(e.target.value);");
   });
 
   it("clears the in-memory draft after a send", () => {
-    expect(chatWindow).toContain("clearDraft(conversation.id, myId);");
+    expect(chatWindow).toContain("clearDraft(conversation.id, myId, draftServer);");
   });
 });

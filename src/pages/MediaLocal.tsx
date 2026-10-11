@@ -1,3 +1,4 @@
+import { localTrackKey, nextMusicIndex, parseMusicFavorites, type RepeatMode } from "@/lib/musicQueue";
 import { isNativeShell, nativeServerUrl } from "@/lib/native";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
@@ -14,6 +15,18 @@ export default function MediaLocal({ kind }: { kind: "cinema" | "music" }) {
   const libraries = trpc.media.libraries.useQuery(undefined, { enabled: state.status === "ready", retry: false });
   const hostedItems = trpc.media.items.useQuery(undefined, { enabled: state.status === "ready", retry: false });
   const [files, setFiles] = useState<File[]>([]);
+  const [shuffle, setShuffle] = useState(false);
+  const [repeat, setRepeat] = useState<RepeatMode>("off");
+  const [musicAutoplay, setMusicAutoplay] = useState(false);
+  const [favorites, setFavorites] = useState<string[]>(() => { try { return parseMusicFavorites(localStorage.getItem("locat-music-favorites-v1")); } catch { return []; } });
+  const [favoriteFeedback, setFavoriteFeedback] = useState("");
+  const toggleFavorite = (track: File) => {
+    const key = localTrackKey(track);
+    const next = favorites.includes(key) ? favorites.filter(item => item !== key) : [...favorites, key].slice(-1000);
+    setFavorites(next);
+    try { localStorage.setItem("locat-music-favorites-v1", JSON.stringify(next)); setFavoriteFeedback(""); }
+    catch { setFavoriteFeedback("Favorite changed for this session; device storage prevented saving."); }
+  };
   const [selected, setSelected] = useState(0);
   const [hostedSelection, setHostedSelection] = useState<{ id: string; libraryId: number; name: string } | null>(null);
   const playbackTicket = trpc.media.playbackTicket.useQuery({ libraryId: hostedSelection?.libraryId ?? 0, id: hostedSelection?.id ?? "" }, { enabled: isNativeShell() && state.status === "ready" && hostedSelection !== null, retry: false, staleTime: 25 * 60_000 });
@@ -37,6 +50,7 @@ export default function MediaLocal({ kind }: { kind: "cinema" | "music" }) {
     if (!next.length) return;
     setFiles(next);
     setSelected(0);
+    setMusicAutoplay(false);
   }
   const [url, setUrl] = useState("");
   useEffect(() => {
@@ -60,7 +74,14 @@ export default function MediaLocal({ kind }: { kind: "cinema" | "music" }) {
           <input type="file" multiple accept={music ? "audio/*,.flac,.alac,.wav" : "video/*,.mkv,.mov,.mp4"} onChange={e => { choose(Array.from(e.target.files ?? [])); e.target.value = ""; }} aria-label="Select local media" className="w-full text-sm" />
           {url && file && <div className="mt-5 space-y-3">
             <p className="truncate text-sm">{file.name}</p>
-            {music ? <MusicEqualizer src={url} onEnded={() => setSelected(i => Math.min(i + 1, files.length - 1))} /> : <video key={url} src={url} controls playsInline className="max-h-[65vh] w-full rounded-xl bg-black" />}
+            {music ? <MusicEqualizer src={url} repeatOne={repeat === "one" || (repeat === "all" && files.length === 1)} autoplay={musicAutoplay} onEnded={() => { const next = nextMusicIndex(selected, files.length, repeat, shuffle); if (next !== null) { setMusicAutoplay(true); setSelected(next); } }} /> : <video key={url} src={url} controls playsInline className="max-h-[65vh] w-full rounded-xl bg-black" />}
+            {music && <div className="flex flex-wrap gap-3 items-center text-sm">
+              <button type="button" aria-pressed={shuffle} onClick={() => setShuffle(!shuffle)} className="rounded-lg border px-3 py-2">Shuffle {shuffle ? "on" : "off"}</button>
+              <label>Repeat <select aria-label="Music repeat mode" value={repeat} onChange={event => setRepeat(event.target.value as RepeatMode)} className="ml-2 rounded border bg-background p-2"><option value="off">Off</option><option value="one">One track</option><option value="all">Queue</option></select></label>
+              <button type="button" aria-pressed={favorites.includes(localTrackKey(file))} onClick={() => toggleFavorite(file)} className="rounded-lg border px-3 py-2">{favorites.includes(localTrackKey(file)) ? "★ Favorited" : "☆ Favorite"}</button>
+              <p className="w-full text-xs text-secondary">Favorites remember track metadata on this device. Reopen files after restarting; local audio files are not uploaded or stored.</p>
+              {favoriteFeedback && <p role="status" className="w-full text-xs text-secondary">{favoriteFeedback}</p>}
+            </div>}
             <div className="flex flex-wrap items-center gap-3 text-sm"><button type="button" disabled={selected === 0} className="rounded-lg border px-3 py-2 disabled:opacity-40" onClick={() => setSelected(i => Math.max(0, i - 1))}>Previous</button><span className="text-secondary">{selected + 1} / {files.length}</span><button type="button" disabled={selected >= files.length - 1} className="rounded-lg border px-3 py-2 disabled:opacity-40" onClick={() => setSelected(i => Math.min(files.length - 1, i + 1))}>Next</button><button type="button" className="text-secondary underline" onClick={() => { setFiles([]); setUrl(""); }}>Close media</button></div>{files.length > 1 && <ol aria-label="Local playback queue" className="max-h-48 space-y-1 overflow-y-auto">{files.map((track, index) => <li key={index}><button type="button" aria-current={selected === index ? "true" : undefined} onClick={() => setSelected(index)} className={`w-full truncate rounded-lg px-3 py-2 text-left text-sm ${selected === index ? "bg-primary/15 ember-text" : "text-secondary hover:bg-accent"}`}>{index + 1}. {track.name}</button></li>)}</ol>}
           </div>}
         </section>

@@ -135,14 +135,16 @@ body { overscroll-behavior: none; }
   --sidebar-accent-foreground: var(--accent-foreground);
   --sidebar-border: var(--border);
 }
-/* Legacy accent choices now all resolve to the Locat ember so the brand stays
-   consistent; the Appearance selector keeps working without introducing
-   off-brand hues. */
-:root[data-accent="titanium"], :root[data-accent="olive"], :root[data-accent="teal"],
-:root[data-accent="blue"], :root[data-accent="violet"], :root[data-accent="rose"] { --primary: 20 80% 54%; --ring: 20 80% 54%; --ember: 20 80% 54%; }
-:root[data-theme="light"][data-accent="titanium"], :root[data-theme="light"][data-accent="olive"],
-:root[data-theme="light"][data-accent="teal"], :root[data-theme="light"][data-accent="blue"],
-:root[data-theme="light"][data-accent="violet"], :root[data-theme="light"][data-accent="rose"] { --primary: 18 82% 46%; --ring: 18 82% 46%; --ember: 18 82% 46%; }
+/* Explicit saved accents remain selectable; new installations use Ember. */
+:root[data-accent="ember"] { --primary: 20 80% 54%; --ring: 20 80% 54%; --ember: 20 80% 54%; }
+:root[data-accent="titanium"] { --primary: 215 12% 72%; --ring: 215 12% 72%; --ember: 215 12% 72%; }
+:root[data-accent="olive"] { --primary: 78 35% 55%; --ring: 78 35% 55%; --ember: 78 35% 55%; }
+:root[data-accent="teal"] { --primary: 174 60% 45%; --ring: 174 60% 45%; --ember: 174 60% 45%; }
+:root[data-accent="blue"] { --primary: 215 80% 60%; --ring: 215 80% 60%; --ember: 215 80% 60%; }
+:root[data-accent="violet"] { --primary: 265 70% 65%; --ring: 265 70% 65%; --ember: 265 70% 65%; }
+:root[data-accent="rose"] { --primary: 340 75% 60%; --ring: 340 75% 60%; --ember: 340 75% 60%; }
+:root[data-theme="light"][data-accent="ember"] { --primary: 18 82% 46%; --ring: 18 82% 46%; --ember: 18 82% 46%; }
+:root[data-accent] { --sidebar-primary: var(--primary); --sidebar-ring: var(--ring); --ember-soft: var(--ember); }
 
 /* ── Emergent kit primitives remapped to Obsidian Ember ─────────────────── */
 :root {

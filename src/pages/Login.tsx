@@ -127,7 +127,7 @@ function AuthForm({
             /><button type="button" aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)} className="obsidian-interactive absolute inset-y-0 right-1 flex w-10 items-center justify-center rounded-lg text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
             {mode === "register" && (
               <p id="password-help" className="text-xs text-secondary">
-                Use at least 8 characters. Avoid your username,
+                Use at least 15 characters. Avoid your username,
                 common passwords and repeats. Spaces and password managers are welcome.
               </p>
             )}
