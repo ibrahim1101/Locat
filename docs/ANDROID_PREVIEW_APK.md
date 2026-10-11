@@ -3,7 +3,7 @@
 Workflow: `.github/workflows/android-preview.yml`
 Branch: `fix/locat-2.0-app-lock-biometric-guard`
 
-The preview uses Android application ID `com.shaikibrahim.locat.preview` and a debug signing key. It is separate from the original `com.shaikibrahim.locat` installation. Debug signing keys on hosted CI are ephemeral; **updates over a previously installed preview may fail with INSTALL_FAILED_UPDATE_INCOMPATIBLE**. Never uninstall the original Locat application. For durable preview upgrades, configure a stable dedicated preview signing key in a later milestone.
+The preview uses Android application ID `com.shaikibrahim.locat.preview` and a dedicated persistent release signing key. It is separate from the original `com.shaikibrahim.locat` installation. The workflow requires four dedicated GitHub Actions secrets and fails closed if any is missing. Do not reuse the original Locat production signing key. Never uninstall the original Locat application. Existing previews signed by an earlier ephemeral debug key cannot be upgraded in place to the new certificate; preserve/backup local data before any preview-only reinstall.
 
 ## Download latest successful preview build (PowerShell)
 
@@ -24,3 +24,25 @@ Verify the commit in build-info.txt matches the expected code before installing.
 If signature mismatch occurs, stop and preserve user data. Do not uninstall without first verifying preview-only app identity and obtaining user permission. The preview server still requires a trusted HTTPS endpoint; an APK build does not establish connectivity or validate Cinema playback.
 
 CI build success and emulator installation are unverified until workflow results and physical tests are inspected.
+
+## One-time preview signing setup (Windows PowerShell)
+
+Install JDK 21 if needed, then generate and **back up** a new keystore in a secure private folder (not inside the repository):
+
+```powershell
+New-Item -ItemType Directory -Force "$HOME\\Locat-Signing" | Out-Null
+keytool -genkeypair -v -keystore "$HOME\\Locat-Signing\\locat-preview.jks" -alias locat-preview -keyalg RSA -keysize 3072 -validity 10000
+```
+
+Enter strong passwords when prompted. Keep the keystore and passwords in a secure offline backup. Losing them means future in-place updates cannot be signed with the same identity.
+
+In GitHub repository Settings → Secrets and variables → Actions, add:
+
+- `LOCAT_PREVIEW_KEYSTORE_BASE64`: Base64 of the complete JKS file, generated locally with `[Convert]::ToBase64String([IO.File]::ReadAllBytes("$HOME\\Locat-Signing\\locat-preview.jks"))`
+- `LOCAT_PREVIEW_KEYSTORE_PASSWORD`: keystore password
+- `LOCAT_PREVIEW_KEY_ALIAS`: `locat-preview`
+- `LOCAT_PREVIEW_KEY_PASSWORD`: private-key password (often the same as the store password)
+
+Do not paste the base64 keystore or passwords into chat, source files, CI logs, or screenshots. Re-run the workflow after configuring the secrets. Check the downloaded `signing-certificate.txt` SHA-256 fingerprint against future builds to ensure signing continuity.
+
+The old preview APK signed by GitHub's temporary debug key cannot be upgraded with this new certificate. If its data is important, back it up and assess encryption-key recovery before uninstalling that preview package. The original Locat app is unaffected.
