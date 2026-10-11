@@ -1,0 +1,11 @@
+# Optional read-only host library. Point LOCAT_MEDIA_DIR at your own media folder.
+# docker compose -f compose.yaml -f compose.media.yaml up -d --build --wait
+services:
+  app:
+    environment:
+      LOCAT_MEDIA_AUTHORIZED_ROOTS: /media
+    volumes:
+      - type: bind
+        source: ${LOCAT_MEDIA_DIR:?Set LOCAT_MEDIA_DIR to your media directory}
+        target: /media
+        read_only: true

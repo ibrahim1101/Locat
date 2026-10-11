@@ -2,7 +2,7 @@ name: Locat checks
 
 on:
   push:
-    branches: [main, feat/locat-1.0, feat/locat-2.0, feat/locat-unified-platforms, 'chore/locat-2.0-*', 'fix/locat-2.0-*']
+    branches: [main, feat/locat-1.0, feat/locat-2.0, feat/locat-unified-platforms, feat/locat-complete-ecosystem, 'chore/locat-2.0-*', 'fix/locat-2.0-*']
   pull_request:
   workflow_dispatch:
 
@@ -39,12 +39,24 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run lint
+      - name: Validate fresh canonical migrations
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+        run: npm run db:migrate
       - name: Passwordless crypto regression tests
         run: npx vitest run src/lib/quickSignIn.test.ts src/lib/deviceLink.test.ts
       - name: Stabilization security regressions
         run: npx vitest run src/lib/appLock.test.ts src/lib/draft.test.ts src/lib/homeNavigation.test.ts
       - run: npm test
       - run: npm run build
+      - name: Install isolated browser signal test runtime
+        run: |
+          mkdir -p "$RUNNER_TEMP/locat-browser-tests"
+          npm install --prefix "$RUNNER_TEMP/locat-browser-tests" --package-lock=false --no-save playwright@1.62.1
+          ln -s "$RUNNER_TEMP/locat-browser-tests/node_modules/playwright" node_modules/playwright
+          "$RUNNER_TEMP/locat-browser-tests/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Verify actual rendered Music DSP signal
+        run: node scripts/test-music-signal.mjs
       - name: Validate additive database bootstrap on MariaDB
         env:
           DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
@@ -55,11 +67,12 @@ jobs:
             import mysql from "mysql2/promise";
             const db = await mysql.createConnection(process.env.DATABASE_URL);
             try {
-              for (const name of ["recovery_credentials", "device_link_requests"]) {
+              for (const name of ["recovery_credentials", "device_link_requests", "private_stores", "private_objects", "link_pairings"]) {
                 const [rows] = await db.execute("SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?", [name]);
                 if (Number(rows[0].n) !== 1) throw new Error(`Missing table: ${name}`);
               }
-              console.log("Passwordless tables present after repeated bootstrap");
+              await db.execute("SELECT proof_version FROM link_pairings LIMIT 0");
+              console.log("Recovery, encrypted stores and Link proof schema present after repeated bootstrap");
             } finally { await db.end(); }
           '
       - run: bash -n scripts/install-pi.sh
@@ -75,6 +88,8 @@ jobs:
       - run: docker compose config --quiet
       - run: docker compose up -d --build --wait --wait-timeout 180
       - run: docker compose exec -T app npm run doctor
+      - name: Verify packaged media tools
+        run: docker compose exec -T app ffmpeg -version && docker compose exec -T app ffprobe -version
       - run: curl --fail http://127.0.0.1:3000/api/ready
       - run: docker compose exec -T app npm run admin -- stats
       - if: always()

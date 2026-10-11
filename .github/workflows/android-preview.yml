@@ -6,6 +6,7 @@ on:
     branches:
       - fix/locat-2.0-app-lock-biometric-guard
       - feat/locat-unified-platforms
+      - feat/locat-complete-ecosystem
     paths:
       - "remote/**"
       - "src/**"

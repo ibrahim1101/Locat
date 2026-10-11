@@ -2,7 +2,7 @@ name: Locat desktop preview
 on:
   workflow_dispatch:
   push:
-    branches: [feat/locat-unified-platforms]
+    branches: [feat/locat-unified-platforms, feat/locat-complete-ecosystem]
     paths: ['src/**', 'contracts/**', 'remote/**', 'public/**', 'scripts/**', 'src-tauri/**', 'package*.json', 'vite.config.ts', '.github/workflows/desktop-preview.yml']
 permissions:
   contents: read
