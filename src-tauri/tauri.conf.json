@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Locat",
+  "version": "0.1.0",
+  "identifier": "com.shaikibrahim.locat.desktop.preview",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:3000",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist/public"
+  },
+  "app": {
+    "windows": [{"label": "main", "title": "Locat", "width": 1180, "height": 800, "minWidth": 360, "minHeight": 560, "useHttpsScheme": true}],
+    "security": {"capabilities": ["main"], "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' ipc: http://ipc.localhost https:; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'"}
+  },
+  "bundle": {"active": true, "targets": "all", "icon": ["icons/icon.png", "icons/icon.ico", "icons/icon.icns"]}
+}

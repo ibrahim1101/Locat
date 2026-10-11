@@ -76,17 +76,16 @@ describe("Tauri adapter capability honesty", () => {
   beforeEach(() => {
     __setPlatformForTests(null);
   });
-  it("does not falsely advertise capabilities until plugins land", async () => {
+  it("advertises wired plugins and keeps unfinished capabilities disabled", async () => {
     const { tauriAdapter } = await import("./tauri");
-    // Only `nativeOpenExternal` and `deepLinks` are flipped on in this
-    // scaffold. Everything else must remain false so UI falls back honestly.
-    expect(tauriAdapter.capabilities.nativeNotifications).toBe(false);
-    expect(tauriAdapter.capabilities.nativeFileSave).toBe(false);
+    // Only wired native plugins are advertised; no secure-store/tray/update claims.
+    expect(tauriAdapter.capabilities.nativeNotifications).toBe(true);
+    expect(tauriAdapter.capabilities.nativeFileSave).toBe(true);
     expect(tauriAdapter.capabilities.nativeSecureStorage).toBe(false);
     expect(tauriAdapter.capabilities.systemTray).toBe(false);
     expect(tauriAdapter.capabilities.signedUpdates).toBe(false);
     expect(tauriAdapter.capabilities.nativeOpenExternal).toBe(true);
-    expect(tauriAdapter.capabilities.deepLinks).toBe(true);
+    expect(tauriAdapter.capabilities.deepLinks).toBe(false);
     expect(tauriAdapter.kind).toBe("tauri-desktop");
   });
 });

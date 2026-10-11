@@ -99,7 +99,7 @@ export function MusicEqualizer({ src, onEnded }: { src: string; onEnded: () => v
 
   const update = (patch: Partial<Settings>) => setSettings(previous => ({ ...previous, ...patch }));
   return <div className="space-y-4">
-    <audio ref={audioRef} src={src} controls onEnded={onEnded} className="w-full" />
+    <audio crossOrigin="anonymous" ref={audioRef} src={src} controls onEnded={onEnded} className="w-full" />
     <section className="rounded-2xl border border-border bg-card/80 p-5 space-y-4" aria-label="Music equalizer">
       <div><h2 className="font-semibold">Locat Music · Graphic Equalizer</h2><p className="text-xs text-secondary">Pure bypasses DSP. Enhanced applies EQ with automatic boost headroom; output is not verified bit-perfect.</p></div>
       <div className="flex flex-wrap gap-2">

@@ -1,3 +1,4 @@
+import { isTrustedNativeOrigin } from "../contracts/nativeOrigins";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
@@ -14,7 +15,7 @@ import { handleMediaHls } from "./mediaHls";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 app.use("/api/*", cors({
-  origin: origin => origin === "https://localhost" ? origin : "",
+  origin: origin => isTrustedNativeOrigin(origin) ? origin : "",
   allowHeaders: ["Content-Type", "Authorization"],
   allowMethods: ["GET", "POST", "OPTIONS"],
   credentials: true,

@@ -5,7 +5,7 @@ import { expect, it, vi } from "vitest";
 
 it("acknowledges saved account settings and shows opted-in pushes even with a visible window", async () => {
   const builder = readFileSync("scripts/build-offline.mjs", "utf8");
-  const source = builder.slice(builder.indexOf("`", builder.indexOf("await writeFile")) + 1, builder.lastIndexOf("`"))
+  const source = builder.slice(builder.indexOf("`", builder.indexOf("await writeFile(new URL('sw.js'")) + 1, builder.lastIndexOf("`"))
     .replace("${hash}", "fixture").replace("${JSON.stringify(shell)}", "[]");
   const handlers: Record<string, (event: unknown) => void> = {};
   const showNotification = vi.fn().mockResolvedValue(undefined);
@@ -29,7 +29,7 @@ it("acknowledges saved account settings and shows opted-in pushes even with a vi
 
 function bootWorker() {
   const builder = readFileSync("scripts/build-offline.mjs", "utf8");
-  const source = builder.slice(builder.indexOf("`", builder.indexOf("await writeFile")) + 1, builder.lastIndexOf("`"))
+  const source = builder.slice(builder.indexOf("`", builder.indexOf("await writeFile(new URL('sw.js'")) + 1, builder.lastIndexOf("`"))
     .replace("${hash}", "fixture").replace("${JSON.stringify(shell)}", "[]");
   const handlers: Record<string, (event: unknown) => void> = {};
   const showNotification = vi.fn().mockResolvedValue(undefined);

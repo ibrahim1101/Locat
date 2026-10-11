@@ -1,0 +1,50 @@
+name: Locat desktop preview
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/locat-unified-platforms]
+    paths: ['src/**', 'contracts/**', 'remote/**', 'public/**', 'scripts/**', 'src-tauri/**', 'package*.json', 'vite.config.ts', '.github/workflows/desktop-preview.yml']
+permissions:
+  contents: read
+concurrency:
+  group: locat-desktop-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            bundles: nsis
+            artifact: locat-windows-preview
+          - os: ubuntu-22.04
+            bundles: deb,appimage
+            artifact: locat-linux-preview
+          - os: macos-latest
+            bundles: app,dmg
+            artifact: locat-macos-preview
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Linux WebKit build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev patchelf
+      - name: Rust toolchain
+        shell: bash
+        run: rustup update stable && rustup default stable
+      - run: npm ci
+      - run: npm run check
+      - run: npm run desktop:build -- --bundles ${{ matrix.bundles }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            src-tauri/target/release/bundle/
+          if-no-files-found: error
+          retention-days: 14

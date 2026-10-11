@@ -60,8 +60,13 @@ export const MODULES: LocatModule[] = [
   },
   {
     id: "performance", name: "Performance", tagline: "Playback diagnostics",
-    description: "Performance monitoring integration is in progress.",
-    icon: Activity, route: "/performance", status: "planned", milestone: "Media Hub",
+    description: "Inspect actual runtime and media API availability; Remote includes negotiated stream statistics.",
+    icon: Activity, route: "/performance", status: "beta", milestone: "Media Hub",
+  },
+  {
+    id: "remote", name: "Remote", tagline: "Desktop viewing and Remote Play prototype",
+    description: "Approved WebRTC viewing and optional Windows input; private host required.",
+    icon: Radio, route: "/remote", status: "beta", milestone: "Remote",
   },
   {
     id: "vault", name: "Vault", tagline: "Encrypted file storage",

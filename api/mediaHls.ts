@@ -1,3 +1,4 @@
+import { mediaAuthRequest } from "./mediaTickets";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtemp, readFile, realpath, rm, stat } from "node:fs/promises";
@@ -129,7 +130,7 @@ async function getSession(key: string, file: string, quality: "1080p" | "4k", st
 
 export async function handleMediaHls(req: Request): Promise<Response> {
   if (req.method !== "GET" && req.method !== "POST") return new Response(null, { status: 405 });
-  const ctx = await createContext({ req, resHeaders: new Headers(), info: { isBatchCall: false, calls: [], accept: null, type: "query", connectionParams: null, signal: req.signal, url: new URL(req.url) } } as Parameters<typeof createContext>[0]);
+  const ctx = await createContext({ req: mediaAuthRequest(req), resHeaders: new Headers(), info: { isBatchCall: false, calls: [], accept: null, type: "query", connectionParams: null, signal: req.signal, url: new URL(req.url) } } as Parameters<typeof createContext>[0]);
   if (!ctx.user) return new Response("Unauthorized", { status: 401 });
   const params = new URL(req.url).searchParams;
   const file = await resolveAuthorizedFile(params.get("library"), params.get("id"));
@@ -179,5 +180,5 @@ export async function handleMediaHls(req: Request): Promise<Response> {
     });
     return new Response(manifest, { headers: { "Content-Type": "application/vnd.apple.mpegurl", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
   }
-  return new Response(new Uint8Array(data), { headers: { "Content-Type": "video/mp2t", "Cache-Control": "private, max-age=60", "X-Content-Type-Options": "nosniff" } });
+  return new Response(new Uint8Array(data), { headers: { "Content-Type": "video/mp2t", "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
 }

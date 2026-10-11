@@ -1,3 +1,4 @@
+import { mediaAuthRequest } from "./mediaTickets";
 import { createReadStream } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
 import { Readable } from "node:stream";
@@ -16,7 +17,7 @@ const MIME: Record<string, string> = {
 
 export async function handleMediaStream(req: Request): Promise<Response> {
   if (req.method !== "GET" && req.method !== "HEAD") return new Response(null, { status: 405 });
-  const ctx = await createContext({ req, resHeaders: new Headers(), info: { isBatchCall: false, calls: [], accept: null, type: "query", connectionParams: null, signal: req.signal, url: new URL(req.url) } } as Parameters<typeof createContext>[0]);
+  const ctx = await createContext({ req: mediaAuthRequest(req), resHeaders: new Headers(), info: { isBatchCall: false, calls: [], accept: null, type: "query", connectionParams: null, signal: req.signal, url: new URL(req.url) } } as Parameters<typeof createContext>[0]);
   if (!ctx.user) return new Response("Unauthorized", { status: 401 });
   const params = new URL(req.url).searchParams;
   const rootIndex = Number(params.get("library"));

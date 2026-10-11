@@ -1,3 +1,4 @@
+import { isTrustedNativeOrigin } from "../contracts/nativeOrigins";
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
@@ -11,7 +12,7 @@ export const publicQuery = t.procedure.use(async ({ ctx, type, next }) => {
   if (type === "mutation") {
     const origin = ctx.req.headers.get("origin");
     const expected = process.env.PUBLIC_ORIGIN || new URL(ctx.req.url).origin;
-    const isNativeOrigin = origin === "https://localhost";
+    const isNativeOrigin = isTrustedNativeOrigin(origin);
     // Capacitor serves the packaged app from this fixed HTTPS origin. Login and
     // registration cannot carry a bearer token yet, so allow that native origin
     // through the origin/Fetch-Metadata guard. CORS remains restricted to the same

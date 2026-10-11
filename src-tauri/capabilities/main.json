@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Bundled Locat client only; no remote webview permissions, shell execution or general file access.",
+  "windows": ["main"],
+  "permissions": ["core:default", "notification:default", {"identifier": "opener:allow-open-url", "allow": [{"url": "https://*"}]}]
+}

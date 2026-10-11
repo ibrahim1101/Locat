@@ -5,7 +5,9 @@ on:
   push:
     branches:
       - fix/locat-2.0-app-lock-biometric-guard
+      - feat/locat-unified-platforms
     paths:
+      - "remote/**"
       - "src/**"
       - "api/**"
       - "public/**"

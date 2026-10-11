@@ -1,8 +1,10 @@
+import { MusicEqualizer } from "./media/MusicEqualizer";
 import { useState } from "react";
 import { NativeServerSetup } from "./NativeServerSetup";
 import { LocatMark, LocatWordmark } from "./LocatBrand";
 
 export function NativeOfflineHome() {
+  const [remote, setRemote] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState("");
@@ -12,6 +14,7 @@ export function NativeOfflineHome() {
     setFile(next);
     setUrl(URL.createObjectURL(next));
   }
+  if (remote) return <main className="h-dvh p-4"><button type="button" onClick={() => setRemote(false)} className="mb-3 underline">Back to Local Mode</button><iframe title="Locat Remote client" src={`${import.meta.env.BASE_URL}remote-client/index.html`} sandbox="allow-scripts allow-same-origin" allow="display-capture; autoplay" className="h-[85vh] w-full rounded-xl border" /></main>;
   if (connecting) return <main className="min-h-dvh bg-background p-5 text-foreground">
     <button type="button" onClick={() => setConnecting(false)} className="mb-4 text-sm underline">Back to Local Mode</button>
     <NativeServerSetup />
@@ -26,16 +29,16 @@ export function NativeOfflineHome() {
       </section>
       <section className="rounded-2xl border bg-card p-5">
         <h2 className="font-semibold">Local media player</h2>
-        <p className="my-2 text-xs text-secondary">Supported formats depend on Android WebView. This is not yet the full Cinema/Music engine.</p>
+        <p className="my-2 text-xs text-secondary">Supported formats depend on this device’s codecs. Local Music includes the shared 5/10/15/31-band EQ.</p>
         <input aria-label="Choose local media" type="file" accept="audio/*,video/*,.mkv,.mov,.flac" onChange={e => choose(e.target.files?.[0])} className="w-full text-sm" />
         {file && url && <div className="mt-3">
           <p className="mb-2 truncate text-sm">{file.name}</p>
-          {file.type.startsWith("audio/") ? <audio controls src={url} className="w-full" /> : <video controls playsInline src={url} className="w-full" />}
+          {file.type.startsWith("audio/") ? <MusicEqualizer key={url} src={url} onEnded={() => {}} /> : <video controls playsInline src={url} className="w-full" />}
           <button type="button" className="mt-2 text-sm underline" onClick={() => { URL.revokeObjectURL(url); setUrl(""); setFile(null); }}>Close</button>
         </div>}
       </section>
       <section className="rounded-2xl border bg-card p-5">
-        <h2 className="font-semibold">Server features</h2>
+        <button type="button" className="mb-4 rounded-lg border px-4 py-2 text-sm" onClick={() => setRemote(true)}>Open Remote prototype</button><h2 className="font-semibold">Server features</h2>
         <p className="mt-2 text-sm text-secondary">Messages · Cinema library · Music library · Device sync</p>
         <button type="button" className="mt-3 rounded-lg border px-4 py-2 text-sm" onClick={() => setConnecting(true)}>Connect to unlock</button>
       </section>

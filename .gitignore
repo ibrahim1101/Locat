@@ -45,3 +45,11 @@ credentials.json
 *.key
 .credentials
 locat-repo/
+
+# Tauri native outputs
+src-tauri/target/
+src-tauri/gen/
+
+# Imported Python library outputs
+__pycache__/
+*.pyc

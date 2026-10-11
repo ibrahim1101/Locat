@@ -1,8 +1,11 @@
+import { detectPlatform } from "./platform";
+import { parseNativeServerOrigin } from "./nativeServerOrigin";
 const SERVER_KEY = "locat-native-server";
 const TOKEN_KEY = "locat-native-session";
 
 export function isNativeShell(): boolean {
-  return window.location.hostname === "localhost" && window.location.protocol === "https:";
+  const kind = detectPlatform();
+  return kind === "tauri-desktop" || kind === "capacitor-android" || (window.location.hostname === "localhost" && window.location.protocol === "https:");
 }
 
 export function nativeServerUrl(): string {
@@ -11,9 +14,10 @@ export function nativeServerUrl(): string {
 }
 
 export function setNativeServerUrl(value: string): void {
-  const url = new URL(value.trim());
-  if (url.protocol !== "https:") throw new Error("Locat Android requires an HTTPS server address.");
-  localStorage.setItem(SERVER_KEY, url.origin);
+  const origin = parseNativeServerOrigin(value);
+  // Server changes must not send an old bearer credential to a different host.
+  if (origin !== localStorage.getItem(SERVER_KEY)) localStorage.removeItem(TOKEN_KEY);
+  localStorage.setItem(SERVER_KEY, origin);
 }
 
 export function nativeSessionToken(): string | null {

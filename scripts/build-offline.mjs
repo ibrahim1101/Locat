@@ -1,8 +1,15 @@
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, copyFile, readdir, readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 const root = new URL('../dist/public/', import.meta.url);
+await mkdir(new URL('remote-client/', root), { recursive: true });
+for (const name of ['index.html', 'app.js', 'style.css']) {
+  await copyFile(new URL(`../remote/${name}`, import.meta.url), new URL(`remote-client/${name}`, root));
+}
+let remoteHtml = await readFile(new URL('remote-client/index.html', root), 'utf8');
+remoteHtml = remoteHtml.replace('href="/style.css"', 'href="./style.css"').replace('src="/app.js"', 'src="./app.js"');
+await writeFile(new URL('remote-client/index.html', root), remoteHtml);
 const assets = (await readdir(new URL('assets/', root))).map(name => `/assets/${name}`);
-const shell = ['/index.html', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', ...assets];
+const shell = ['/remote-client/index.html', '/remote-client/app.js', '/remote-client/style.css', '/index.html', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', ...assets];
 const hash = createHash('sha256').update(await readFile(new URL('index.html', root))).digest('hex').slice(0,16);
 await writeFile(new URL('sw.js', root), `
 const CACHE = 'locat-shell-${hash}';

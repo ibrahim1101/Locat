@@ -1,3 +1,4 @@
+import { mediaTickets } from "./mediaTickets";
 import { readdir, stat, realpath } from "node:fs/promises";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -59,6 +60,11 @@ async function scanRoot(root: string, kind: "cinema" | "music"): Promise<Indexed
 }
 
 export const mediaRouter = createRouter({
+  playbackTicket: authedQuery.input(z.object({ libraryId: z.number().int().nonnegative(), id: z.string().regex(/^[A-Za-z0-9_-]{1,2048}$/) })).query(({ ctx, input }) => {
+    if (!ctx.sessionToken) throw new TRPCError({ code: "UNAUTHORIZED" });
+    if (input.libraryId >= configuredRoots().length) throw new TRPCError({ code: "NOT_FOUND" });
+    return { ticket: mediaTickets.issue(ctx.sessionToken, input.libraryId, input.id) };
+  }),
   probe: authedQuery.input(z.object({ libraryId: z.number().int().nonnegative(), id: z.string().min(1).max(2048) })).query(async ({ input }) => {
     const roots = configuredRoots();
     const configured = roots[input.libraryId];

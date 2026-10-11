@@ -84,7 +84,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       // Release server-side FFmpeg and temporary HLS segments on player exit/quality change.
       const releaseUrl = new URL(url, window.location.origin);
       releaseUrl.searchParams.set("action", "release");
-      void fetch(releaseUrl, { method: "POST", credentials: "same-origin", keepalive: true }).catch(() => {});
+      void fetch(releaseUrl, { method: "POST", credentials: "include", keepalive: true }).catch(() => {});
       video.removeAttribute("src");
       video.load();
       video.removeEventListener("playing", onPlaying);
@@ -97,7 +97,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
   }, [url, startSeconds, autoplay, is4k, durationSeconds]);
   const formatTime = (seconds: number) => { const n = Math.floor(seconds); return `${Math.floor(n / 3600)}:${String(Math.floor(n / 60) % 60).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`; };
   return <div className="space-y-2">
-    <video ref={videoRef} controls playsInline preload="metadata" className="max-h-[55vh] w-full rounded-xl bg-black" />
+    <video crossOrigin="anonymous" ref={videoRef} controls playsInline preload="metadata" className="max-h-[55vh] w-full rounded-xl bg-black" />
     <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-secondary">
       <span aria-live="polite">{status}</span><span>{durationSeconds && durationSeconds > 0 ? `Position: ${formatTime(startSeconds)} + stream time · Source duration: ${formatTime(durationSeconds)} · ` : ""}Buffered ahead: {bufferedAhead}s ({buffered}%)</span>
     </div>

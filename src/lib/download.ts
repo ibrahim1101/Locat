@@ -8,7 +8,7 @@ async function blobBase64(blob: Blob): Promise<string> {
   return btoa(text);
 }
 
-export type DownloadDestination = "selected-folder" | "browser" | "cancelled";
+export type DownloadDestination = "selected-folder" | "browser" | "cancelled" | "desktop";
 
 type DownloadLink = {
   href: string;
@@ -87,7 +87,11 @@ export function downloadBlob(
     try {
       let destination: DownloadDestination;
       try {
-        if (await dependencies.saveSelected(filename, blob.type, await blobBase64(blob))) {
+        if (typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
+          const { tauriAdapter } = await import("./platform/tauri");
+          await tauriAdapter.saveBlob(blob, filename);
+          destination = "desktop";
+        } else if (await dependencies.saveSelected(filename, blob.type, await blobBase64(blob))) {
           destination = "selected-folder";
         } else if (dependencies.isNativeShell()) {
           throw new Error("Android native downloads are not available in this build. Select an Android folder in Settings & backups. No file was saved.");
