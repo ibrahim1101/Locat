@@ -12,7 +12,7 @@ Updated 2026-10-11. **Not ready for a complete production release.** The canonic
 | Signed Android preview | [38157585251](https://github.com/ibrahim1101/Locat/actions/runs/38157585251) | Isolated preview package; persistent signing and signature verification; physical runtime unverified |
 | Remote CI | [38157587589](https://github.com/ibrahim1101/Locat/actions/runs/38157587589) | Recorded passing; not physical host/game streaming acceptance |
 | Baseline local checks | `af63b2c` | 279 passed/26 DB skipped; 47 Remote passed; typecheck/build; zero lint errors/12 warnings |
-| Complete-ecosystem source | Current local dedicated development branch | 334 tests across 55 files passed, including 28 MariaDB tests; fresh canonical migrations passed; typecheck/build pass; lint zero errors/12 warnings; Remote 47/47; publication now directly approved; draft PR #7 open; corrected-source core/Docker/Chromium and signed APK checks passed; desktop packaging and the newer versionCode workflow verification pending |
+| Complete-ecosystem source | Current local dedicated development branch | 334 tests across 55 files passed, including 28 MariaDB tests; fresh canonical migrations passed; typecheck/build pass; lint zero errors/12 warnings; Remote 47/47; publication now directly approved; draft PR #7 open; corrected-source core/Docker/Chromium and signed APK checks passed; all three desktop packages and newer UTC versionCode signed APK verified |
 
 Earlier user reports accepted original numbered 01/03/06/07/17/41 and older Android messaging/upgrade. The later historical 13/44 counter is explicitly unaudited by item. None of this certifies current unified physical runtime or all 49 features.
 
@@ -41,7 +41,7 @@ These are limited implementations, not completion of their full module requireme
 | Music quality/native lifecycle | Partial | Measure DSP local/server and headroom; gapless/native focus/background/headset/lock screen, album/artist metadata/playlists |
 | Remote Play | Prototype | Actual Windows approval/input/capture; audio/controller/encoding/latency/reconnect and cross-platform host scope |
 | Current source automated checks | Local checks pass; platform execution open | 334 unit/API tests incl 28 MariaDB integrations, fresh migrations, typecheck/build and Remote 47/47 pass; lint zero errors/12 warnings. Corrected-source Docker, real Chromium Q/signal checks and LAN/media overlay checks passed CI. Extra local schema-recreation repeat failed with errno1932 and 16 cascades; fixture/environment cause remains unresolved |
-| Current native packaging | Pending | Corrected-source signed APK run 38174520046 passed; desktop run 38174519996 started. New UTC versionCode workflow needs another signed APK run |
+| Current native packaging | Preview packaging passed | Signed APK run 38174990286 passed at 4f2d594 (versionCode 1791752828); desktop run 38174519996 passed all three OS jobs at equivalent application source 723647f. Physical acceptance remains open |
 | Native physical acceptance | Open on all targets | Run `docs/LOCAT_CROSS_PLATFORM_TESTING.md`; packaging is insufficient |
 | Native credential security | Open | OS-backed secure storage and verified biometric assertion/hardware authentication; UI app lock is not local data encryption |
 | Distribution trust | Preview only | Windows signing, macOS signing/notarization, signed updater feed; Android persistent preview key is separate from production identity |
@@ -64,8 +64,10 @@ Dedicated development source, canonical matrix, tests/history and a draft PR are
 
 No main merge, public production release, paid service, original app replacement, live Pi deployment or production database migration is authorized by the current development assignment. Preserve those boundaries while preparing test artifacts and review.
 
-## Actual session blockers
+## Session constraints and verified resolution
 
-Automatic approval review rejected push publication twice. The rejection prevents remote branch/PR updates and current-revision GitHub packaging; it must not be worked around through another publication path. Root will request direct approval for the concrete blocked push after local work is reviewable.
+Automatic approval review rejected publication twice before the user directly authorized it with “Proceed.” The development branch and draft PR #7 were then published; main and production were not changed.
 
-Docker, Cargo and Java are absent in the current environment. Chromium download failed with corrupt archive content, so no browser runtime acceptance was completed. `npm run desktop:build` actually failed at Cargo metadata because Cargo was unavailable. Remote local tests passed 47/47; final root source/database results remain pending. No current container/native build success or physical platform performance is claimed.
+Local Docker, Cargo and Java were unavailable, and the local Chromium archive download failed. GitHub CI subsequently verified core/database checks, Docker readiness and FFmpeg, real Chromium audio signals, all three desktop packages and the signed Android APK. See the download guide for exact revisions and artifacts. Physical platform acceptance remains open.
+
+An additional local repeat failed in the destructive contacts schema fixture with MariaDB errno 1932 and cascading failures. Earlier local repeats and current CI passed; the intermittent local fixture/environment failure is unresolved and recorded in engineering history.

@@ -19,22 +19,21 @@ installer inside the ZIP, rather than the repository source ZIP.
 
 | Platform | Workflow | Artifact | File inside |
 |---|---|---|---|
-| Windows | [Desktop preview](https://github.com/ibrahim1101/Locat/actions/workflows/desktop-preview.yml?query=branch%3Afeat%2Flocat-complete-ecosystem) | `locat-windows-preview` | NSIS `.exe` |
-| Android | [Preview APK](https://github.com/ibrahim1101/Locat/actions/workflows/android-preview.yml?query=branch%3Afeat%2Flocat-complete-ecosystem) | `locat-2-preview-apk` | `locat-2-preview.apk`, checksum, build info and signing certificate |
-| Linux | Desktop preview | `locat-linux-preview` | `.deb` / `.AppImage` |
-| macOS | Desktop preview | `locat-macos-preview` | `.app` / `.dmg` |
+| Windows | [Desktop run](https://github.com/ibrahim1101/Locat/actions/runs/38174519996) | [locat-windows-preview](https://github.com/ibrahim1101/Locat/actions/runs/38174519996/artifacts/11715099834) | NSIS `.exe` |
+| Android | [Signed APK run](https://github.com/ibrahim1101/Locat/actions/runs/38174990286) | [locat-2-preview-apk](https://github.com/ibrahim1101/Locat/actions/runs/38174990286/artifacts/11715377855) | `locat-2-preview.apk`, checksum, build info and signing certificate |
+| Linux | Desktop run | [locat-linux-preview](https://github.com/ibrahim1101/Locat/actions/runs/38174519996/artifacts/11716030238) | `.deb` / `.AppImage` |
+| macOS | Desktop run | [locat-macos-preview](https://github.com/ibrahim1101/Locat/actions/runs/38174519996/artifacts/11715805824) | `.app` / `.dmg` |
 
-Desktop packaging for `723647f` runs in
-[38174519996](https://github.com/ibrahim1101/Locat/actions/runs/38174519996).
-The previous `87a7c9b` desktop run passed all three OS jobs, but its audio graph
-predates the Q conversion. Prefer the corrected revision.
-
-Android run `38174520046` successfully packaged the corrected audio source.
-A follow-up workflow correction replaces resetting run-counter version codes
-with bounded UTC-second codes and verifies the code in the signed manifest.
-Use the newer successful APK run containing that correction; its build-info
-file records the actual commit, run, package and versionCode. PR #7 records
-the final verified links. Do not assume a queued/failed run contains an APK.
+Verified 2026-10-12: all three desktop OS jobs passed at application revision
+`723647f`; signed Android passed at `4f2d594`, with versionCode `1791752828`
+and v2/v3 signatures verified. Core/database/Docker/Chromium checks passed
+at `4f2d594` in [38174993485](https://github.com/ibrahim1101/Locat/actions/runs/38174993485)
+and [38174990264](https://github.com/ibrahim1101/Locat/actions/runs/38174990264).
+The application, desktop and web sources did not change between those two
+revisions; the latter changes Android build numbering and documentation.
+Artifacts expire after 14 days. Sign in to GitHub if a direct artifact link
+requires authentication. No device behavior or release signing is inferred
+from these packaging results.
 
 ## Preserve existing installations
 

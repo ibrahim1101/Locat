@@ -170,3 +170,22 @@ version in build-info. A generated Gradle fixture preserving preview isolation
 and increasing the earlier 194 code passed locally. A new signed APK run is
 required to verify that workflow change. The persistent key and original
 application ID are preserved.
+
+
+### Final published artifact verification — 2026-10-12
+
+Source 4f2d594 passed both core CI runs 38174993485 / 38174990264,
+including real MariaDB, fresh/repeated schema setup, Docker tools/readiness,
+LAN/media configuration and actual Chromium audio tests. Signed Android
+run 38174990286 passed; manifest package is com.shaikibrahim.locat.preview,
+versionCode 1791752828, APK v2/v3 signatures verified. Artifact 11715377855
+contains APK, checksum, build-info and public signing-certificate metadata.
+
+Corrected application source 723647f passed desktop run 38174519996 for
+Windows NSIS EXE (artifact 11715099834), Linux DEB/AppImage (11716030238)
+and macOS APP/DMG (11715805824). Runtime application, web and desktop sources
+are unchanged between 723647f and 4f2d594; only Android build numbering and
+documentation changed. These are preview packaging results; physical native
+acceptance, LAN private-CA/Android WebView trust and Raspberry Pi deployment
+remain open. Main and live environments were not modified. This documentation
+follow-up does not alter the verified application or platform workflows.
