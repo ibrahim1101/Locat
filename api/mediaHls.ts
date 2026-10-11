@@ -76,6 +76,7 @@ async function getSession(key: string, file: string, quality: "1080p" | "4k", st
     // Throttle file ingestion to near playback speed: prevents runaway GPU/disk use.
     // This is not pause-aware yet; the next stage will make segment production demand-driven.
     "-hide_banner", "-loglevel", "error", "-nostdin",
+    "-progress", "pipe:2", "-stats_period", "2",
     "-readrate", "1.25", "-readrate_initial_burst", "8",
     ...(start > 0 ? ["-ss", String(start)] : []), "-i", file,
     "-map", "0:v:0", "-map", "0:a:0?",
@@ -96,7 +97,25 @@ async function getSession(key: string, file: string, quality: "1080p" | "4k", st
   const session: Session = { dir, child, touched: Date.now(), failed: false, done: false, started: Date.now() };
   sessions.set(key, session);
   let errorTail = "";
-  child.stderr?.on("data", (chunk: Buffer) => { errorTail = (errorTail + chunk.toString()).slice(-2048); });
+  let progressBuffer = "";
+  let progressLines: string[] = [];
+  child.stderr?.on("data", (chunk: Buffer) => {
+    const output = chunk.toString();
+    errorTail = (errorTail + output).slice(-2048);
+    progressBuffer += output;
+    let newline = progressBuffer.indexOf("\n");
+    while (newline >= 0) {
+      const line = progressBuffer.slice(0, newline).trim();
+      progressBuffer = progressBuffer.slice(newline + 1);
+      if (/^(frame|fps|speed|out_time_ms|out_time_us|progress)=/.test(line)) progressLines.push(line);
+      if (line.startsWith("progress=")) {
+        console.info("[Locat HLS] quality=" + quality + " elapsed_ms=" + (Date.now() - session.started) + " " + progressLines.join(" "));
+        progressLines = [];
+      }
+      newline = progressBuffer.indexOf("\n");
+    }
+    if (progressBuffer.length > 8192) progressBuffer = progressBuffer.slice(-8192);
+  });
   child.on("error", () => { session.failed = true; session.done = true; });
   child.on("close", code => {
     session.done = true;
