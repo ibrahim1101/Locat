@@ -139,3 +139,27 @@ describe("authenticated clipboard context", () => {
     await expect(encryptLinkMessage(send, "x", { ...context, id: 0 })).rejects.toThrow("context");
   });
 });
+
+describe("bounded file reads", () => {
+  it("requests only the current slice, including the final partial chunk and empty files", async () => {
+    const { readFileChunk } = await import("./link");
+    const requests: [number | undefined, number | undefined][] = [];
+    const bytes = new Uint8Array(CHUNK_SIZE + 7).fill(9);
+    const file = { size: bytes.length, slice(start?: number, end?: number) {
+      requests.push([start, end]); return new Blob([bytes.slice(start, end)]);
+    } };
+    expect(await readFileChunk(file, 1)).toEqual(new Uint8Array(7).fill(9));
+    expect(requests).toEqual([[CHUNK_SIZE, CHUNK_SIZE + 7]]);
+    expect(await readFileChunk(new Blob([]), 0)).toHaveLength(0);
+    await expect(readFileChunk(file, 2)).rejects.toThrow("Invalid");
+    await expect(readFileChunk({ size: 200 * 1024 * 1024 + 1, slice: file.slice }, 0)).rejects.toThrow("Invalid");
+    await expect(readFileChunk({ size: 5, slice: () => new Blob([]) }, 0)).rejects.toThrow("length");
+  });
+  it("rejects invalid transfer metadata before allocation/download", async () => {
+    const { validateTransferContext } = await import("./link");
+    const t = { id: 1, userId: 1, fromDevice: 2, toDevice: 3, filename: "a", mime: "text/plain", size: 0, chunkCount: 1 };
+    expect(() => validateTransferContext(t)).not.toThrow();
+    expect(() => validateTransferContext({ ...t, chunkCount: 0 })).toThrow("context");
+    expect(() => validateTransferContext({ ...t, size: 200 * 1024 * 1024 + 1 })).toThrow("context");
+  });
+});

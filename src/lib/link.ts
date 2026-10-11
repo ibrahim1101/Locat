@@ -81,7 +81,7 @@ export type TransferContext = {
   id: number; userId: number; fromDevice: number; toDevice: number;
   filename: string; mime: string; size: number; chunkCount: number;
 };
-function transferAad(t: TransferContext, seq: number): Uint8Array {
+export function validateTransferContext(t: TransferContext, seq = 0): void {
   for (const value of [t.id, t.userId, t.fromDevice, t.toDevice, t.chunkCount]) {
     if (!Number.isSafeInteger(value) || value < 1) throw new Error("Invalid transfer context");
   }
@@ -90,12 +90,25 @@ function transferAad(t: TransferContext, seq: number): Uint8Array {
       t.fromDevice === t.toDevice || typeof t.filename !== "string" || typeof t.mime !== "string") {
     throw new Error("Invalid transfer context");
   }
+}
+function transferAad(t: TransferContext, seq: number): Uint8Array {
+  validateTransferContext(t, seq);
   return te.encode(JSON.stringify(["locat-link-file:v1", t.userId, t.id, t.fromDevice,
     t.toDevice, t.filename, t.mime, t.size, t.chunkCount, seq]));
 }
 function expectedChunkLength(t: TransferContext, seq: number): number {
   return Math.min(CHUNK_SIZE, t.size - seq * CHUNK_SIZE);
 }
+/** Read only the requested chunk, keeping upload buffering bounded. */
+export async function readFileChunk(file: Pick<Blob, "size" | "slice">, seq: number): Promise<Uint8Array> {
+  if (!Number.isSafeInteger(file.size) || file.size < 0 || file.size > 200 * 1024 * 1024 ||
+    !Number.isSafeInteger(seq) || seq < 0 || seq >= chunkCount(file.size)) throw new Error("Invalid file chunk");
+  const start = seq * CHUNK_SIZE;
+  const bytes = new Uint8Array(await file.slice(start, Math.min(file.size, start + CHUNK_SIZE)).arrayBuffer());
+  if (bytes.length !== Math.min(CHUNK_SIZE, file.size - start)) throw new Error("File chunk length mismatch");
+  return bytes;
+}
+
 export async function encryptTransferChunk(key: CryptoKey, bytes: Uint8Array, t: TransferContext, seq: number) {
   const additionalData = transferAad(t, seq);
   if (bytes.length !== expectedChunkLength(t, seq)) throw new Error("Transfer chunk length mismatch");

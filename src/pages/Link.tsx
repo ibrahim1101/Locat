@@ -7,7 +7,7 @@ import { AppShell, ModuleHeader } from "@/components/shell/AppShell";
 import Login from "./Login";
 import { downloadBlob } from "@/lib/download";
 import {
-  generateDeviceIdentity, deviceSharedKey, pairingSas, chunkCount, sliceChunk,
+  generateDeviceIdentity, deviceSharedKey, pairingSas, chunkCount, readFileChunk, validateTransferContext, CHUNK_SIZE,
   encryptTransferChunk, decryptTransferChunk, encryptLinkMessage, decryptLinkMessage, solveDeviceChallenge, type DeviceIdentity,
 } from "@/lib/link";
 import { loadDeviceKeys, saveDeviceKeys, kvGet, kvSet } from "@/lib/localdb";
@@ -250,16 +250,15 @@ function Transfers({ userId, myId, identity }: { userId: number; myId: number; i
     if (file.size > 200 * 1024 * 1024) { setTransferError("Files must be 200 MB or smaller."); return; }
     try {
       const key = await deviceSharedKey(identity.privateKey, dev.publicKey);
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      const n = chunkCount(bytes.length);
-      const metadata = { fromDevice: myId, toDevice: target, filename: file.name.slice(0, 255).trim(), mime: (file.type || "application/octet-stream").trim(), size: bytes.length, chunkCount: n };
+      const n = chunkCount(file.size);
+      const metadata = { fromDevice: myId, toDevice: target, filename: file.name.slice(0, 255).trim(), mime: (file.type || "application/octet-stream").trim(), size: file.size, chunkCount: n };
       const { id } = await create.mutateAsync({ proof, ...metadata });
       const context = { id, userId, ...metadata };
       cancelRef.current = false;
       setProgress({ id, pct: 0 });
       for (let s = 0; s < n; s++) {
         if (cancelRef.current) { await cancel.mutateAsync({ proof, id }); break; }
-        const { iv, data } = await encryptTransferChunk(key, sliceChunk(bytes, s), context, s);
+        const { iv, data } = await encryptTransferChunk(key, await readFileChunk(file, s), context, s);
         await upload.mutateAsync({ proof, transferId: id, seq: s, iv, data });
         setProgress({ id, pct: Math.round(((s + 1) / n) * 100) });
       }
@@ -272,15 +271,16 @@ function Transfers({ userId, myId, identity }: { userId: number; myId: number; i
     setProgress({ id: t.id, pct: 0 });
     try {
       const key = await deviceSharedKey(identity.privateKey, sender.publicKey);
-      const parts: Uint8Array[] = [];
+      validateTransferContext({ ...t, userId });
+      const merged = new Uint8Array(t.size);
       for (let s = 0; s < t.chunkCount; s++) {
         const c = await utils.link.transfers.chunk.fetch({ proof, id: t.id, seq: s });
-        parts.push(await decryptTransferChunk(key, c.iv, c.data, { ...t, userId }, s));
+        const chunk = await decryptTransferChunk(key, c.iv, c.data, { ...t, userId }, s);
+        merged.set(chunk, s * CHUNK_SIZE);
         setProgress({ id: t.id, pct: Math.round(((s + 1) / t.chunkCount) * 100) });
       }
-      const merged = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
-      let off = 0; for (const p of parts) { merged.set(p, off); off += p.length; }
-      await downloadBlob(new Blob([merged as BlobPart], { type: t.mime }), t.filename);
+      const destination = await downloadBlob(new Blob([merged as BlobPart], { type: t.mime }), t.filename);
+      if (destination === "cancelled") { setTransferError("Save cancelled. This transfer is still available to download."); return; }
       await complete.mutateAsync({ proof, id: t.id });
     } catch { setTransferError("File could not be verified or downloaded. Update both devices and resend older transfers if needed."); } finally { setProgress(null); void utils.link.transfers.list.invalidate(); }
   }
