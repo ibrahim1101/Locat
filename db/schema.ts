@@ -316,6 +316,7 @@ export const linkDevices = mysqlTable("link_devices", {
 ]);
 
 export const linkPairings = mysqlTable("link_pairings", {
+  proofVersion: int("proof_version").notNull().default(0),
   id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
   userId: bigint("user_id", { mode: "number", unsigned: true }).notNull()
     .references(() => users.id, { onDelete: "cascade" }),
@@ -381,3 +382,21 @@ export const linkMessages = mysqlTable("link_messages", {
 export type LinkDevice = typeof linkDevices.$inferSelect;
 export type LinkPairing = typeof linkPairings.$inferSelect;
 export type LinkTransfer = typeof linkTransfers.$inferSelect;
+
+// Private-store contents and names are opaque client ciphertext. Only ownership,
+// module, sizes, revisions and timing metadata are visible to the host.
+export const privateStores = mysqlTable("private_stores", {
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  module: mysqlEnum("module", ["vault", "secrets"]).notNull(),
+  config: text("config").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, t => [uniqueIndex("private_store_owner_module_unique").on(t.userId, t.module)]);
+export const privateObjects = mysqlTable("private_objects", {
+  id: varchar("id", { length: 36 }).notNull(),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  module: mysqlEnum("module", ["vault", "secrets"]).notNull(),
+  revision: int("revision", { unsigned: true }).notNull().default(1),
+  envelope: mediumtext("envelope").notNull(),
+  bytes: int("bytes", { unsigned: true }).notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, t => [uniqueIndex("private_object_owner_module_id_unique").on(t.userId, t.module, t.id)]);

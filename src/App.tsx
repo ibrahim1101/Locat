@@ -9,10 +9,17 @@ const MediaLocal = lazy(() => import("./pages/MediaLocal"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Sentinel = lazy(() => import("./pages/Sentinel"));
 const LinkPage = lazy(() => import("./pages/Link"));
+const PrivateStore = lazy(() => import("./pages/PrivateStore"));
+const SearchPage = lazy(() => import("./pages/Search"));
+const Hub = lazy(() => import("./pages/Hub"));
 
 export default function App() {
   return (
     <Routes>
+      <Route path="/search" element={<Suspense fallback={<p role="status" className="p-6">Opening Search…</p>}><SearchPage /></Suspense>} />
+      <Route path="/hub" element={<Suspense fallback={<p role="status" className="p-6">Opening Hub…</p>}><Hub /></Suspense>} />
+      <Route path="/vault" element={<Suspense fallback={<p role="status" className="p-6">Opening Vault…</p>}><PrivateStore module="vault" /></Suspense>} />
+      <Route path="/secrets" element={<Suspense fallback={<p role="status" className="p-6">Opening Secrets…</p>}><PrivateStore module="secrets" /></Suspense>} />
       <Route path="/remote" element={<Suspense fallback={<p role="status">Opening Remote…</p>}><Remote /></Suspense>} />
       <Route path="/performance" element={<Suspense fallback={<p role="status">Opening diagnostics…</p>}><Performance /></Suspense>} />
       <Route path="/" element={<Dashboard />} />

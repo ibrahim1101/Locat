@@ -54,6 +54,9 @@ if (process.env.DATABASE_URL) {
       ["Blocked contacts", "SELECT id FROM user_blocks LIMIT 0"],
       ["Contact requests", "SELECT id FROM contact_relationships LIMIT 0"],
       ["Push subscriptions", "SELECT id FROM push_subscriptions LIMIT 0"],
+      ["Encrypted private stores", "SELECT user_id,module,config FROM private_stores LIMIT 0"],
+      ["Encrypted private objects", "SELECT id,revision,bytes FROM private_objects LIMIT 0"],
+      ["Link device proof schema", "SELECT id,proof_version FROM link_pairings LIMIT 0"],
     ]) {
       try { await connection.query({ sql, timeout: 5000 }); report(true, label); }
       catch { report(false, label, "Back up the database, then run npm run db:setup."); }

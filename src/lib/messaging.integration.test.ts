@@ -1,3 +1,4 @@
+import { generateDeviceIdentity, solveDeviceChallenge } from "./link";
 import "fake-indexeddb/auto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import mysql, { type Connection, type RowDataPacket } from "mysql2/promise";
@@ -43,7 +44,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     process.env.DATABASE_URL = databaseUrl;
     connection = await mysql.createConnection(databaseUrl!);
     await connection.query("SET FOREIGN_KEY_CHECKS=0");
-    for (const table of ["contact_relationships", "user_blocks", "group_keys", "push_subscriptions", "admin_audit", "send_receipts", "message_deliveries", "messages", "conversation_members", "conversations", "sessions", "users"]) {
+    for (const table of ["link_transfer_chunks", "link_transfers", "link_pairings", "link_messages", "link_devices", "private_objects", "private_stores", "contact_relationships", "user_blocks", "group_keys", "push_subscriptions", "admin_audit", "send_receipts", "message_deliveries", "messages", "conversation_members", "conversations", "sessions", "users"]) {
       await connection.query(`DROP TABLE IF EXISTS ${table}`);
     }
     await connection.query("SET FOREIGN_KEY_CHECKS=1");
@@ -83,6 +84,47 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
   afterAll(async () => {
     if (db) await db.$client.end();
     if (connection) await connection.end();
+  });
+
+  it("requires per-device proofs, prevents spoofed pairing sides and enforces revocation", async () => {
+    const keyA = await generateDeviceIdentity(); const keyB = await generateDeviceIdentity();
+    const a = await alice.link.devices.register({ name: "proof A", publicKey: keyA.publicKeyB64 });
+    const b = await alice.link.devices.register({ name: "proof B", publicKey: keyB.publicKeyB64 });
+    await expect(alice.link.pair.start({ deviceA: a.id, deviceB: b.id })).rejects.toThrow("private key");
+    async function prove(id: number, identity: typeof keyA) {
+      const challenge = await alice.link.devices.challenge({ id });
+      return (await alice.link.devices.prove({ id: challenge.id, answer: await solveDeviceChallenge(identity, challenge) })).token;
+    }
+    const proofA = await prove(a.id, keyA); const proofB = await prove(b.id, keyB);
+    await expect(bob.link.devices.list({ proof: proofA })).rejects.toThrow("private key");
+    const pair = await alice.link.pair.start({ proof: proofA, deviceA: a.id, deviceB: b.id });
+    await expect(alice.link.pair.confirm({ proof: proofA, id: pair.id, myDevice: b.id })).rejects.toThrow("another device");
+    expect((await alice.link.pair.confirm({ proof: proofA, id: pair.id, myDevice: a.id })).verified).toBe(false);
+    expect((await alice.link.pair.confirm({ proof: proofB, id: pair.id, myDevice: b.id })).verified).toBe(true);
+    const transfer = await alice.link.transfers.create({ proof: proofA, fromDevice: a.id, toDevice: b.id, filename: "proof.txt", size: 1, chunkCount: 1 });
+    await expect(alice.link.transfers.uploadChunk({ proof: proofB, transferId: transfer.id, seq: 0, iv: "AAAAAAAAAAAAAAAA", data: "AAAA" })).rejects.toThrow("another device");
+    await expect(alice.link.transfers.complete({ proof: proofA, id: transfer.id })).rejects.toThrow("another device");
+    await alice.link.transfers.uploadChunk({ proof: proofA, transferId: transfer.id, seq: 0, iv: "AAAAAAAAAAAAAAAA", data: "AAAA" });
+    const note = await alice.link.messages.push({ proof: proofB, fromDevice: b.id, toDevice: a.id, kind: "text", iv: "AAAAAAAAAAAAAAAA", data: "AAAA" });
+    expect((await alice.link.messages.inbox({ proof: proofA, deviceId: a.id })).some(m => m.id === note.id)).toBe(true);
+    await alice.link.messages.ack({ proof: proofB, ids: [note.id] });
+    expect((await alice.link.messages.inbox({ proof: proofA, deviceId: a.id })).some(m => m.id === note.id)).toBe(true);
+    await db.update(schema.linkPairings).set({ proofVersion: 0 }).where(eq(schema.linkPairings.id, pair.id));
+    await expect(alice.link.transfers.create({ proof: proofA, fromDevice: a.id, toDevice: b.id, filename: "old.txt", size: 1, chunkCount: 1 })).rejects.toThrow("not paired");
+    expect(await alice.link.messages.inbox({ proof: proofA, deviceId: a.id })).toHaveLength(0);
+    expect((await alice.link.pair.confirm({ proof: proofA, id: pair.id, myDevice: a.id })).verified).toBe(false);
+    expect((await alice.link.pair.confirm({ proof: proofB, id: pair.id, myDevice: b.id })).verified).toBe(true);
+    await alice.link.devices.revoke({ proof: proofA, id: b.id });
+    await expect(alice.link.devices.list({ proof: proofB })).rejects.toThrow("private key");
+    await expect(alice.link.devices.register({ name: "revive", publicKey: keyB.publicKeyB64 })).rejects.toThrow("revoked");
+    await expect(alice.link.devices.register({ name: "alias", publicKey: keyB.publicKeyB64 + "\n" })).rejects.toThrow("Invalid device");
+    await db.update(schema.linkDevices).set({ publicKey: keyB.publicKeyB64 + "\n" }).where(eq(schema.linkDevices.id, b.id));
+    await expect(alice.link.devices.register({ name: "legacy alias revive", publicKey: keyB.publicKeyB64 })).rejects.toThrow("revoked");
+    expect(await alice.link.messages.inbox({ proof: proofA, deviceId: a.id })).toHaveLength(0);
+    expect(await db.query.linkMessages.findFirst({ where: eq(schema.linkMessages.id, note.id) })).toBeUndefined();
+    expect(await db.query.linkTransferChunks.findFirst({ where: eq(schema.linkTransferChunks.transferId, transfer.id) })).toBeUndefined();
+    expect((await db.query.linkTransfers.findFirst({ where: eq(schema.linkTransfers.id, transfer.id) }))!.status).toBe("cancelled");
+    expect((await db.query.linkPairings.findFirst({ where: eq(schema.linkPairings.id, pair.id) }))!.status).toBe("rejected");
   });
 
   it("registers/login and reuses an existing direct conversation", async () => {
@@ -539,6 +581,55 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     expect(await count("push_subscriptions")).toBe(0);
     delete process.env.VAPID_PUBLIC_KEY; delete process.env.VAPID_PRIVATE_KEY; delete process.env.VAPID_SUBJECT;
   });
+
+  it("isolates encrypted private stores and atomically enforces revision and count limits", async () => {
+    const { createPrivateStore, encryptPrivateEntry, decryptPrivateEntry } = await import("./privateStoreCrypto");
+    const scope = { userId: aliceId, origin: "http://localhost", module: "secrets" as const };
+    const { config, key } = await createPrivateStore("a separate vault passphrase", scope);
+    const id = crypto.randomUUID();
+    const entry = { kind: "credential" as const, name: "Private DB name", folder: "Private folder", username: "secret-db-user", password: "hidden-db-password", url: "", note: "hidden-db-note", createdAt: 1 };
+    const encrypted = await encryptPrivateEntry(key, config, scope, id, entry);
+    const publicCaller = router.createCaller({ req: new Request("http://localhost"), resHeaders: new Headers() });
+    await expect(publicCaller.privateStore.status({ module: "secrets" })).rejects.toThrow("Not signed in");
+    await expect(alice.privateStore.put({ module: "secrets", id, expectedRevision: 0, envelope: encrypted })).rejects.toThrow("Initialize");
+    await alice.privateStore.initialize({ module: "secrets", config });
+    await alice.privateStore.initialize({ module: "secrets", config });
+    const otherConfig = (await createPrivateStore("another independent passphrase", scope)).config;
+    await expect(alice.privateStore.initialize({ module: "secrets", config: otherConfig })).rejects.toThrow("already exists");
+    const raced = await Promise.allSettled([
+      alice.privateStore.put({ module: "secrets", id, expectedRevision: 0, envelope: encrypted }),
+      alice.privateStore.put({ module: "secrets", id, expectedRevision: 0, envelope: encrypted }),
+    ]);
+    expect(raced.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(raced.filter(result => result.status === "rejected")).toHaveLength(1);
+    expect((await bob.privateStore.status({ module: "secrets" })).objects).toHaveLength(0);
+    await expect(bob.privateStore.get({ module: "secrets", id })).rejects.toThrow("not found");
+    expect(await bob.privateStore.remove({ module: "secrets", id, expectedRevision: 1 })).toEqual({ removed: false });
+    await expect(alice.privateStore.get({ module: "vault", id })).rejects.toThrow("not found");
+    const loaded = await alice.privateStore.get({ module: "secrets", id });
+    expect(await decryptPrivateEntry(key, config, scope, id, loaded.envelope)).toEqual(entry);
+    const [rows] = await connection.query<RowDataPacket[]>("SELECT envelope FROM private_objects WHERE user_id=?", [aliceId]);
+    for (const plain of [entry.name, entry.folder, entry.password, entry.note]) expect(rows[0].envelope).not.toContain(plain);
+    await expect(alice.privateStore.put({ module: "secrets", id, expectedRevision: 0, envelope: encrypted })).rejects.toThrow("changed");
+    await expect(alice.privateStore.remove({ module: "secrets", id, expectedRevision: 2 })).rejects.toThrow("changed");
+    expect(await alice.privateStore.put({ module: "secrets", id, expectedRevision: 1, envelope: encrypted })).toEqual({ revision: 2 });
+    // Seed 127 opaque objects. Two concurrent first inserts at the last slot
+    // must not pass the quota check together.
+    await db.insert(schema.privateObjects).values(Array.from({ length: 126 }, () => ({
+      id: crypto.randomUUID(), userId: aliceId, module: "secrets" as const,
+      envelope: JSON.stringify(encrypted), bytes: JSON.stringify(encrypted).length,
+    })));
+    const slots = await Promise.allSettled(Array.from({ length: 2 }, () => alice.privateStore.put({
+      module: "secrets", id: crypto.randomUUID(), expectedRevision: 0, envelope: encrypted,
+    })));
+    expect(slots.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect((await alice.privateStore.status({ module: "secrets" })).objects).toHaveLength(128);
+    expect(await alice.privateStore.remove({ module: "secrets", id, expectedRevision: 2 })).toEqual({ removed: true });
+    // Tests do not leave private metadata orphaned when the existing admin
+    // restore rehearsal temporarily empties account tables.
+    await db.delete(schema.privateObjects).where(eq(schema.privateObjects.userId, aliceId));
+    await db.delete(schema.privateStores).where(eq(schema.privateStores.userId, aliceId));
+  }, 20000);
 
   it("protects admin routes, audits account controls, and encrypts recoverable metadata", async () => {
     await expect(bob.admin.stats()).rejects.toThrow("Administrator");

@@ -1,3 +1,7 @@
+import { useEffect, useState } from "react";
+import type { ConversationSummary } from "@contracts/types";
+import { cachedConversations, getMessages, hiddenConversationIds, pendingMessages } from "@/lib/localdb";
+import { visibleConversations, conversationTitle } from "@/lib/globalSearch";
 import { Link } from "react-router";
 import { ArrowUpRight, LogOut, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/state/auth";
@@ -18,19 +22,37 @@ export default function Dashboard() {
     );
   }
   if (state.status !== "ready") return <Login />;
-  return <DashboardHome />;
+  return <DashboardHome key={state.user.id} />;
 }
 
 function DashboardHome() {
   const { state, logout } = useAuth();
   const user = state.status === "ready" ? state.user : null;
-  const conversationsQ = trpc.conversations.list.useQuery();
+  const conversationsQ = trpc.conversations.list.useQuery(undefined, { retry: false });
+  const [activity, setActivity] = useState<{ conversations: ConversationSummary[]; recent: { conversation: ConversationSummary; at: number }[]; messages: number; pending: number; cached: boolean } | null>(null);
+  const [activityError, setActivityError] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setActivity(null);
+      if (!user || conversationsQ.isPending) return;
+      const rows = conversationsQ.data ?? await cachedConversations(user.id);
+      const hidden = await hiddenConversationIds(user.id);
+      const visible = visibleConversations(user.id, rows, hidden);
+      const histories = await Promise.all(visible.map(conversation => getMessages(user.id, conversation.id)));
+      const pending = await pendingMessages(user.id);
+      const recent = visible.map((conversation, index) => ({ conversation, at: histories[index].reduce((latest, message) => message.hidden || message.deleted ? latest : Math.max(latest, message.createdAt), 0) })).sort((a, b) => b.at - a.at).slice(0, 5);
+      if (!cancelled) { setActivity({ conversations: visible, recent, messages: histories.flat().filter(message => !message.hidden && !message.deleted).length, pending: pending.filter(message => visible.some(conversation => conversation.id === message.conversationId)).length, cached: !conversationsQ.data }); setActivityError(""); }
+    };
+    void load().catch(() => { if (!cancelled) setActivityError("Local activity unavailable; check device storage permissions."); });
+    return () => { cancelled = true; };
+  }, [user, conversationsQ.data, conversationsQ.isPending]);
   const sentinelStatsQ = trpc.sentinel.stats.useQuery(undefined, { refetchInterval: 15000 });
   const openCritical = sentinelStatsQ.data?.openCritical ?? 0;
 
-  const liveModules = MODULES.filter((m) => m.status !== "planned" && m.id !== "dashboard");
-  const plannedModules = MODULES.filter((m) => m.status === "planned");
-  const conversationCount = conversationsQ.data?.length ?? 0;
+  const liveModules = MODULES.filter((m) => m.status !== "planned" && m.id !== "dashboard" && (!m.adminOnly || user?.isAdmin));
+  const plannedModules = MODULES.filter((m) => m.status === "planned" && (!m.adminOnly || user?.isAdmin));
+  const conversationCount = activity?.conversations.length;
 
   return (
     <AppShell active="dashboard">
@@ -64,10 +86,26 @@ function DashboardHome() {
 
           {/* Stat strip */}
           <section className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Overview">
-            <Stat label="Conversations" value={conversationsQ.isLoading ? "…" : String(conversationCount)} />
+            <Stat label="Conversations" value={conversationCount === undefined ? "…" : String(conversationCount)} />
             <Stat label="Live modules" value={String(liveModules.length + 1)} />
             <Stat label="Planned" value={String(plannedModules.length)} />
             <Stat label="Encryption" value="E2EE" hint="device-held keys" />
+          </section>
+
+          <section className="mt-7 grid gap-3 sm:grid-cols-2" aria-label="Recent activity and device status">
+            <div className="rounded-2xl border bg-card/60 p-4"><div className="flex items-center justify-between gap-2"><h2 className="text-sm font-semibold">Recent conversations</h2><Link to="/search" className="text-xs ember-text">Search history</Link></div>
+              {activityError && <p role="alert" className="mt-2 text-xs text-destructive">{activityError}</p>}
+              {!activity && !activityError && <p role="status" className="mt-3 text-xs text-secondary">Loading visible local activity…</p>}
+              {activity?.cached && <p className="mt-2 text-xs text-secondary">Cached membership; reconnect to verify changes.</p>}
+              {activity?.recent.length === 0 && <p className="mt-3 text-xs text-secondary">No visible conversations yet.</p>}
+              <ul className="mt-3 space-y-2">{activity?.recent.map(row => <li key={row.conversation.id}><Link to={`/messages?conversation=${row.conversation.id}`} className="flex items-center justify-between gap-3 rounded-lg p-2 hover:bg-accent"><span className="truncate text-sm">{conversationTitle(row.conversation, user!.id)}</span><span className="shrink-0 text-xs text-secondary">{row.at ? new Date(row.at).toLocaleDateString() : "No local history"}</span></Link></li>)}</ul>
+            </div>
+            <div className="rounded-2xl border bg-card/60 p-4"><h2 className="text-sm font-semibold">Devices, transfers and security</h2><dl className="mt-3 space-y-2 text-sm">
+              <div className="flex justify-between gap-2"><dt>Devices and transfers</dt><dd><Link to="/link" className="ember-text">Verify this device in Link</Link></dd></div>
+              <div className="flex justify-between gap-2"><dt>Critical security incidents</dt><dd>{sentinelStatsQ.isError ? "Unavailable" : sentinelStatsQ.data ? openCritical : "…"}</dd></div>
+              <div className="flex justify-between gap-2"><dt>Visible messages on this device</dt><dd>{activity?.messages ?? "…"}</dd></div>
+              <div className="flex justify-between gap-2"><dt>Queued encrypted messages</dt><dd>{activity?.pending ?? "…"}</dd></div>
+            </dl><p className="mt-3 text-xs text-secondary">Device and transfer details require local device verification in Link. Local usage counts exclude hidden/deleted history.</p><div className="mt-3 flex gap-4 text-xs ember-text"><Link to="/link">Manage devices</Link><Link to="/sentinel">Review security</Link></div></div>
           </section>
 
           {/* Live modules */}

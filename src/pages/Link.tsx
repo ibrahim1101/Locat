@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { Radio, Smartphone, Monitor, Trash2, ShieldCheck, Upload, Download, Clipboard, Check, X, Send } from "lucide-react";
+import { nativeServerUrl } from "@/lib/native";
 import { useAuth } from "@/state/auth";
 import { trpc } from "@/providers/trpc";
 import { AppShell, ModuleHeader } from "@/components/shell/AppShell";
@@ -7,7 +8,7 @@ import Login from "./Login";
 import { downloadBlob } from "@/lib/download";
 import {
   generateDeviceIdentity, deviceSharedKey, pairingSas, chunkCount, sliceChunk,
-  encryptChunk, decryptChunk, encryptText, decryptText, type DeviceIdentity,
+  encryptChunk, decryptChunk, encryptText, decryptText, solveDeviceChallenge, type DeviceIdentity,
 } from "@/lib/link";
 import { loadDeviceKeys, saveDeviceKeys, kvGet, kvSet } from "@/lib/localdb";
 
@@ -15,14 +16,24 @@ export default function LinkPage() {
   const { state } = useAuth();
   if (state.status === "loading") return <div className="locat-mesh flex min-h-dvh items-center justify-center"><p className="micro-label animate-pulse">connecting…</p></div>;
   if (state.status !== "ready") return <Login />;
-  return <LinkApp userId={state.user.id} />;
+  return <LinkApp key={state.user.id} userId={state.user.id} />;
 }
 
 function platformLabel() { return /android|iphone|ipad|mobile/i.test(navigator.userAgent) ? "mobile" : "web"; }
 
-const deviceBootstrap = new Map<number, Promise<{ identity: DeviceIdentity; id: number }>>();
+const deviceBootstrap = new Map<string, Promise<{ identity: DeviceIdentity; id: number }>>();
+
+const LinkProofContext = createContext({ token: "", refresh: () => {} });
 
 function useThisDevice(userId: number) {
+  const [proof, setProof] = useState("");
+  const renewRef = useRef<() => void>(() => {});
+  const [error, setError] = useState("");
+  const challenge = trpc.link.devices.challenge.useMutation();
+  const prove = trpc.link.devices.prove.useMutation();
+  const challengeRef = useRef(challenge);
+  const proveRef = useRef(prove);
+  useEffect(() => { challengeRef.current = challenge; proveRef.current = prove; }, [challenge, prove]);
   const [identity, setIdentity] = useState<DeviceIdentity | null>(null);
   const [deviceId, setDeviceId] = useState<number | null>(null);
   const register = trpc.link.devices.register.useMutation();
@@ -30,9 +41,11 @@ function useThisDevice(userId: number) {
   useEffect(() => { registerRef.current = register; }, [register]);
   useEffect(() => {
     let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | undefined;
     // Memoize bootstrap per account so React StrictMode's double-invoked effect
     // (and remounts) never races two device registrations into existence.
-    let promise = deviceBootstrap.get(userId);
+    const bootstrapScope = `${nativeServerUrl()}:${userId}`;
+    let promise = deviceBootstrap.get(bootstrapScope);
     if (!promise) {
       promise = (async () => {
         let keys = await loadDeviceKeys(userId);
@@ -48,16 +61,39 @@ function useThisDevice(userId: number) {
         const { id } = await registerRef.current.mutateAsync({ name: defaultName, platform: platformLabel(), publicKey: pub! });
         return { identity: { privateKey: keys.privateKey, publicKey: keys.publicKey, publicKeyB64: pub! }, id };
       })();
-      deviceBootstrap.set(userId, promise);
+      deviceBootstrap.set(bootstrapScope, promise);
     }
-    void promise.then((r) => { if (!cancelled) { setIdentity(r.identity); setDeviceId(r.id); } }).catch(() => deviceBootstrap.delete(userId));
-    return () => { cancelled = true; };
+    async function authorize(r: { identity: DeviceIdentity; id: number }) {
+      try {
+        const request = await challengeRef.current.mutateAsync({ id: r.id });
+        const answer = await solveDeviceChallenge(r.identity, request);
+        const session = await proveRef.current.mutateAsync({ id: request.id, answer });
+        if (!cancelled) { setIdentity(r.identity); setDeviceId(r.id); setProof(session.token); setError(""); }
+      } catch (cause) { if (!cancelled) { setProof(""); setError(cause instanceof Error ? cause.message : "Device authorization failed."); } }
+    }
+    void promise.then(async r => {
+      if (cancelled) return;
+      renewRef.current = () => { if (!cancelled) { setProof(""); void authorize(r); } };
+      await authorize(r);
+      if (!cancelled) timer = setInterval(() => { void authorize(r); }, 5 * 60_000);
+    }).catch(cause => { deviceBootstrap.delete(bootstrapScope); if (!cancelled) setError(cause instanceof Error ? cause.message : "Device registration failed."); });
+    return () => { cancelled = true; if (timer) clearInterval(timer); };
   }, [userId]);
-  return { identity, deviceId };
+  async function resetRevokedIdentity() {
+    if (!window.confirm("Create a new Link device identity? Your revoked Link device stays revoked. This does not change your messaging identity.")) return;
+    try {
+      const next = await generateDeviceIdentity();
+      await saveDeviceKeys(userId, { privateKey: next.privateKey, publicKey: next.publicKey });
+      await kvSet(userId, "link-device-pub", next.publicKeyB64);
+      deviceBootstrap.delete(`${nativeServerUrl()}:${userId}`);
+      window.location.reload();
+    } catch { setError("Could not save the new Link device identity. Please retry."); }
+  }
+  return { identity, deviceId, proof, error, refresh: () => renewRef.current(), resetRevokedIdentity };
 }
 
 function LinkApp({ userId }: { userId: number }) {
-  const { identity, deviceId } = useThisDevice(userId);
+  const { identity, deviceId, proof, error, refresh, resetRevokedIdentity } = useThisDevice(userId);
   const [tab, setTab] = useState<"devices" | "transfers" | "clipboard">("devices");
   return (
     <AppShell active="link">
@@ -72,12 +108,15 @@ function LinkApp({ userId }: { userId: number }) {
         } />
       <div className="scroll-slim flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6">
-          {!identity || !deviceId ? <p className="micro-label py-10 text-center animate-pulse">registering this device…</p> : (
-            <>
+          {!identity || !deviceId || !proof ? <div className="py-10 text-center">
+            <p role={error ? "alert" : "status"} className="micro-label">{error || "Proving this device’s encryption key…"}</p>
+            {error.toLowerCase().includes("revoked") && <button type="button" className="mt-4 min-h-11 rounded-lg border px-3 text-sm" onClick={() => void resetRevokedIdentity()}>Register a new Link device identity</button>}
+          </div> : (
+            <LinkProofContext.Provider value={{ token: proof, refresh }}>
               {tab === "devices" && <Devices userId={userId} myId={deviceId} identity={identity} />}
               {tab === "transfers" && <Transfers myId={deviceId} identity={identity} />}
               {tab === "clipboard" && <Clip myId={deviceId} identity={identity} />}
-            </>
+            </LinkProofContext.Provider>
           )}
         </div>
       </div>
@@ -86,9 +125,11 @@ function LinkApp({ userId }: { userId: number }) {
 }
 
 function Devices({ userId, myId, identity }: { userId: number; myId: number; identity: DeviceIdentity }) {
+  const { token: proof, refresh } = useContext(LinkProofContext);
   const utils = trpc.useUtils();
-  const devicesQ = trpc.link.devices.list.useQuery(undefined, { refetchInterval: 8000 });
-  const pairingsQ = trpc.link.pair.list.useQuery(undefined, { refetchInterval: 6000 });
+  const devicesQ = trpc.link.devices.list.useQuery({ proof }, { refetchInterval: 8000 });
+  const pairingsQ = trpc.link.pair.list.useQuery({ proof }, { refetchInterval: 6000 });
+  useEffect(() => { if (["FORBIDDEN", "UNAUTHORIZED"].includes(devicesQ.error?.data?.code ?? "")) refresh(); }, [devicesQ.error, refresh]);
   const start = trpc.link.pair.start.useMutation();
   const revoke = trpc.link.devices.revoke.useMutation({ onSuccess: () => void utils.link.devices.list.invalidate() });
   const [pairId, setPairId] = useState<number | null>(null);
@@ -133,9 +174,9 @@ function Devices({ userId, myId, identity }: { userId: number; myId: number; ide
                   </p>
                 </div>
                 {pair?.status === "verified" ? null : (
-                  <button data-testid={`link-pair-${d.id}`} onClick={async () => { const r = await start.mutateAsync({ deviceA: myId, deviceB: d.id }); setPairId(r.id); void utils.link.pair.list.invalidate(); }} className="h-9 rounded-xl border border-border px-3 text-xs font-medium hover:bg-accent">Pair</button>
+                  <button data-testid={`link-pair-${d.id}`} onClick={async () => { const r = await start.mutateAsync({ proof, deviceA: myId, deviceB: d.id }); setPairId(r.id); void utils.link.pair.list.invalidate(); }} className="h-9 rounded-xl border border-border px-3 text-xs font-medium hover:bg-accent">Pair</button>
                 )}
-                <button onClick={() => revoke.mutate({ id: d.id })} aria-label={`Revoke ${d.name}`} className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></button>
+                <button onClick={() => revoke.mutate({ proof, id: d.id })} aria-label={`Revoke ${d.name}`} className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></button>
               </div>
             );
           })}
@@ -148,8 +189,10 @@ function Devices({ userId, myId, identity }: { userId: number; myId: number; ide
 }
 
 function PairModal({ pairId, myId, onClose }: { pairId: number; myId: number; userId: number; onClose: () => void }) {
+  const { token: proof, refresh } = useContext(LinkProofContext);
   const utils = trpc.useUtils();
-  const q = trpc.link.pair.get.useQuery({ id: pairId }, { refetchInterval: 4000 });
+  const q = trpc.link.pair.get.useQuery({ proof, id: pairId }, { refetchInterval: 4000 });
+  useEffect(() => { if (["FORBIDDEN", "UNAUTHORIZED"].includes(q.error?.data?.code ?? "")) refresh(); }, [q.error, refresh]);
   const confirm = trpc.link.pair.confirm.useMutation();
   const reject = trpc.link.pair.reject.useMutation();
   const [sas, setSas] = useState<string | null>(null);
@@ -170,8 +213,8 @@ function PairModal({ pairId, myId, onClose }: { pairId: number; myId: number; us
           <p className="text-xs text-secondary">Only confirm if the same 6 digits appear on your other device. A mismatch means the key exchange was tampered with — reject it.</p>
         )}
         <div className="mt-5 flex gap-2">
-          <button data-testid="link-pair-reject" onClick={() => { reject.mutate({ id: pairId }); onClose(); }} className="h-10 flex-1 rounded-xl border border-border text-sm hover:bg-accent"><X className="mx-auto h-4 w-4" /></button>
-          <button disabled={verified} data-testid="link-pair-confirm" onClick={async () => { await confirm.mutateAsync({ id: pairId, myDevice: myId }); void utils.link.pair.get.invalidate({ id: pairId }); void utils.link.pair.list.invalidate(); }} className="locat-metal-button h-10 flex-[2] rounded-xl text-sm font-semibold disabled:opacity-50">{verified ? "Verified" : "Codes match — confirm"}</button>
+          <button data-testid="link-pair-reject" onClick={() => { reject.mutate({ proof, id: pairId }); onClose(); }} className="h-10 flex-1 rounded-xl border border-border text-sm hover:bg-accent"><X className="mx-auto h-4 w-4" /></button>
+          <button disabled={verified} data-testid="link-pair-confirm" onClick={async () => { await confirm.mutateAsync({ proof, id: pairId, myDevice: myId }); void utils.link.pair.get.invalidate({ proof, id: pairId }); void utils.link.pair.list.invalidate(); }} className="locat-metal-button h-10 flex-[2] rounded-xl text-sm font-semibold disabled:opacity-50">{verified ? "Verified" : "Codes match — confirm"}</button>
         </div>
       </div>
     </div>
@@ -179,10 +222,12 @@ function PairModal({ pairId, myId, onClose }: { pairId: number; myId: number; us
 }
 
 function Transfers({ myId, identity }: { myId: number; identity: DeviceIdentity }) {
+  const { token: proof, refresh } = useContext(LinkProofContext);
   const utils = trpc.useUtils();
-  const devicesQ = trpc.link.devices.list.useQuery();
-  const pairingsQ = trpc.link.pair.list.useQuery();
-  const listQ = trpc.link.transfers.list.useQuery(undefined, { refetchInterval: 3000 });
+  const devicesQ = trpc.link.devices.list.useQuery({ proof });
+  const pairingsQ = trpc.link.pair.list.useQuery({ proof });
+  const listQ = trpc.link.transfers.list.useQuery({ proof }, { refetchInterval: 3000 });
+  useEffect(() => { if (["FORBIDDEN", "UNAUTHORIZED"].includes(listQ.error?.data?.code ?? "")) refresh(); }, [listQ.error, refresh]);
   const create = trpc.link.transfers.create.useMutation();
   const upload = trpc.link.transfers.uploadChunk.useMutation();
   const complete = trpc.link.transfers.complete.useMutation();
@@ -203,14 +248,14 @@ function Transfers({ myId, identity }: { myId: number; identity: DeviceIdentity 
     const key = await deviceSharedKey(identity.privateKey, dev.publicKey);
     const bytes = new Uint8Array(await file.arrayBuffer());
     const n = chunkCount(bytes.length);
-    const { id } = await create.mutateAsync({ fromDevice: myId, toDevice: target, filename: file.name.slice(0, 255), mime: file.type || "application/octet-stream", size: bytes.length, chunkCount: n });
+    const { id } = await create.mutateAsync({ proof, fromDevice: myId, toDevice: target, filename: file.name.slice(0, 255), mime: file.type || "application/octet-stream", size: bytes.length, chunkCount: n });
     cancelRef.current = false;
     setProgress({ id, pct: 0 });
     try {
       for (let s = 0; s < n; s++) {
-        if (cancelRef.current) { await cancel.mutateAsync({ id }); break; }
+        if (cancelRef.current) { await cancel.mutateAsync({ proof, id }); break; }
         const { iv, data } = await encryptChunk(key, sliceChunk(bytes, s));
-        await upload.mutateAsync({ transferId: id, seq: s, iv, data });
+        await upload.mutateAsync({ proof, transferId: id, seq: s, iv, data });
         setProgress({ id, pct: Math.round(((s + 1) / n) * 100) });
       }
     } catch { /* recipient can re-request; left active */ } finally { setProgress(null); void utils.link.transfers.list.invalidate(); }
@@ -223,14 +268,14 @@ function Transfers({ myId, identity }: { myId: number; identity: DeviceIdentity 
     try {
       const parts: Uint8Array[] = [];
       for (let s = 0; s < t.chunkCount; s++) {
-        const c = await utils.link.transfers.chunk.fetch({ id: t.id, seq: s });
+        const c = await utils.link.transfers.chunk.fetch({ proof, id: t.id, seq: s });
         parts.push(await decryptChunk(key, c.iv, c.data));
         setProgress({ id: t.id, pct: Math.round(((s + 1) / t.chunkCount) * 100) });
       }
       const merged = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
       let off = 0; for (const p of parts) { merged.set(p, off); off += p.length; }
       await downloadBlob(new Blob([merged as BlobPart], { type: t.mime }), t.filename);
-      await complete.mutateAsync({ id: t.id });
+      await complete.mutateAsync({ proof, id: t.id });
     } catch { /* keep chunks for retry */ } finally { setProgress(null); void utils.link.transfers.list.invalidate(); }
   }
 
@@ -273,7 +318,7 @@ function Transfers({ myId, identity }: { myId: number; identity: DeviceIdentity 
                 <div className="mt-2 flex gap-2">
                   {canDownload && <button data-testid={`link-download-${t.id}`} disabled={!!progress} onClick={() => void receive(t)} className="h-8 rounded-lg border border-border px-3 text-xs font-medium hover:bg-accent disabled:opacity-50">Download</button>}
                   {incoming && !canDownload && (t.status === "active" || t.status === "pending") && <span className="text-xs text-secondary">{t.receivedChunks}/{t.chunkCount} chunks received…</span>}
-                  {(t.status === "active" || t.status === "pending") && <button onClick={() => { cancelRef.current = true; cancel.mutate({ id: t.id }); }} className="h-8 rounded-lg border border-border px-3 text-xs text-destructive hover:bg-destructive/10">Cancel</button>}
+                  {(t.status === "active" || t.status === "pending") && <button onClick={() => { cancelRef.current = true; cancel.mutate({ proof, id: t.id }); }} className="h-8 rounded-lg border border-border px-3 text-xs text-destructive hover:bg-destructive/10">Cancel</button>}
                 </div>
               </div>
             );
@@ -285,10 +330,12 @@ function Transfers({ myId, identity }: { myId: number; identity: DeviceIdentity 
 }
 
 function Clip({ myId, identity }: { myId: number; identity: DeviceIdentity }) {
+  const { token: proof, refresh } = useContext(LinkProofContext);
   const utils = trpc.useUtils();
-  const devicesQ = trpc.link.devices.list.useQuery();
-  const pairingsQ = trpc.link.pair.list.useQuery();
-  const inboxQ = trpc.link.messages.inbox.useQuery({ deviceId: myId }, { refetchInterval: 4000 });
+  const devicesQ = trpc.link.devices.list.useQuery({ proof });
+  const pairingsQ = trpc.link.pair.list.useQuery({ proof });
+  const inboxQ = trpc.link.messages.inbox.useQuery({ proof, deviceId: myId }, { refetchInterval: 4000 });
+  useEffect(() => { if (["FORBIDDEN", "UNAUTHORIZED"].includes(inboxQ.error?.data?.code ?? "")) refresh(); }, [inboxQ.error, refresh]);
   const push = trpc.link.messages.push.useMutation();
   const ack = trpc.link.messages.ack.useMutation();
   const [target, setTarget] = useState<number | null>(null);
@@ -323,7 +370,7 @@ function Clip({ myId, identity }: { myId: number; identity: DeviceIdentity }) {
     const dev = deviceMap.get(target); if (!dev) return;
     const key = await deviceSharedKey(identity.privateKey, dev.publicKey);
     const { iv, data } = await encryptText(key, text.trim());
-    await push.mutateAsync({ fromDevice: myId, toDevice: target, kind, iv, data });
+    await push.mutateAsync({ proof, fromDevice: myId, toDevice: target, kind, iv, data });
     setText("");
   }
 
@@ -350,7 +397,7 @@ function Clip({ myId, identity }: { myId: number; identity: DeviceIdentity }) {
             <div key={r.id} className="flex items-start gap-3 rounded-2xl border border-border/70 bg-card/60 px-4 py-3">
               <Clipboard className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
               <p className="min-w-0 flex-1 break-words text-sm">{r.text}</p>
-              <button onClick={() => { void navigator.clipboard?.writeText(r.text); ack.mutate({ ids: [r.id] }, { onSuccess: () => void utils.link.messages.inbox.invalidate({ deviceId: myId }) }); }} className="flex h-8 items-center gap-1 rounded-lg border border-border px-2 text-xs hover:bg-accent"><Check className="h-3.5 w-3.5" /> Got it</button>
+              <button onClick={() => { void navigator.clipboard?.writeText(r.text); ack.mutate({ proof, ids: [r.id] }, { onSuccess: () => void utils.link.messages.inbox.invalidate({ proof, deviceId: myId }) }); }} className="flex h-8 items-center gap-1 rounded-lg border border-border px-2 text-xs hover:bg-accent"><Check className="h-3.5 w-3.5" /> Got it</button>
             </div>
           ))}
         </div>

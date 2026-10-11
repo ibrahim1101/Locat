@@ -70,8 +70,8 @@ export const MODULES: LocatModule[] = [
   },
   {
     id: "vault", name: "Vault", tagline: "Encrypted file storage",
-    description: "Client-side encrypted files and folders with authorized sharing.",
-    icon: Lock, route: "/vault", status: "planned", milestone: "M3",
+    description: "Passphrase-encrypted personal files, folder labels and backups. Preview: 2 MiB per file.",
+    icon: Lock, route: "/vault", status: "beta", milestone: "M3",
   },
   {
     id: "workspace", name: "Workspace", tagline: "Team collaboration",
@@ -80,8 +80,8 @@ export const MODULES: LocatModule[] = [
   },
   {
     id: "hub", name: "Hub", tagline: "Server monitoring",
-    description: "Self-hosted CPU, memory, storage and service health via a least-privilege agent.",
-    icon: Server, route: "/hub", status: "planned", milestone: "later",
+    description: "Administrator-only database, session, memory and filesystem health from the unprivileged backend.",
+    icon: Server, route: "/hub", status: "beta", milestone: "M5", adminOnly: true,
   },
   {
     id: "offline", name: "Offline", tagline: "LAN-only messaging",
@@ -90,8 +90,8 @@ export const MODULES: LocatModule[] = [
   },
   {
     id: "secrets", name: "Secrets", tagline: "Credential manager",
-    description: "Passphrase-locked notes and credentials with key derivation and auto-lock.",
-    icon: KeyRound, route: "/secrets", status: "planned", milestone: "later",
+    description: "Client-encrypted credentials and notes with a separate passphrase, password generator and auto-lock.",
+    icon: KeyRound, route: "/secrets", status: "beta", milestone: "M6",
   },
   {
     id: "automate", name: "Automate", tagline: "Workflows",
@@ -100,8 +100,8 @@ export const MODULES: LocatModule[] = [
   },
   {
     id: "search", name: "Search", tagline: "Universal search",
-    description: "Authorized search across your messages, notes, files and tasks.",
-    icon: Search, route: "/search", status: "planned", milestone: "later",
+    description: "Permission-aware local search of visible messages and attachment names; encrypted server content stays opaque.",
+    icon: Search, route: "/search", status: "beta", milestone: "M4",
   },
   {
     id: "calendar", name: "Calendar", tagline: "Events & reminders",

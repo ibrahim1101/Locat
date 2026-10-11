@@ -83,3 +83,16 @@ export async function encryptText(key: CryptoKey, text: string): Promise<{ iv: s
 export async function decryptText(key: CryptoKey, iv: string, data: string): Promise<string> {
   return new TextDecoder().decode(await decryptChunk(key, iv, data));
 }
+
+/** Decrypt a fresh server challenge; proves possession of this device's ECDH key. */
+export async function solveDeviceChallenge(identity: DeviceIdentity, challenge: {
+  id: string; deviceId: number; userId: number; publicKey: string; iv: string; data: string;
+}): Promise<string> {
+  const context = `locat-link-device-proof:v1:${challenge.userId}:${challenge.deviceId}:${challenge.id}`;
+  const bits = await ecdhBits(identity.privateKey, challenge.publicKey);
+  const base = await crypto.subtle.importKey("raw", bits, "HKDF", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({ name: "HKDF", hash: "SHA-256", salt: te.encode(context), info: te.encode("challenge-response") }, base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64decode(challenge.iv) as BufferSource,
+    additionalData: te.encode(context) }, key, b64decode(challenge.data) as BufferSource);
+  return b64encode(plain);
+}

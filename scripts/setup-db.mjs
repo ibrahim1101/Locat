@@ -187,6 +187,8 @@ try {
     CONSTRAINT link_pairings_a_fk FOREIGN KEY (device_a) REFERENCES link_devices(id) ON DELETE CASCADE,
     CONSTRAINT link_pairings_b_fk FOREIGN KEY (device_b) REFERENCES link_devices(id) ON DELETE CASCADE
   )`);
+  const [[linkProofColumn]] = await connection.query("SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'link_pairings' AND COLUMN_NAME = 'proof_version'");
+  if (Number(linkProofColumn.n) === 0) await connection.query("ALTER TABLE link_pairings ADD COLUMN proof_version INT NOT NULL DEFAULT 0");
   await connection.query(`CREATE TABLE IF NOT EXISTS link_transfers (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
@@ -230,6 +232,8 @@ try {
     CONSTRAINT link_messages_from_fk FOREIGN KEY (from_device) REFERENCES link_devices(id) ON DELETE CASCADE,
     CONSTRAINT link_messages_to_fk FOREIGN KEY (to_device) REFERENCES link_devices(id) ON DELETE CASCADE
   )`);
+  const privateSql = await readFile(new URL("../db/migrations/0013_private_stores.sql", import.meta.url), "utf8");
+  for (const statement of privateSql.split("--> statement-breakpoint").map(s => s.trim()).filter(Boolean)) await connection.query(statement);
   console.log("Locat database ready. Existing accounts and messages were preserved.");
 } finally {
   if (locked) await connection.query("SELECT RELEASE_LOCK('locat_schema_setup')");

@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router";
 import { MODULES, type LocatModule } from "@/modules/registry";
 import { LocatMark, LocatWordmark } from "@/components/LocatBrand";
 import { MobileBottomNav } from "./MobileBottomNav";
+import { useAuth } from "@/state/auth";
 
 /**
  * Responsive ecosystem shell: a vertical rail on desktop and a bottom nav on
@@ -11,7 +12,9 @@ import { MobileBottomNav } from "./MobileBottomNav";
  * the shell stays single-purpose.
  */
 export function AppShell({ children, active }: { children: ReactNode; active: string }) {
-  const navItems = MODULES.filter((m) => m.primary || m.status !== "planned");
+  const { state } = useAuth();
+  const isAdmin = state.status === "ready" && state.user.isAdmin;
+  const navItems = MODULES.filter((m) => (m.primary || m.status !== "planned") && (!m.adminOnly || isAdmin));
 
   return (
     <div className="locat-mesh flex app-height text-foreground">
