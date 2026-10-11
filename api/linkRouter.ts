@@ -1,7 +1,7 @@
 import { issueLinkChallenge, answerLinkChallenge, verifyLinkProof, validateLinkPublicKey, canonicalLinkPublicKey, revokeLinkProofs } from "./linkProof";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, eq, desc, inArray, isNull, sql } from "drizzle-orm";
+import { getTableColumns, and, eq, desc, inArray, isNull, ne, lt, sql } from "drizzle-orm";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { linkDevices, linkPairings, linkTransfers, linkTransferChunks, linkMessages, users } from "@db/schema";
@@ -39,6 +39,24 @@ const deviceQuery = authedQuery.input(z.object({ proof: z.string().max(100).opti
 function requireActor(actual: number, expected: number) {
   if (actual !== expected) throw new TRPCError({ code: "FORBIDDEN", message: "Command belongs to another device" });
 }
+/** Serialize upload/purge/revocation so terminal transfers cannot regain ciphertext. */
+async function finishTransfer(userId: number, actor: number, id: number, status: "complete" | "cancelled") {
+  return getDb().transaction(async tx => {
+    await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("update");
+    const [t] = await tx.select().from(linkTransfers).where(and(eq(linkTransfers.id, id), eq(linkTransfers.userId, userId))).for("update");
+    if (!t) throw new TRPCError({ code: "NOT_FOUND" });
+    if (![t.fromDevice, t.toDevice].includes(actor)) throw new TRPCError({ code: "FORBIDDEN" });
+    if (status === "complete") requireActor(actor, t.toDevice);
+    await ownedDevice(userId, t.fromDevice);
+    await ownedDevice(userId, t.toDevice);
+    await requireVerifiedPair(userId, t.fromDevice, t.toDevice);
+    if ((t.status === "complete" || t.status === "cancelled") && t.status !== status) throw new TRPCError({ code: "BAD_REQUEST", message: "Transfer is closed" });
+    await tx.update(linkTransfers).set({ status, updatedAt: new Date() }).where(eq(linkTransfers.id, t.id));
+    await tx.delete(linkTransferChunks).where(eq(linkTransferChunks.transferId, t.id));
+    return { ok: true };
+  });
+}
+
 export const linkRouter = createRouter({
   devices: createRouter({
     challenge: authedQuery.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
@@ -187,20 +205,26 @@ export const linkRouter = createRouter({
     uploadChunk: deviceQuery
       .input(z.object({ transferId: z.number().int().positive(), seq: z.number().int().nonnegative(), iv: ivSchema, data: z.string().min(1).max(MAX_CHUNK_B64) }))
       .mutation(async ({ ctx, input }) => {
-        const [t] = await getDb().select().from(linkTransfers).where(and(eq(linkTransfers.id, input.transferId), eq(linkTransfers.userId, ctx.user.id))).limit(1);
-        if (!t) throw new TRPCError({ code: "NOT_FOUND" });
-      await ownedDevice(ctx.user.id, t.fromDevice);
-      await ownedDevice(ctx.user.id, t.toDevice);
-      await requireVerifiedPair(ctx.user.id, t.fromDevice, t.toDevice);
-      if (![t.fromDevice, t.toDevice].includes(ctx.linkDeviceId)) throw new TRPCError({ code: "FORBIDDEN" });
-        requireActor(ctx.linkDeviceId, t.fromDevice);
-        if (t.status === "cancelled" || t.status === "complete") throw new TRPCError({ code: "BAD_REQUEST", message: "Transfer is closed" });
-        if (input.seq >= t.chunkCount) throw new TRPCError({ code: "BAD_REQUEST", message: "Chunk out of range" });
         limit(`link-chunk:${ctx.user.id}`, 6000, 60_000);
-        await getDb().insert(linkTransferChunks).values({ transferId: t.id, seq: input.seq, iv: input.iv, data: input.data })
-          .onDuplicateKeyUpdate({ set: { iv: input.iv, data: input.data } });
-        if (t.status === "pending") await getDb().update(linkTransfers).set({ status: "active", updatedAt: new Date() }).where(eq(linkTransfers.id, t.id));
-        return { ok: true };
+        return getDb().transaction(async tx => {
+          await tx.select({ id: users.id }).from(users).where(eq(users.id, ctx.user.id)).for("update");
+          const [t] = await tx.select().from(linkTransfers).where(and(eq(linkTransfers.id, input.transferId), eq(linkTransfers.userId, ctx.user.id))).for("update");
+          if (!t) throw new TRPCError({ code: "NOT_FOUND" });
+          requireActor(ctx.linkDeviceId, t.fromDevice);
+          await ownedDevice(ctx.user.id, t.fromDevice);
+          await ownedDevice(ctx.user.id, t.toDevice);
+          await requireVerifiedPair(ctx.user.id, t.fromDevice, t.toDevice);
+          if (t.status === "cancelled" || t.status === "complete") throw new TRPCError({ code: "BAD_REQUEST", message: "Transfer is closed" });
+          if (input.seq >= t.chunkCount) throw new TRPCError({ code: "BAD_REQUEST", message: "Chunk out of range" });
+          const [existing] = await tx.select().from(linkTransferChunks).where(and(eq(linkTransferChunks.transferId, t.id), eq(linkTransferChunks.seq, input.seq)));
+          if (existing) {
+            if (existing.iv !== input.iv || existing.data !== input.data) throw new TRPCError({ code: "CONFLICT", message: "Chunk was already published" });
+            return { ok: true };
+          }
+          await tx.insert(linkTransferChunks).values({ transferId: t.id, seq: input.seq, iv: input.iv, data: input.data });
+          if (t.status === "pending") await tx.update(linkTransfers).set({ status: "active", updatedAt: new Date() }).where(eq(linkTransfers.id, t.id));
+          return { ok: true };
+        });
       }),
     list: deviceQuery.query(async ({ ctx }) => {
       const rows = await getDb().select().from(linkTransfers).where(and(eq(linkTransfers.userId, ctx.user.id), sql`(${linkTransfers.fromDevice} = ${ctx.linkDeviceId} OR ${linkTransfers.toDevice} = ${ctx.linkDeviceId})`)).orderBy(desc(linkTransfers.id)).limit(100);
@@ -231,50 +255,60 @@ export const linkRouter = createRouter({
       return c;
     }),
     complete: deviceQuery.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
-      const [t] = await getDb().select().from(linkTransfers).where(and(eq(linkTransfers.id, input.id), eq(linkTransfers.userId, ctx.user.id))).limit(1);
-      if (!t) throw new TRPCError({ code: "NOT_FOUND" });
-      await ownedDevice(ctx.user.id, t.fromDevice);
-      await ownedDevice(ctx.user.id, t.toDevice);
-      await requireVerifiedPair(ctx.user.id, t.fromDevice, t.toDevice);
-      if (![t.fromDevice, t.toDevice].includes(ctx.linkDeviceId)) throw new TRPCError({ code: "FORBIDDEN" });
-      requireActor(ctx.linkDeviceId, t.toDevice);
-      await getDb().transaction(async (tx) => {
-        await tx.update(linkTransfers).set({ status: "complete", updatedAt: new Date() }).where(eq(linkTransfers.id, t.id));
-        await tx.delete(linkTransferChunks).where(eq(linkTransferChunks.transferId, t.id)); // purge ciphertext after delivery
-      });
-      return { ok: true };
+      return finishTransfer(ctx.user.id, ctx.linkDeviceId, input.id, "complete");
     }),
     cancel: deviceQuery.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
-      const [t] = await getDb().select().from(linkTransfers).where(and(eq(linkTransfers.id, input.id), eq(linkTransfers.userId, ctx.user.id))).limit(1);
-      if (!t) throw new TRPCError({ code: "NOT_FOUND" });
-      await ownedDevice(ctx.user.id, t.fromDevice);
-      await ownedDevice(ctx.user.id, t.toDevice);
-      await requireVerifiedPair(ctx.user.id, t.fromDevice, t.toDevice);
-      if (![t.fromDevice, t.toDevice].includes(ctx.linkDeviceId)) throw new TRPCError({ code: "FORBIDDEN" });
-      await getDb().transaction(async (tx) => {
-        await tx.update(linkTransfers).set({ status: "cancelled", updatedAt: new Date() }).where(eq(linkTransfers.id, t.id));
-        await tx.delete(linkTransferChunks).where(eq(linkTransferChunks.transferId, t.id));
-      });
-      return { ok: true };
+      return finishTransfer(ctx.user.id, ctx.linkDeviceId, input.id, "cancelled");
     }),
   }),
 
   messages: createRouter({
-    push: deviceQuery
-      .input(z.object({ fromDevice: z.number().int().positive(), toDevice: z.number().int().positive(), kind: z.enum(["clipboard", "text", "url"]).default("clipboard"), iv: ivSchema, data: b64 }))
+    // Reserve the durable row ID before encrypting so ciphertext can bind to it.
+    prepare: deviceQuery
+      .input(z.object({ fromDevice: z.number().int().positive(), toDevice: z.number().int().positive(), kind: z.enum(["clipboard", "text", "url"]) }))
       .mutation(async ({ ctx, input }) => {
         requireActor(ctx.linkDeviceId, input.fromDevice);
-        await ownedDevice(ctx.user.id, input.fromDevice);
-        await ownedDevice(ctx.user.id, input.toDevice);
-        await requireVerifiedPair(ctx.user.id, input.fromDevice, input.toDevice);
         limit(`link-msg:${ctx.user.id}`, 240, 60_000);
-        const [created] = await getDb().insert(linkMessages).values({ userId: ctx.user.id, fromDevice: input.fromDevice, toDevice: input.toDevice, kind: input.kind, iv: input.iv, data: input.data }).$returningId();
-        return { id: created.id };
+        return getDb().transaction(async tx => {
+          await tx.select({ id: users.id }).from(users).where(eq(users.id, ctx.user.id)).for("update");
+          await ownedDevice(ctx.user.id, input.fromDevice);
+          await ownedDevice(ctx.user.id, input.toDevice);
+          await requireVerifiedPair(ctx.user.id, input.fromDevice, input.toDevice);
+          await tx.delete(linkMessages).where(and(eq(linkMessages.userId, ctx.user.id), eq(linkMessages.data, ""), lt(linkMessages.createdAt, sql`DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 15 MINUTE)`)));
+          const [pending] = await tx.select({ n: sql<number>`COUNT(*)` }).from(linkMessages).where(and(eq(linkMessages.userId, ctx.user.id), eq(linkMessages.data, "")));
+          if (Number(pending.n) >= 100) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many pending messages; retry after reservations expire" });
+          const [created] = await tx.insert(linkMessages).values({ userId: ctx.user.id,
+            ...input, iv: "", data: "" }).$returningId();
+          return { id: created.id };
+        });
+      }),
+    push: deviceQuery
+      .input(z.object({ id: z.number().int().positive(), iv: ivSchema, data: b64 }))
+      .mutation(async ({ ctx, input }) => {
+        limit(`link-msg-publish:${ctx.user.id}`, 240, 60_000);
+        return getDb().transaction(async tx => {
+          // Same account lock order as revocation; recheck devices after acquiring it.
+          await tx.select({ id: users.id }).from(users).where(eq(users.id, ctx.user.id)).for("update");
+          const [row] = await tx.select({ ...getTableColumns(linkMessages), expired: sql<number>`${linkMessages.createdAt} < DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 15 MINUTE)` }).from(linkMessages).where(and(eq(linkMessages.id, input.id), eq(linkMessages.userId, ctx.user.id))).for("update");
+          if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+          requireActor(ctx.linkDeviceId, row.fromDevice);
+          await ownedDevice(ctx.user.id, row.fromDevice);
+          await ownedDevice(ctx.user.id, row.toDevice);
+          await requireVerifiedPair(ctx.user.id, row.fromDevice, row.toDevice);
+          // Exact retries never reset delivery or replace already published ciphertext.
+          if (row.data) {
+            if (row.iv !== input.iv || row.data !== input.data) throw new TRPCError({ code: "CONFLICT", message: "Message was already published" });
+            return { id: row.id };
+          }
+          if (row.deliveredAt || Boolean(row.expired)) throw new TRPCError({ code: "BAD_REQUEST", message: "Message reservation expired" });
+          await tx.update(linkMessages).set({ iv: input.iv, data: input.data }).where(eq(linkMessages.id, row.id));
+          return { id: row.id };
+        });
       }),
     inbox: deviceQuery.input(z.object({ deviceId: z.number().int().positive() })).query(async ({ ctx, input }) => {
       requireActor(ctx.linkDeviceId, input.deviceId);
       await ownedDevice(ctx.user.id, input.deviceId);
-      const rows = await getDb().select().from(linkMessages).where(and(eq(linkMessages.userId, ctx.user.id), eq(linkMessages.toDevice, input.deviceId), isNull(linkMessages.deliveredAt))).orderBy(desc(linkMessages.id)).limit(50);
+      const rows = await getDb().select().from(linkMessages).where(and(eq(linkMessages.userId, ctx.user.id), eq(linkMessages.toDevice, input.deviceId), ne(linkMessages.data, ""), isNull(linkMessages.deliveredAt))).orderBy(desc(linkMessages.id)).limit(50);
       const visible = [];
       for (const row of rows) {
         try { await ownedDevice(ctx.user.id, row.fromDevice); await requireVerifiedPair(ctx.user.id, row.fromDevice, row.toDevice); visible.push(row); }
@@ -284,7 +318,7 @@ export const linkRouter = createRouter({
     }),
     ack: deviceQuery.input(z.object({ ids: z.array(z.number().int().positive()).max(100) })).mutation(async ({ ctx, input }) => {
       if (input.ids.length === 0) return { ok: true };
-      await getDb().update(linkMessages).set({ deliveredAt: new Date() }).where(and(eq(linkMessages.userId, ctx.user.id), eq(linkMessages.toDevice, ctx.linkDeviceId), inArray(linkMessages.id, input.ids)));
+      await getDb().update(linkMessages).set({ deliveredAt: new Date() }).where(and(eq(linkMessages.userId, ctx.user.id), eq(linkMessages.toDevice, ctx.linkDeviceId), ne(linkMessages.data, ""), inArray(linkMessages.id, input.ids)));
       return { ok: true };
     }),
   }),

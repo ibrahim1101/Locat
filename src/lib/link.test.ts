@@ -120,3 +120,22 @@ describe("authenticated file transfer context", () => {
       { ...context, chunkCount: 1 }, 0)).rejects.toThrow("context");
   });
 });
+
+describe("authenticated clipboard context", () => {
+  it("rejects replay under another row, account, direction or kind, and unbound legacy payloads", async () => {
+    const { encryptLinkMessage, decryptLinkMessage } = await import("./link");
+    const a = await generateDeviceIdentity(), b = await generateDeviceIdentity();
+    const send = await deviceSharedKey(a.privateKey, b.publicKeyB64);
+    const receive = await deviceSharedKey(b.privateKey, a.publicKeyB64);
+    const context = { id: 21, userId: 1, fromDevice: 2, toDevice: 3, kind: "clipboard" as const };
+    const c = await encryptLinkMessage(send, "copy me", context);
+    expect(await decryptLinkMessage(receive, c.iv, c.data, context)).toBe("copy me");
+    const changes = [{ id: 22 }, { userId: 2 }, { fromDevice: 4 }, { toDevice: 4 },
+      { fromDevice: 3, toDevice: 2 }, { kind: "text" as const }, { kind: "url" as const }];
+    for (const change of changes) await expect(decryptLinkMessage(receive, c.iv, c.data,
+      { ...context, ...change })).rejects.toBeDefined();
+    const legacy = await encryptText(send, "copy me");
+    await expect(decryptLinkMessage(receive, legacy.iv, legacy.data, context)).rejects.toBeDefined();
+    await expect(encryptLinkMessage(send, "x", { ...context, id: 0 })).rejects.toThrow("context");
+  });
+});

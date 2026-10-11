@@ -3,7 +3,7 @@ import "fake-indexeddb/auto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import mysql, { type Connection, type RowDataPacket } from "mysql2/promise";
 import { spawnSync } from "node:child_process";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { generateIdentity, wrapPrivateKeyForBackup, deriveDirectKey, encryptPayload, decryptPayload, generateGroupKey, wrapGroupKey, unwrapGroupKey } from "./crypto";
 import type { appRouter as Router } from "../../api/router";
 import type { getDb as GetDb } from "../../api/queries/connection";
@@ -105,10 +105,34 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     await expect(alice.link.transfers.uploadChunk({ proof: proofB, transferId: transfer.id, seq: 0, iv: "AAAAAAAAAAAAAAAA", data: "AAAA" })).rejects.toThrow("another device");
     await expect(alice.link.transfers.complete({ proof: proofA, id: transfer.id })).rejects.toThrow("another device");
     await alice.link.transfers.uploadChunk({ proof: proofA, transferId: transfer.id, seq: 0, iv: "AAAAAAAAAAAAAAAA", data: "AAAA" });
-    const note = await alice.link.messages.push({ proof: proofB, fromDevice: b.id, toDevice: a.id, kind: "text", iv: "AAAAAAAAAAAAAAAA", data: "AAAA" });
+    await alice.link.transfers.uploadChunk({ proof: proofA, transferId: transfer.id, seq: 0, iv: "AAAAAAAAAAAAAAAA", data: "AAAA" });
+    await expect(alice.link.transfers.uploadChunk({ proof: proofA, transferId: transfer.id, seq: 0, iv: "AAAAAAAAAAAAAAAA", data: "BBBB" })).rejects.toThrow("already published");
+    const racing = await alice.link.transfers.create({ proof: proofA, fromDevice: a.id, toDevice: b.id, filename: "race.txt", size: 1, chunkCount: 1 });
+    await Promise.allSettled([
+      alice.link.transfers.uploadChunk({ proof: proofA, transferId: racing.id, seq: 0, iv: "AAAAAAAAAAAAAAAA", data: "AAAA" }),
+      alice.link.transfers.cancel({ proof: proofB, id: racing.id }),
+    ]);
+    expect((await db.query.linkTransfers.findFirst({ where: eq(schema.linkTransfers.id, racing.id) }))!.status).toBe("cancelled");
+    expect(await db.select().from(schema.linkTransferChunks).where(eq(schema.linkTransferChunks.transferId, racing.id))).toHaveLength(0);
+    await expect(alice.link.transfers.uploadChunk({ proof: proofA, transferId: racing.id, seq: 0, iv: "AAAAAAAAAAAAAAAA", data: "AAAA" })).rejects.toThrow("closed");
+    await expect(alice.link.transfers.complete({ proof: proofB, id: racing.id })).rejects.toThrow("closed");
+    await alice.link.transfers.cancel({ proof: proofA, id: racing.id });
+    const expired = await alice.link.messages.prepare({ proof: proofB, fromDevice: b.id, toDevice: a.id, kind: "text" });
+    await db.update(schema.linkMessages).set({ createdAt: sql`DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 16 MINUTE)` }).where(eq(schema.linkMessages.id, expired.id));
+    await expect(alice.link.messages.push({ proof: proofB, id: expired.id, iv: "AAAAAAAAAAAAAAAA", data: "AAAA" })).rejects.toThrow("expired");
+    const reserved = await alice.link.messages.prepare({ proof: proofB, fromDevice: b.id, toDevice: a.id, kind: "text" });
+    expect((await alice.link.messages.inbox({ proof: proofA, deviceId: a.id })).some(m => m.id === reserved.id)).toBe(false);
+    await expect(alice.link.messages.push({ proof: proofA, id: reserved.id, iv: "AAAAAAAAAAAAAAAA", data: "AAAA" })).rejects.toThrow("another device");
+    await alice.link.messages.ack({ proof: proofA, ids: [reserved.id] });
+    const note = await alice.link.messages.push({ proof: proofB, id: reserved.id, iv: "AAAAAAAAAAAAAAAA", data: "AAAA" });
+    await expect(alice.link.messages.push({ proof: proofB, id: reserved.id, iv: "AAAAAAAAAAAAAAAA", data: "BBBB" })).rejects.toThrow("already published");
+    await alice.link.messages.push({ proof: proofB, id: reserved.id, iv: "AAAAAAAAAAAAAAAA", data: "AAAA" });
     expect((await alice.link.messages.inbox({ proof: proofA, deviceId: a.id })).some(m => m.id === note.id)).toBe(true);
     await alice.link.messages.ack({ proof: proofB, ids: [note.id] });
     expect((await alice.link.messages.inbox({ proof: proofA, deviceId: a.id })).some(m => m.id === note.id)).toBe(true);
+    await alice.link.messages.ack({ proof: proofA, ids: [note.id] });
+    await alice.link.messages.push({ proof: proofB, id: note.id, iv: "AAAAAAAAAAAAAAAA", data: "AAAA" });
+    expect((await alice.link.messages.inbox({ proof: proofA, deviceId: a.id })).some(m => m.id === note.id)).toBe(false);
     await db.update(schema.linkPairings).set({ proofVersion: 0 }).where(eq(schema.linkPairings.id, pair.id));
     await expect(alice.link.transfers.create({ proof: proofA, fromDevice: a.id, toDevice: b.id, filename: "old.txt", size: 1, chunkCount: 1 })).rejects.toThrow("not paired");
     expect(await alice.link.messages.inbox({ proof: proofA, deviceId: a.id })).toHaveLength(0);

@@ -8,7 +8,7 @@ import Login from "./Login";
 import { downloadBlob } from "@/lib/download";
 import {
   generateDeviceIdentity, deviceSharedKey, pairingSas, chunkCount, sliceChunk,
-  encryptTransferChunk, decryptTransferChunk, encryptText, decryptText, solveDeviceChallenge, type DeviceIdentity,
+  encryptTransferChunk, decryptTransferChunk, encryptLinkMessage, decryptLinkMessage, solveDeviceChallenge, type DeviceIdentity,
 } from "@/lib/link";
 import { loadDeviceKeys, saveDeviceKeys, kvGet, kvSet } from "@/lib/localdb";
 
@@ -115,7 +115,7 @@ function LinkApp({ userId }: { userId: number }) {
             <LinkProofContext.Provider value={{ token: proof, refresh }}>
               {tab === "devices" && <Devices userId={userId} myId={deviceId} identity={identity} />}
               {tab === "transfers" && <Transfers userId={userId} myId={deviceId} identity={identity} />}
-              {tab === "clipboard" && <Clip myId={deviceId} identity={identity} />}
+              {tab === "clipboard" && <Clip userId={userId} myId={deviceId} identity={identity} />}
             </LinkProofContext.Provider>
           )}
         </div>
@@ -336,13 +336,16 @@ function Transfers({ userId, myId, identity }: { userId: number; myId: number; i
   );
 }
 
-function Clip({ myId, identity }: { myId: number; identity: DeviceIdentity }) {
+function Clip({ userId, myId, identity }: { userId: number; myId: number; identity: DeviceIdentity }) {
   const { token: proof, refresh } = useContext(LinkProofContext);
   const utils = trpc.useUtils();
   const devicesQ = trpc.link.devices.list.useQuery({ proof });
   const pairingsQ = trpc.link.pair.list.useQuery({ proof });
   const inboxQ = trpc.link.messages.inbox.useQuery({ proof, deviceId: myId }, { refetchInterval: 4000 });
   useEffect(() => { if (["FORBIDDEN", "UNAUTHORIZED"].includes(inboxQ.error?.data?.code ?? "")) refresh(); }, [inboxQ.error, refresh]);
+  const prepare = trpc.link.messages.prepare.useMutation();
+  const [error, setError] = useState("");
+  const [receiveWarning, setReceiveWarning] = useState("");
   const push = trpc.link.messages.push.useMutation();
   const ack = trpc.link.messages.ack.useMutation();
   const [target, setTarget] = useState<number | null>(null);
@@ -359,30 +362,51 @@ function Clip({ myId, identity }: { myId: number; identity: DeviceIdentity }) {
     const senders = new Map((devicesQ.data ?? []).map((d) => [d.id, d]));
     void (async () => {
       const out: { id: number; text: string; kind: string }[] = [];
+      let failed = 0;
       for (const m of items) {
         const sender = senders.get(m.fromDevice);
         if (!sender) continue;
         try {
           const key = await deviceSharedKey(identity.privateKey, sender.publicKey);
-          out.push({ id: m.id, text: await decryptText(key, m.iv, m.data), kind: m.kind });
-        } catch { /* skip undecryptable */ }
+          out.push({ id: m.id, text: await decryptLinkMessage(key, m.iv, m.data, { ...m, userId }), kind: m.kind });
+        } catch { failed++; }
       }
-      if (!cancelled) setReceived(out);
+      if (!cancelled) {
+        setReceived(out);
+        setReceiveWarning(failed ? "Some messages could not be verified. Update both devices and resend older messages." : "");
+      }
     })();
     return () => { cancelled = true; };
-  }, [inboxQ.data, devicesQ.data, identity.privateKey]);
+  }, [inboxQ.data, devicesQ.data, identity.privateKey, userId]);
 
   async function sendClip(kind: "clipboard" | "text" | "url") {
     if (!target || !text.trim()) return;
     const dev = deviceMap.get(target); if (!dev) return;
-    const key = await deviceSharedKey(identity.privateKey, dev.publicKey);
-    const { iv, data } = await encryptText(key, text.trim());
-    await push.mutateAsync({ proof, fromDevice: myId, toDevice: target, kind, iv, data });
-    setText("");
+    setError("");
+    try {
+      const key = await deviceSharedKey(identity.privateKey, dev.publicKey);
+      const context = { userId, fromDevice: myId, toDevice: target, kind };
+      const { id } = await prepare.mutateAsync({ proof, fromDevice: myId, toDevice: target, kind });
+      const { iv, data } = await encryptLinkMessage(key, text.trim(), { ...context, id });
+      await push.mutateAsync({ proof, id, iv, data });
+      setText("");
+    } catch { setError("Could not send. Update both devices and retry."); }
+  }
+
+  async function copyReceived(id: number, value: string) {
+    setError("");
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(value);
+      await ack.mutateAsync({ proof, ids: [id] });
+      void utils.link.messages.inbox.invalidate({ proof, deviceId: myId });
+    } catch { setError("Could not copy or acknowledge. The message remains available for retry."); }
   }
 
   return (
     <div className="locat-fade-up space-y-5">
+      {receiveWarning && <p role="alert" className="rounded-xl border border-destructive/40 p-3 text-sm text-destructive">{receiveWarning}</p>}
+      {error && <p role="alert" className="rounded-xl border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
       <section className="rounded-2xl border border-border/70 bg-card/60 p-4">
         <h2 className="text-sm font-semibold">Send to a device</h2>
         <p className="mt-1 text-xs text-secondary">Encrypted clipboard / text / link, delivered to a verified device.</p>
@@ -392,7 +416,7 @@ function Clip({ myId, identity }: { myId: number; identity: DeviceIdentity }) {
         </select>
         <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste text or a link…" data-testid="link-clip-input" className="mt-2 min-h-20 w-full resize-none rounded-xl border border-border bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary/50" />
         <div className="mt-2 flex gap-2">
-          <button disabled={!target || !text.trim()} onClick={() => void sendClip("clipboard")} data-testid="link-clip-send" className="locat-metal-button flex h-10 items-center gap-1.5 rounded-xl px-4 text-sm font-semibold disabled:opacity-50"><Send className="h-4 w-4" /> Send</button>
+          <button disabled={!target || !text.trim() || prepare.isPending || push.isPending} onClick={() => void sendClip("clipboard")} data-testid="link-clip-send" className="locat-metal-button flex h-10 items-center gap-1.5 rounded-xl px-4 text-sm font-semibold disabled:opacity-50"><Send className="h-4 w-4" /> Send</button>
         </div>
       </section>
 
@@ -404,7 +428,7 @@ function Clip({ myId, identity }: { myId: number; identity: DeviceIdentity }) {
             <div key={r.id} className="flex items-start gap-3 rounded-2xl border border-border/70 bg-card/60 px-4 py-3">
               <Clipboard className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
               <p className="min-w-0 flex-1 break-words text-sm">{r.text}</p>
-              <button onClick={() => { void navigator.clipboard?.writeText(r.text); ack.mutate({ proof, ids: [r.id] }, { onSuccess: () => void utils.link.messages.inbox.invalidate({ proof, deviceId: myId }) }); }} className="flex h-8 items-center gap-1 rounded-lg border border-border px-2 text-xs hover:bg-accent"><Check className="h-3.5 w-3.5" /> Got it</button>
+              <button onClick={() => void copyReceived(r.id, r.text)} className="flex h-8 items-center gap-1 rounded-lg border border-border px-2 text-xs hover:bg-accent"><Check className="h-3.5 w-3.5" /> Got it</button>
             </div>
           ))}
         </div>

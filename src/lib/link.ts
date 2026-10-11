@@ -131,3 +131,20 @@ export async function solveDeviceChallenge(identity: DeviceIdentity, challenge: 
     additionalData: te.encode(context) }, key, b64decode(challenge.data) as BufferSource);
   return b64encode(plain);
 }
+
+export type LinkMessageContext = { id: number; userId: number; fromDevice: number; toDevice: number; kind: "clipboard" | "text" | "url" };
+function messageAad(c: LinkMessageContext) {
+  if ([c.id, c.userId, c.fromDevice, c.toDevice].some(n => !Number.isSafeInteger(n) || n < 1) ||
+    c.fromDevice === c.toDevice || !["clipboard", "text", "url"].includes(c.kind)) throw new Error("Invalid message context");
+  return te.encode(JSON.stringify(["locat-link-message:v1", c.userId, c.id, c.fromDevice, c.toDevice, c.kind]));
+}
+export async function encryptLinkMessage(key: CryptoKey, text: string, c: LinkMessageContext) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: messageAad(c) }, key, te.encode(text));
+  return { iv: b64encode(iv), data: b64encode(data) };
+}
+export async function decryptLinkMessage(key: CryptoKey, iv: string, data: string, c: LinkMessageContext) {
+  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64decode(iv) as BufferSource,
+    additionalData: messageAad(c) }, key, b64decode(data) as BufferSource);
+  return new TextDecoder().decode(plain);
+}
