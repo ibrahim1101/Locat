@@ -7,6 +7,8 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
   const [error, setError] = useState("");
   const [status, setStatus] = useState("Preparing transcoded playback…");
   const [buffered, setBuffered] = useState(0);
+  const [bufferedAhead, setBufferedAhead] = useState(0);
+  const is4k = new URL(url, "http://localhost").searchParams.get("quality") === "4k";
   useEffect(() => { positionCallback.current = onPositionChange; }, [onPositionChange]);
   useEffect(() => {
     const video = videoRef.current;
@@ -14,14 +16,28 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     let hls: Hls | null = null;
     let cancelled = false;
     let manifestRetries = 0;
+    let waitingForBuffer = false;
+    let initialPlaybackStarted = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const update = () => {
-      if (!video.duration || !Number.isFinite(video.duration)) { setBuffered(0); return; }
-      const end = video.buffered.length ? video.buffered.end(video.buffered.length - 1) : 0;
-      setBuffered(Math.min(100, Math.round(end / video.duration * 100)));
+      let ahead = 0;
+      for (let i = 0; i < video.buffered.length; i++) {
+        if (video.buffered.start(i) <= video.currentTime && video.buffered.end(i) >= video.currentTime) {
+          ahead = Math.max(0, video.buffered.end(i) - video.currentTime);
+          break;
+        }
+      }
+      setBufferedAhead(Math.round(ahead));
+      const total = durationSeconds && durationSeconds > 0 ? durationSeconds : video.duration;
+      setBuffered(Number.isFinite(total) && total > 0 ? Math.min(100, Math.round(ahead / total * 100)) : 0);
+      if (waitingForBuffer && ahead >= 12 && !cancelled) {
+        waitingForBuffer = false;
+        initialPlaybackStarted = true;
+        void video.play().catch(() => setStatus("Press Play to begin"));
+      }
     };
     const report = () => positionCallback.current?.(startSeconds + video.currentTime, !video.paused);
-    const onPlaying = () => { setError(""); setStatus("Playing"); report(); };
+    const onPlaying = () => { initialPlaybackStarted = true; waitingForBuffer = false; setError(""); setStatus("Playing"); report(); };
     const onPause = () => { setStatus("Paused"); report(); };
     const onWaiting = () => setStatus("Buffering…");
     video.addEventListener("playing", onPlaying);
@@ -29,9 +45,10 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     video.addEventListener("timeupdate", report);
     video.addEventListener("waiting", onWaiting);
     video.addEventListener("progress", update);
+    video.addEventListener("timeupdate", update);
     if (Hls.isSupported()) {
-      hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: 12, maxMaxBufferLength: 24, backBufferLength: 15, maxBufferSize: 40 * 1024 * 1024 });
-      hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!cancelled) { setStatus("Ready"); if (autoplay) void video.play().catch(() => setStatus("Press Play to begin")); else setStatus("Paused at restored position"); } });
+      hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: is4k ? 30 : 12, maxMaxBufferLength: is4k ? 60 : 24, backBufferLength: 15, maxBufferSize: is4k ? 120 * 1024 * 1024 : 40 * 1024 * 1024 });
+      hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!cancelled) { setStatus("Ready"); if (autoplay && is4k && !initialPlaybackStarted) { waitingForBuffer = true; setStatus("Pre-buffering 4K (target 12 seconds)…"); update(); } else if (autoplay) void video.play().catch(() => setStatus("Press Play to begin")); else setStatus("Paused at restored position"); } });
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (!data.fatal || cancelled) return;
         if (data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR && manifestRetries < 3) {
@@ -70,13 +87,14 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       video.removeEventListener("timeupdate", report);
       video.removeEventListener("waiting", onWaiting);
       video.removeEventListener("progress", update);
+      video.removeEventListener("timeupdate", update);
     };
-  }, [url, startSeconds, autoplay]);
+  }, [url, startSeconds, autoplay, is4k, durationSeconds]);
   const formatTime = (seconds: number) => { const n = Math.floor(seconds); return `${Math.floor(n / 3600)}:${String(Math.floor(n / 60) % 60).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`; };
   return <div className="space-y-2">
     <video ref={videoRef} controls playsInline preload="metadata" className="max-h-[55vh] w-full rounded-xl bg-black" />
     <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-secondary">
-      <span aria-live="polite">{status}</span><span>{durationSeconds && durationSeconds > 0 ? `Position: ${formatTime(startSeconds)} + stream time · Source duration: ${formatTime(durationSeconds)} · ` : ""}Buffered: {buffered}%</span>
+      <span aria-live="polite">{status}</span><span>{durationSeconds && durationSeconds > 0 ? `Position: ${formatTime(startSeconds)} + stream time · Source duration: ${formatTime(durationSeconds)} · ` : ""}Buffered ahead: {bufferedAhead}s ({buffered}%)</span>
     </div>
     {error && <p role="alert" className="rounded-lg border border-destructive/50 p-2 text-sm text-destructive">{error}</p>}
   </div>;
