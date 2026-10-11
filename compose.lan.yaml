@@ -1,0 +1,26 @@
+# Opt-in LAN HTTPS overlay; use together with compose.yaml.
+# Existing MariaDB storage and loopback-only app port are unchanged.
+services:
+  app:
+    environment:
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?Set PUBLIC_ORIGIN to the exact https:// LAN origin}
+  lan-proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      LOCAT_LAN_HOST: ${LOCAT_LAN_HOST:?Set LOCAT_LAN_HOST to a stable LAN hostname or IP}
+    ports:
+      - "443:443/tcp"
+    volumes:
+      - ./deploy/lan/Caddyfile:/etc/caddy/Caddyfile:ro
+      - locat-lan-caddy-data:/data
+      - locat-lan-caddy-config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  locat-lan-caddy-data:
+  locat-lan-caddy-config:
