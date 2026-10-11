@@ -83,3 +83,40 @@ describe("link clipboard text", () => {
     expect(await decryptText(kb, iv, data)).toBe("https://example.com/secret?token=abc");
   });
 });
+
+describe("authenticated file transfer context", () => {
+  const context = { id: 10, userId: 1, fromDevice: 2, toDevice: 3,
+    filename: "file.bin", mime: "application/octet-stream", size: CHUNK_SIZE * 2, chunkCount: 2 };
+  it("round-trips paired devices but rejects reordered chunks and every changed metadata field", async () => {
+    const { encryptTransferChunk, decryptTransferChunk } = await import("./link");
+    const a = await generateDeviceIdentity(), b = await generateDeviceIdentity();
+    const send = await deviceSharedKey(a.privateKey, b.publicKeyB64);
+    const receive = await deviceSharedKey(b.privateKey, a.publicKeyB64);
+    const bytes = new Uint8Array(CHUNK_SIZE).fill(42);
+    const c = await encryptTransferChunk(send, bytes, context, 0);
+    expect(await decryptTransferChunk(receive, c.iv, c.data, context, 0)).toEqual(bytes);
+    await expect(decryptTransferChunk(receive, c.iv, c.data, context, 1)).rejects.toBeDefined();
+    const changes = [{ id: 11 }, { userId: 4 }, { fromDevice: 4 }, { toDevice: 4 },
+      { fromDevice: 3, toDevice: 2 }, { filename: "other.bin" }, { mime: "text/plain" },
+      { size: context.size - 1 }, { size: CHUNK_SIZE * 3, chunkCount: 3 }];
+    for (const change of changes) await expect(decryptTransferChunk(receive, c.iv, c.data,
+      { ...context, ...change }, 0)).rejects.toBeDefined();
+    const legacy = await encryptChunk(send, bytes);
+    await expect(decryptTransferChunk(receive, legacy.iv, legacy.data, context, 0)).rejects.toBeDefined();
+    const corrupted = c.data.slice(0, 4) + (c.data[4] === "A" ? "B" : "A") + c.data.slice(5);
+    await expect(decryptTransferChunk(receive, c.iv, corrupted, context, 0)).rejects.toBeDefined();
+  });
+  it("handles zero-byte files and rejects invalid positions, size/count and truncated chunks", async () => {
+    const { encryptTransferChunk, decryptTransferChunk } = await import("./link");
+    const a = await generateDeviceIdentity(), b = await generateDeviceIdentity();
+    const key = await deviceSharedKey(a.privateKey, b.publicKeyB64);
+    const empty = { ...context, size: 0, chunkCount: 1 };
+    const c = await encryptTransferChunk(key, new Uint8Array(), empty, 0);
+    expect(await decryptTransferChunk(key, c.iv, c.data, empty, 0)).toHaveLength(0);
+    await expect(encryptTransferChunk(key, new Uint8Array(1), empty, 0)).rejects.toThrow("length");
+    for (const seq of [-1, 2, 0.5, NaN]) await expect(encryptTransferChunk(key,
+      new Uint8Array(CHUNK_SIZE), context, seq)).rejects.toThrow("context");
+    await expect(encryptTransferChunk(key, new Uint8Array(CHUNK_SIZE),
+      { ...context, chunkCount: 1 }, 0)).rejects.toThrow("context");
+  });
+});

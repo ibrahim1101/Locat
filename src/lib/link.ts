@@ -76,6 +76,41 @@ export async function decryptChunk(key: CryptoKey, iv: string, data: string): Pr
   return new Uint8Array(plain);
 }
 
+/** Authenticated context prevents ciphertext substitution across transfers or positions. */
+export type TransferContext = {
+  id: number; userId: number; fromDevice: number; toDevice: number;
+  filename: string; mime: string; size: number; chunkCount: number;
+};
+function transferAad(t: TransferContext, seq: number): Uint8Array {
+  for (const value of [t.id, t.userId, t.fromDevice, t.toDevice, t.chunkCount]) {
+    if (!Number.isSafeInteger(value) || value < 1) throw new Error("Invalid transfer context");
+  }
+  if (!Number.isSafeInteger(t.size) || t.size < 0 || t.size > 200 * 1024 * 1024 ||
+      t.chunkCount !== chunkCount(t.size) || !Number.isSafeInteger(seq) || seq < 0 || seq >= t.chunkCount ||
+      t.fromDevice === t.toDevice || typeof t.filename !== "string" || typeof t.mime !== "string") {
+    throw new Error("Invalid transfer context");
+  }
+  return te.encode(JSON.stringify(["locat-link-file:v1", t.userId, t.id, t.fromDevice,
+    t.toDevice, t.filename, t.mime, t.size, t.chunkCount, seq]));
+}
+function expectedChunkLength(t: TransferContext, seq: number): number {
+  return Math.min(CHUNK_SIZE, t.size - seq * CHUNK_SIZE);
+}
+export async function encryptTransferChunk(key: CryptoKey, bytes: Uint8Array, t: TransferContext, seq: number) {
+  const additionalData = transferAad(t, seq);
+  if (bytes.length !== expectedChunkLength(t, seq)) throw new Error("Transfer chunk length mismatch");
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: additionalData as BufferSource }, key, bytes as BufferSource);
+  return { iv: b64encode(iv), data: b64encode(data) };
+}
+export async function decryptTransferChunk(key: CryptoKey, iv: string, data: string, t: TransferContext, seq: number) {
+  const additionalData = transferAad(t, seq);
+  const plain = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64decode(iv) as BufferSource,
+    additionalData: additionalData as BufferSource }, key, b64decode(data) as BufferSource));
+  if (plain.length !== expectedChunkLength(t, seq)) throw new Error("Transfer chunk length mismatch");
+  return plain;
+}
+
 export async function encryptText(key: CryptoKey, text: string): Promise<{ iv: string; data: string }> {
   return encryptChunk(key, te.encode(text));
 }

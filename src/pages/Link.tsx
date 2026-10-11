@@ -8,7 +8,7 @@ import Login from "./Login";
 import { downloadBlob } from "@/lib/download";
 import {
   generateDeviceIdentity, deviceSharedKey, pairingSas, chunkCount, sliceChunk,
-  encryptChunk, decryptChunk, encryptText, decryptText, solveDeviceChallenge, type DeviceIdentity,
+  encryptTransferChunk, decryptTransferChunk, encryptText, decryptText, solveDeviceChallenge, type DeviceIdentity,
 } from "@/lib/link";
 import { loadDeviceKeys, saveDeviceKeys, kvGet, kvSet } from "@/lib/localdb";
 
@@ -114,7 +114,7 @@ function LinkApp({ userId }: { userId: number }) {
           </div> : (
             <LinkProofContext.Provider value={{ token: proof, refresh }}>
               {tab === "devices" && <Devices userId={userId} myId={deviceId} identity={identity} />}
-              {tab === "transfers" && <Transfers myId={deviceId} identity={identity} />}
+              {tab === "transfers" && <Transfers userId={userId} myId={deviceId} identity={identity} />}
               {tab === "clipboard" && <Clip myId={deviceId} identity={identity} />}
             </LinkProofContext.Provider>
           )}
@@ -221,7 +221,7 @@ function PairModal({ pairId, myId, onClose }: { pairId: number; myId: number; us
   );
 }
 
-function Transfers({ myId, identity }: { myId: number; identity: DeviceIdentity }) {
+function Transfers({ userId, myId, identity }: { userId: number; myId: number; identity: DeviceIdentity }) {
   const { token: proof, refresh } = useContext(LinkProofContext);
   const utils = trpc.useUtils();
   const devicesQ = trpc.link.devices.list.useQuery({ proof });
@@ -234,6 +234,7 @@ function Transfers({ myId, identity }: { myId: number; identity: DeviceIdentity 
   const cancel = trpc.link.transfers.cancel.useMutation();
   const [target, setTarget] = useState<number | null>(null);
   const [progress, setProgress] = useState<{ id: number; pct: number } | null>(null);
+  const [transferError, setTransferError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const cancelRef = useRef(false);
 
@@ -245,42 +246,48 @@ function Transfers({ myId, identity }: { myId: number; identity: DeviceIdentity 
   async function send(file: File) {
     if (!target) return;
     const dev = deviceMap.get(target); if (!dev) return;
-    const key = await deviceSharedKey(identity.privateKey, dev.publicKey);
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const n = chunkCount(bytes.length);
-    const { id } = await create.mutateAsync({ proof, fromDevice: myId, toDevice: target, filename: file.name.slice(0, 255), mime: file.type || "application/octet-stream", size: bytes.length, chunkCount: n });
-    cancelRef.current = false;
-    setProgress({ id, pct: 0 });
+    setTransferError("");
+    if (file.size > 200 * 1024 * 1024) { setTransferError("Files must be 200 MB or smaller."); return; }
     try {
+      const key = await deviceSharedKey(identity.privateKey, dev.publicKey);
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const n = chunkCount(bytes.length);
+      const metadata = { fromDevice: myId, toDevice: target, filename: file.name.slice(0, 255).trim(), mime: (file.type || "application/octet-stream").trim(), size: bytes.length, chunkCount: n };
+      const { id } = await create.mutateAsync({ proof, ...metadata });
+      const context = { id, userId, ...metadata };
+      cancelRef.current = false;
+      setProgress({ id, pct: 0 });
       for (let s = 0; s < n; s++) {
         if (cancelRef.current) { await cancel.mutateAsync({ proof, id }); break; }
-        const { iv, data } = await encryptChunk(key, sliceChunk(bytes, s));
+        const { iv, data } = await encryptTransferChunk(key, sliceChunk(bytes, s), context, s);
         await upload.mutateAsync({ proof, transferId: id, seq: s, iv, data });
         setProgress({ id, pct: Math.round(((s + 1) / n) * 100) });
       }
-    } catch { /* recipient can re-request; left active */ } finally { setProgress(null); void utils.link.transfers.list.invalidate(); }
+    } catch { setTransferError("File upload failed. Cancel the incomplete transfer and send it again."); } finally { setProgress(null); void utils.link.transfers.list.invalidate(); }
   }
 
   async function receive(t: NonNullable<typeof listQ.data>[number]) {
     const sender = deviceMap.get(t.fromDevice); if (!sender) return;
-    const key = await deviceSharedKey(identity.privateKey, sender.publicKey);
+    setTransferError("");
     setProgress({ id: t.id, pct: 0 });
     try {
+      const key = await deviceSharedKey(identity.privateKey, sender.publicKey);
       const parts: Uint8Array[] = [];
       for (let s = 0; s < t.chunkCount; s++) {
         const c = await utils.link.transfers.chunk.fetch({ proof, id: t.id, seq: s });
-        parts.push(await decryptChunk(key, c.iv, c.data));
+        parts.push(await decryptTransferChunk(key, c.iv, c.data, { ...t, userId }, s));
         setProgress({ id: t.id, pct: Math.round(((s + 1) / t.chunkCount) * 100) });
       }
       const merged = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
       let off = 0; for (const p of parts) { merged.set(p, off); off += p.length; }
       await downloadBlob(new Blob([merged as BlobPart], { type: t.mime }), t.filename);
       await complete.mutateAsync({ proof, id: t.id });
-    } catch { /* keep chunks for retry */ } finally { setProgress(null); void utils.link.transfers.list.invalidate(); }
+    } catch { setTransferError("File could not be verified or downloaded. Update both devices and resend older transfers if needed."); } finally { setProgress(null); void utils.link.transfers.list.invalidate(); }
   }
 
   return (
     <div className="locat-fade-up space-y-5">
+      {transferError && <p role="alert" className="rounded-xl border border-destructive/40 p-3 text-sm text-destructive">{transferError}</p>}
       <section className="rounded-2xl border border-border/70 bg-card/60 p-4">
         <h2 className="text-sm font-semibold">Send a file</h2>
         <p className="mt-1 text-xs text-secondary">Encrypted on this device, relayed through your Locat server (not direct peer-to-peer), decrypted only on the paired device.</p>

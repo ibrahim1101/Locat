@@ -189,3 +189,14 @@ documentation changed. These are preview packaging results; physical native
 acceptance, LAN private-CA/Android WebView trust and Raspberry Pi deployment
 remain open. Main and live environments were not modified. This documentation
 follow-up does not alter the verified application or platform workflows.
+
+
+### Android launch report and Link file-context protection
+
+The user reports that the preview app opened on Android. This verifies the reported launch only; login, LAN trust, transfers, Cinema, Music and other device acceptance are not inferred.
+
+File chunks now use AES-GCM additional authenticated data covering the versioned file domain, account ID, transfer ID, sender/receiver direction, filename, MIME, total size, chunk count and sequence. Expected plaintext chunk lengths are checked, including zero-byte files. Download completes only after every chunk authenticates. Upload and download failures are visible, and oversized files are rejected before buffering. No database migration is needed.
+
+Compatibility: both file-transfer devices must update. Unbound older file ciphertext deliberately fails verification in the updated receiver; cancel and resend these transfers. No legacy unauthenticated fallback is used. Clipboard payloads remain unchanged and still need contextual replay protection; proof state remains process-local. This does not authenticate the relay/server identity or provide LAN peer discovery.
+
+Validation: targeted Link/ownership-proof tests passed 12/12, including changed transfer IDs, accounts, device directions, metadata, sequence substitution, ciphertext corruption, legacy ciphertext, invalid contexts and zero-byte files. TypeScript passed; lint had no errors and the same 12 existing warnings. Production build passed. The full local suite passed 308 tests; 28 real-database tests were skipped because this run had no TEST_DATABASE_URL. Fresh remote database and native checks are pending. New native packages require fresh CI; the existing artifact links refer to the prior revision.
