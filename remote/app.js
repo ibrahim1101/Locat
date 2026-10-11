@@ -71,6 +71,27 @@ $('share').onclick = guarded(async () => {
   await settings(); await connection.setLocalDescription(await connection.createOffer());
   await action({type:'signal',signal:{type:'offer',sdp:connection.localDescription.sdp}});
 });
+$('nativeShare').onclick = guarded(async () => {
+  if(role !== 'host' || !approved) throw new Error('Approve a viewer first');
+  if(stream || peer) throw new Error('Disconnect and pair again before switching capture');
+  const first = await action({type:'capture',width:Math.min(1920,Number($('resolution').value))});
+  const canvas = document.createElement('canvas'); canvas.width=first.width;canvas.height=first.height;
+  const ctx=canvas.getContext('2d');
+  async function draw(frame) {
+    const image = new Image(); image.src=`data:image/png;base64,${frame.png}`;
+    await image.decode(); ctx.drawImage(image,0,0,canvas.width,canvas.height);
+  }
+  await draw(first); stream=canvas.captureStream(15); $('video').srcObject=stream;
+  const connection=createPeer(); stream.getTracks().forEach(t=>connection.addTrack(t,stream));
+  await settings(); await connection.setLocalDescription(await connection.createOffer());
+  await action({type:'signal',signal:{type:'offer',sdp:connection.localDescription.sdp}});
+  const current=generation;
+  while(token && current===generation && approved) {
+    await new Promise(resolve=>setTimeout(resolve,Math.max(70,1000/Number($('fps').value))));
+    if(current!==generation)break;
+    await draw(await action({type:'capture',width:Math.min(1920,Number($('resolution').value))}));
+  }
+});
 $('disconnect').onclick = guarded(disconnect);
 async function receive(signal) {
   if(signal.type === 'offer') {

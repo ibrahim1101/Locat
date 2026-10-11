@@ -18,7 +18,7 @@ No database or coupling to Locat account authentication. Input is HTTPS POST,
 serialized under the session lock, sequence-checked and rate-bounded. Signaling
 queues bounded; host can revoke control while continuing approved viewing.
 
-Commit 150e365: pairing authority, HTTP transport, optional input bridge and
+Published commit 05a851a (local equivalent 150e365): pairing authority, HTTP transport, optional input bridge and
 32 passing authority/HTTP tests. Then added UI, controller keyboard mapping,
 stream controls, input release on focus loss, heartbeat checks, native-failure
 revocation, and tests with a fake user32 dispatcher. Native failure revokes
@@ -33,7 +33,29 @@ installation under the user's no-install constraint. Did not bypass rejection.
 No browser runtime, native Windows capture/input, Android, game, throughput,
 latency or encoder-hardware acceptance claim is made.
 
-Remaining: standalone native Windows DXGI/WGC capture/encoder, audio, virtual
+Remaining: hardware-accelerated native Windows DXGI/WGC capture/encoder, audio, virtual
 XInput, native client packaging, Locat identity binding, host consent dialog
 outside the web page, hardened HTTP worker limits, TURN/NAT traversal,
 measured latency/quality and Windows/Android physical acceptance.
+
+
+### Native capture follow-up and publication
+
+Published second commit 953ce07 (local equivalent 5150b88): browser viewer,
+controls, security regression tests and runbook. Git HTTPS push had no local
+credentials; published through the authorized GitHub plugin instead and fetched
+that branch to align the local checkout. No force push or merge.
+
+Added opt-in native Windows GDI capture, pointer-sized ctypes signatures,
+resource cleanup, bounded primary-monitor PNG conversion and a host-only,
+approved-session capture action. Native images feed browser canvas WebRTC at
+up to 15 requested frames/second; CPU pipeline is explicitly unsuitable as a
+verified competitive-game implementation. Pure PNG tests verify pixel order,
+rows, chunk CRCs and bounds; fake capture tests verify authorization, request
+rate and fail-closed revocation. No Windows API execution took place.
+
+Final suite: 45 tests passed; Python compile, JavaScript syntax and diff checks
+passed. Added a separate Remote paths-scoped CI workflow; existing workflows
+are unchanged. Browser runtime remains blocked, Windows/Android physical testing
+remains outstanding. Native capture increases trusted host scope only behind
+`--enable-native-capture` and explicit host UI initiation after approval.

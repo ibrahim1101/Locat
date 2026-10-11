@@ -23,7 +23,7 @@ def make_handler(session, origin):
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Referrer-Policy', 'no-referrer')
-            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'")
+            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; media-src 'self' blob:; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'")
             self.end_headers()
             self.wfile.write(data)
 
@@ -74,6 +74,7 @@ def main():
     p.add_argument('--origin', default='http://127.0.0.1:8765')
     p.add_argument('--cert'); p.add_argument('--key')
     p.add_argument('--enable-windows-input', action='store_true')
+    p.add_argument('--enable-native-capture', action='store_true')
     args = p.parse_args()
     if args.bind != '127.0.0.1' and not (args.cert and args.key and args.origin.startswith('https://')):
         p.error('Network binding requires TLS certificate/key and an HTTPS origin')
@@ -81,7 +82,11 @@ def main():
     if args.enable_windows_input:
         from windows_input import WindowsInput
         sink = WindowsInput()
-    session = Session(input_sink=sink)
+    capture = None
+    if args.enable_native_capture:
+        from windows_capture import WindowsCapture
+        capture = WindowsCapture()
+    session = Session(input_sink=sink, capture=capture)
     server = ThreadingHTTPServer((args.bind, args.port), make_handler(session, args.origin))
     server.daemon_threads = True
     if args.cert:

@@ -7,8 +7,10 @@ class Denied(Exception):
     pass
 
 class Session:
-    def __init__(self, clock=time.monotonic, input_sink=None):
+    def __init__(self, clock=time.monotonic, input_sink=None, capture=None):
         self.clock, self.input_sink = clock, input_sink
+        self.capture = capture
+        self.last_capture = float("-inf")
         self.lock = threading.RLock()
         self.host_token = secrets.token_urlsafe(32)
         self.pair_code = secrets.token_urlsafe(16)
@@ -70,6 +72,18 @@ class Session:
                 return {'code': self.pair_code}
             if self.state != 'approved':
                 raise Denied('Host approval required')
+            if kind == 'capture' and role == 'host' and self.capture:
+                width = body.get('width')
+                if type(width) is not int or width not in (1280, 1920):
+                    raise Denied('Invalid native capture width')
+                if self.clock() - self.last_capture < 1 / 15:
+                    raise Denied('Native capture limited to 15 FPS')
+                self.last_capture = self.clock()
+                try:
+                    return self.capture.frame(width)
+                except Exception as exc:
+                    self.revoke()
+                    raise Denied('Capture failed; session revoked') from exc
             if kind == 'signal':
                 value = body.get('signal')
                 if not isinstance(value, dict) or value.get('type') not in ('offer', 'answer', 'candidate'):

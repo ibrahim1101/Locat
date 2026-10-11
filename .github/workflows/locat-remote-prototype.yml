@@ -1,0 +1,25 @@
+name: Locat Remote prototype checks
+on:
+  push:
+    branches: [feat/locat-remote-prototype]
+    paths: ['remote/**', '.github/workflows/locat-remote-prototype.yml']
+  pull_request:
+    paths: ['remote/**', '.github/workflows/locat-remote-prototype.yml']
+permissions:
+  contents: read
+jobs:
+  isolated-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Authority, HTTP and mocked Windows tests
+        env:
+          PYTHONPATH: remote
+        run: python3 -m unittest discover -s remote/tests -v
+      - name: Compile and syntax checks
+        run: |
+          python3 -m compileall -q remote
+          node --check remote/app.js
+          node --check remote/tests/browser.cjs
+          git diff --check

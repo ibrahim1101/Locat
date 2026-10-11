@@ -9,7 +9,7 @@ access. Review [engineering history](ENGINEERING_HISTORY.md).
 ## What is implemented
 
 - Browser screen-capture host intended for Windows Chrome/Edge; the OS/browser
-  screen chooser is mandatory. This is not a standalone native capture engine.
+  screen chooser is mandatory. Optional native primary-monitor GDI capture is also available; neither capture path has physical Windows acceptance yet.
 - Direct WebRTC video with no configured external STUN/TURN. Client negotiates
   after a one-use invitation and explicit authenticated host approval.
 - Resolution, frame-rate and sender bitrate controls, encoder/receiver stats,
@@ -39,6 +39,25 @@ URL in a separate browser/incognito window, paste the invitation and click
 then **Select screen and stream** and choose a screen. Verify moving content
 on the viewer, receiver dimensions/FPS, and disconnect from both sides.
 Keep the host tab foregrounded; background timer throttling can expire the lease.
+
+## Windows: native capture prototype
+
+Stop the server, then explicitly enable native screen capture:
+
+```powershell
+py -3 remote/server.py --enable-native-capture --enable-windows-input
+```
+
+Pair/approve as above, then click **Start opt-in native primary-monitor capture**.
+This captures only the primary desktop using GDI StretchBlt/GetDIBits, CPU PNG
+encoding, and a browser canvas feeding WebRTC. No package installation is needed.
+It is capped at 15 capture requests/second and width 1280 or 1920; the 1440p
+selector is clamped to width 1920 on this path. It has no hardware encoder
+integration and is intended for functional desktop checks, not low-latency games.
+Check correct colors/orientation, pointer mapping, resource usage, and revocation.
+Native screen capture only runs on authenticated host requests after approval;
+starting the server alone does not capture frames. The host button substitutes
+for the OS capture chooser on this path, so consent relies on host credentials.
 
 ## Windows: optional control acceptance
 
@@ -108,6 +127,8 @@ py -3 -m compileall -q remote
 node --check remote/app.js
 ```
 
+A dedicated paths-scoped GitHub workflow runs the standard-library and syntax checks without touching existing workflows.
+
 Optional browser verification on a development machine with Playwright and its
 Chromium already available:
 
@@ -117,7 +138,7 @@ node remote/tests/browser.cjs
 
 The script checks pairing, approval, a real peer connection carrying **synthetic
 canvas video**, revocation and page errors. It never touches a personal desktop.
-In the development environment 38 Python tests pass, compile/syntax checks pass;
+In the development environment 45 Python tests pass, compile/syntax checks pass;
 browser runtime was blocked by missing Chromium and rejected installation.
 No physical Windows or Android verification was possible. No application-wide
 Node tests/build were run: root dependencies and application code are unchanged,
@@ -130,6 +151,7 @@ and this standalone module has no bundle or dependency installation step.
 - `POST /action`, `Authorization: Bearer …`: JSON `type` of `status`, `poll`,
   `disconnect`, host-only `pairing`, `approve`, `revoke-control`; approved-session
   `signal` (host offer/client answer/either candidate); client-only `input`.
+- Optional host-only `capture` action, after approval and explicit server flag: `{type:"capture",width:1280}` returns base64 PNG plus dimensions; max 15 requests/second.
 - Input envelope: `{type:"input",seq:integer,event:{kind:"move",x:0..1,y:0..1}}`,
   `{kind:"key",code:"KeyW",down:true}` or `{kind:"button",button:0..2,down:true}`.
   Unsupported events rejected. 240 input requests/second, 64 KiB HTTP body,
@@ -162,7 +184,7 @@ low-latency data channel. Queued input and network conditions can add latency.
 Hardware encoder use is browser-selected, not guaranteed; stats may report its
 implementation. Requested 60 FPS is a target, not a verified result.
 
-Next native candidate: Windows Graphics Capture/DXGI capture feeding NVENC,
+The shipped native GDI path is an unverified CPU capture fallback. The next native candidate is Windows Graphics Capture/DXGI capture feeding NVENC,
 AMF or Quick Sync with bounded frame queues into WebRTC. This needs native
 code, hardware availability, codec negotiation and real Windows acceptance.
 Audio capture, reliable high-FPS/high-resolution benchmarks, virtual gamepad
