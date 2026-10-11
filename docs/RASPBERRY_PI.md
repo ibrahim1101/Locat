@@ -131,3 +131,12 @@ Builds, browser-storage tests and MariaDB integration tests run on x86 Linux.
 The installer checks ARM64 and uses ARM64 Node packages, but has not been executed
 on physical Raspberry Pi hardware. Android/iOS behavior and HTTPS setup need a
 real-device acceptance check after installation.
+
+
+### Media runtime dependencies
+
+The installer includes Debian's FFmpeg package and checks both `ffmpeg` and
+`ffprobe` before starting setup. This matches the Docker image's media tooling.
+Existing `.env` and database preservation behavior is unchanged. Installation
+and 4K/transcoding performance on physical Pi 5 ARM64 still need acceptance;
+package availability does not establish decoding speed or hardware acceleration.

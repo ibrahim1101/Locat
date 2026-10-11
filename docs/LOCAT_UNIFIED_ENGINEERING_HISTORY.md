@@ -216,3 +216,8 @@ Final local checks: 337/337 tests passed twice against disposable MariaDB, inclu
 Upload now reads one 256 KiB Blob slice per chunk instead of buffering the whole file. Receive validates metadata before allocation and writes authenticated chunks directly into one bounded assembly buffer rather than retaining all chunks plus a second merged copy. Zero-byte files still authenticate their one empty chunk. Download cancellation leaves ciphertext/transfer available instead of marking delivery complete. Saving and native bridge serialization can still allocate additional memory; this is not a streaming-to-disk implementation or a measured Android performance claim.
 
 Validation: 311 non-database tests passed; 28 DB cases skipped in this client-only run (previous server batch passed all 337 twice). New tests verify exact slice ranges, empty/final chunks, size/position bounds, short reads and validation before allocation. TypeScript/build passed; lint has no errors and the same 12 warnings. New native packaging is required before the memory changes appear in installers.
+
+
+### Raspberry Pi installer media runtime
+
+The Linux/Pi installer now installs Debian's FFmpeg package and checks both FFmpeg and FFprobe before setup, addressing the missing media dependency outside Docker. `bash -n` and `--help` passed. No privileged installation or physical Pi testing was run in this workspace; ARM64 availability, native decoding and transcoding performance remain acceptance items.

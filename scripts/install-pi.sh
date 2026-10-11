@@ -44,7 +44,7 @@ fi
 
 echo "Installing system dependencies…"
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gnupg rsync mariadb-server python3
+DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gnupg rsync mariadb-server python3 ffmpeg
 if [[ ! -x /usr/bin/node ]] || ! /usr/bin/node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit((a===22&&b>=12)||a>=24?0:1)' ; then
   # Install Node 22 from its signed APT repository without piping a script to a shell.
   install -d -m 755 /etc/apt/keyrings
@@ -57,6 +57,9 @@ if [[ ! -x /usr/bin/node ]] || ! /usr/bin/node -e 'const [a,b]=process.versions.
   DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
 fi
 if [[ ! -x /usr/bin/npm ]]; then echo "Node is installed but npm is missing. Install npm and rerun." >&2; exit 1; fi
+if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+  echo "FFmpeg/FFprobe installation failed; media processing cannot start." >&2; exit 1
+fi
 systemctl enable --now mariadb
 if ! id locat >/dev/null 2>&1; then
   useradd --system --user-group --create-home --home-dir /var/lib/locat --shell /usr/sbin/nologin locat
