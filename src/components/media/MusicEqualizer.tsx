@@ -71,7 +71,7 @@ export function MusicEqualizer({ src, onEnded }: { src: string; onEnded: () => v
         graph.current = null;
         void context.close();
       };
-    } catch { setError("Web Audio processing is unavailable on this device."); }
+    } catch { queueMicrotask(() => setError("Web Audio processing is unavailable on this device.")); }
   }, []);
 
   useEffect(() => {
