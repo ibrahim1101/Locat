@@ -1,0 +1,4 @@
+https://{$LOCAT_LAN_HOST} {
+    tls /certs/fullchain.pem /certs/privkey.pem
+    reverse_proxy app:3000
+}
