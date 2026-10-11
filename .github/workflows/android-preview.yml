@@ -111,7 +111,7 @@ jobs:
             --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD \
             --out preview-artifact/locat-2-preview.apk "$unsigned"
           "$apksigner" verify --verbose preview-artifact/locat-2-preview.apk
-          "$apksigner" verify --print-certs preview-artifact/locat-2-preview.apk | grep 'Signer #1 certificate SHA-256 digest' > preview-artifact/signing-certificate.txt
+          "$apksigner" verify --verbose --print-certs preview-artifact/locat-2-preview.apk > preview-artifact/signing-certificate.txt 2>&1
       - name: Check preview application ID
         run: |
           sdk_root="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"

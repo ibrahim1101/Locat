@@ -39,3 +39,25 @@ class HTTPTests(unittest.TestCase):
         status,_,headers=self.request('/',{},method='GET');self.assertEqual(status,200)
         self.assertEqual(headers['Cache-Control'],'no-store');self.assertIn("frame-ancestors 'none'",headers['Content-Security-Policy'])
     def test_non_object_json(self):self.assertEqual(self.request('/pair',[])[0],400)
+
+class ClientOriginTests(unittest.TestCase):
+    def test_explicit_packaged_origin_preflight_and_pairing(self):
+        session=Session()
+        server=ThreadingHTTPServer(('127.0.0.1',0),make_handler(session,'http://127.0.0.1:8765',['https://tauri.localhost']))
+        threading.Thread(target=server.serve_forever,daemon=True).start()
+        try:
+            c=http.client.HTTPConnection('127.0.0.1',server.server_port,timeout=2)
+            h={'Host':'127.0.0.1:8765','Origin':'https://tauri.localhost','Content-Type':'application/json'}
+            c.request('OPTIONS','/pair',headers=h);r=c.getresponse();self.assertEqual(r.status,200);self.assertEqual(r.getheader('Access-Control-Allow-Origin'),'https://tauri.localhost');r.read()
+            c.request('POST','/pair',json.dumps({'code':session.pair_code}),h);r=c.getresponse();self.assertEqual(r.status,200);token=json.loads(r.read())['token']
+            h['Authorization']='Bearer '+token
+            c.request('POST','/action',json.dumps({'type':'approve','control':True}),h);r=c.getresponse();self.assertEqual(r.status,403);r.read();c.close()
+        finally:server.shutdown();server.server_close()
+    def test_unconfigured_origin_has_no_cors_permission(self):
+        session=Session();server=ThreadingHTTPServer(('127.0.0.1',0),make_handler(session,'http://127.0.0.1:8765'))
+        threading.Thread(target=server.serve_forever,daemon=True).start()
+        try:
+            c=http.client.HTTPConnection('127.0.0.1',server.server_port,timeout=2)
+            c.request('OPTIONS','/pair',headers={'Host':'127.0.0.1:8765','Origin':'https://evil.example'});r=c.getresponse()
+            self.assertEqual(r.status,403);self.assertIsNone(r.getheader('Access-Control-Allow-Origin'));r.read();c.close()
+        finally:server.shutdown();server.server_close()

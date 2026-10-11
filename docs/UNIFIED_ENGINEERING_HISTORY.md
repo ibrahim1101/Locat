@@ -49,3 +49,18 @@ this branch and reuses persistent preview signing requirements. No release signi
 macOS notarization, secure OS key storage, tray, updater or physical device
 acceptance is claimed. Chromium runtime remains blocked by the earlier rejected
 installation. Final CI/artifact statuses must be inspected before distribution.
+
+
+## CI follow-up
+
+Published integration commit bd62b3d; draft PR #6. Core verification and Docker
+smoke both passed in run 38157171738, including MariaDB-dependent tests. Android
+run 38157171730 compiled successfully and signature verification passed, but
+certificate metadata grep returned 1. Replaced the brittle exact-text grep with
+full public certificate verification metadata output; signature verification
+remains mandatory. No signing key or password was read or changed. Desktop
+Windows/Linux/macOS builds were compiling at this observation.
+
+Added explicit Remote cross-origin preflight/approval regressions: 47 Python
+tests pass. Added preview download and platform acceptance runbook, clearer
+native playback authorization states, and extension-aware local audio routing.

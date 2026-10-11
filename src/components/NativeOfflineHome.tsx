@@ -33,7 +33,7 @@ export function NativeOfflineHome() {
         <input aria-label="Choose local media" type="file" accept="audio/*,video/*,.mkv,.mov,.flac" onChange={e => choose(e.target.files?.[0])} className="w-full text-sm" />
         {file && url && <div className="mt-3">
           <p className="mb-2 truncate text-sm">{file.name}</p>
-          {file.type.startsWith("audio/") ? <MusicEqualizer key={url} src={url} onEnded={() => {}} /> : <video controls playsInline src={url} className="w-full" />}
+          {(file.type.startsWith("audio/") || /\.(mp3|flac|alac|wav|m4a|ogg|opus|aac)$/i.test(file.name)) ? <MusicEqualizer key={url} src={url} onEnded={() => {}} /> : <video controls playsInline src={url} className="w-full" />}
           <button type="button" className="mt-2 text-sm underline" onClick={() => { URL.revokeObjectURL(url); setUrl(""); setFile(null); }}>Close</button>
         </div>}
       </section>
