@@ -12,7 +12,7 @@ Updated 2026-10-11. **Not ready for a complete production release.** The canonic
 | Signed Android preview | [38157585251](https://github.com/ibrahim1101/Locat/actions/runs/38157585251) | Isolated preview package; persistent signing and signature verification; physical runtime unverified |
 | Remote CI | [38157587589](https://github.com/ibrahim1101/Locat/actions/runs/38157587589) | Recorded passing; not physical host/game streaming acceptance |
 | Baseline local checks | `af63b2c` | 279 passed/26 DB skipped; 47 Remote passed; typecheck/build; zero lint errors/12 warnings |
-| Complete-ecosystem source | Current local dedicated development branch | 334 tests across 55 files passed, including 28 MariaDB tests; fresh canonical migrations passed; typecheck/build pass; lint zero errors/12 warnings; Remote 47/47; publication now directly approved; draft PR #7 open; initial core/Docker/Chromium and signed APK checks passed, follow-up Q conversion checks pending |
+| Complete-ecosystem source | Current local dedicated development branch | 334 tests across 55 files passed, including 28 MariaDB tests; fresh canonical migrations passed; typecheck/build pass; lint zero errors/12 warnings; Remote 47/47; publication now directly approved; draft PR #7 open; corrected-source core/Docker/Chromium and signed APK checks passed; desktop packaging and the newer versionCode workflow verification pending |
 
 Earlier user reports accepted original numbered 01/03/06/07/17/41 and older Android messaging/upgrade. The later historical 13/44 counter is explicitly unaudited by item. None of this certifies current unified physical runtime or all 49 features.
 
@@ -40,8 +40,8 @@ These are limited implementations, not completion of their full module requireme
 | Cinema performance/completeness | Unverified physical; features partial | Real 4K direct-play/decoder/transcode benchmarks; quality timeline/buffer/seek; subtitles/tracks/series/history/artwork missing |
 | Music quality/native lifecycle | Partial | Measure DSP local/server and headroom; gapless/native focus/background/headset/lock screen, album/artist metadata/playlists |
 | Remote Play | Prototype | Actual Windows approval/input/capture; audio/controller/encoding/latency/reconnect and cross-platform host scope |
-| Current source automated checks | Local checks pass; platform execution open | 334 unit/API tests incl 28 MariaDB integrations, fresh migrations, typecheck/build and Remote 47/47 pass; lint zero errors/12 warnings. Initial Docker and real Chromium signal checks passed CI; final Q correction and LAN/media overlay checks pending |
-| Current native packaging | Pending | Initial signed APK run 38174264681 passed; desktop run 38174264666 started; final Q correction needs new exact-revision artifacts |
+| Current source automated checks | Local checks pass; platform execution open | 334 unit/API tests incl 28 MariaDB integrations, fresh migrations, typecheck/build and Remote 47/47 pass; lint zero errors/12 warnings. Corrected-source Docker, real Chromium Q/signal checks and LAN/media overlay checks passed CI. Extra local schema-recreation repeat failed with errno1932 and 16 cascades; fixture/environment cause remains unresolved |
+| Current native packaging | Pending | Corrected-source signed APK run 38174520046 passed; desktop run 38174519996 started. New UTC versionCode workflow needs another signed APK run |
 | Native physical acceptance | Open on all targets | Run `docs/LOCAT_CROSS_PLATFORM_TESTING.md`; packaging is insufficient |
 | Native credential security | Open | OS-backed secure storage and verified biometric assertion/hardware authentication; UI app lock is not local data encryption |
 | Distribution trust | Preview only | Windows signing, macOS signing/notarization, signed updater feed; Android persistent preview key is separate from production identity |

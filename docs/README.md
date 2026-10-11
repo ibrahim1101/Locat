@@ -4,6 +4,10 @@
 
 ## Unified client preview
 
+- [Current ecosystem downloads and testing](ECOSYSTEM_PREVIEW_DOWNLOADS.md)
+- [Complete-ecosystem feature register](LOCAT_COMPLETE_FEATURE_MATRIX.md)
+- [Complete-ecosystem engineering evidence](LOCAT_UNIFIED_ENGINEERING_HISTORY.md)
+
 - [Platform downloads and physical acceptance](UNIFIED_PLATFORM_TESTING.md)
 - [Branch-by-branch audit](BRANCH_AUDIT_2026-10-11.md)
 - [Unified engineering history, failures and fixes](UNIFIED_ENGINEERING_HISTORY.md)

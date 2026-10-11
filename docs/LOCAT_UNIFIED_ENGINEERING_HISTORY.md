@@ -141,3 +141,32 @@ measures Butterworth -3 dB cutoff and Q=20 resonance/headroom. Reference:
 https://www.w3.org/TR/webaudio-1.0/#dom-biquadfilternode-q .
 CI now validates combined LAN/media overlays with isolated synthetic
 settings. Final builds after this correction remain pending at this entry.
+
+
+### Corrected-source CI and packaging observations
+
+At 723647f both current core CI runs (38174523675 / 38174520002) passed,
+including 334 tests, fresh canonical migrations, repeated bootstrap, Docker
+readiness/tools/admin checks and combined LAN/media Compose validation.
+Actual Chromium RMS measurements: Pure 0.707107; -12 dB cut 0.177617;
+headroom-compensated boost 0.707107; Butterworth cutoff 0.500000;
+Q=20 compensated pass-filter cutoff 0.706886. These verify generated test
+signals, not audible device behavior or arbitrary signal clipping guarantees.
+Android run 38174520046 passed signing/package checks. Corrected-source
+desktop run 38174519996 is still running at this documentation point.
+
+An extra two-database local repeat passed its first 334-test suite, but the
+second fresh-migration suite failed after its destructive contact-table
+recreation fixture: MariaDB returned errno 1932, table does not exist in
+engine, followed by 16 cascading failures (318 passed). The cause is not
+established. Earlier local repeats and both corrected-source CI runs passed
+this ordering; retain this observation for fixture/environment investigation
+rather than discarding it as proof of an application defect or hiding it.
+
+The preview APK workflow had used github.run_number as versionCode, which
+can reset with a recreated workflow. It now uses UTC seconds with Android's
+signed-integer bounds, checks the resulting signed manifest and records the
+version in build-info. A generated Gradle fixture preserving preview isolation
+and increasing the earlier 194 code passed locally. A new signed APK run is
+required to verify that workflow change. The persistent key and original
+application ID are preserved.

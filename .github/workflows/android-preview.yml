@@ -54,20 +54,25 @@ jobs:
       - run: node scripts/install-android-storage-plugin.mjs
       - run: npx cap sync android
       - name: Isolate preview package and version
-        env:
-          RUN_NUMBER: ${{ github.run_number }}
         run: |
           python3 - <<'PY'
-          import os, pathlib, re
+          import os, pathlib, re, time
           gradle = pathlib.Path("android/app/build.gradle")
           source = gradle.read_text()
           source, count = re.subn(r'(applicationId\s+["\x27])[^"\x27]+(["\x27])', r'\g<1>com.shaikibrahim.locat.preview\2', source, count=1)
           if count != 1:
               raise SystemExit("Preview applicationId not found; refusing to build original package")
-          source, count = re.subn(r'(?m)^(\s*versionCode\s+)\d+', lambda m: m.group(1) + os.environ["RUN_NUMBER"], source, count=1)
+          # UTC seconds avoid downgrade when a workflow is recreated and its
+          # run counter restarts. Keep the Android signed-int bound explicit.
+          version_code = int(time.time())
+          if not 1_000_000_000 <= version_code <= 2_147_483_647:
+              raise SystemExit("Preview version clock outside supported Android range")
+          source, count = re.subn(r'(?m)^(\s*versionCode\s+)\d+', lambda m: m.group(1) + str(version_code), source, count=1)
           if count != 1:
               raise SystemExit("Android versionCode not found")
           gradle.write_text(source)
+          with open(os.environ["GITHUB_ENV"], "a") as env_file:
+              env_file.write(f"LOCAT_PREVIEW_VERSION_CODE={version_code}\n")
           print("Configured isolated Locat preview package")
           PY
       - name: Require dedicated preview signing secrets
@@ -119,10 +124,11 @@ jobs:
           aapt="$(find "$sdk_root/build-tools" -mindepth 2 -maxdepth 2 -name aapt | sort -V | tail -1)"
           test -n "$aapt"
           "$aapt" dump badging preview-artifact/locat-2-preview.apk | grep "package: name='com.shaikibrahim.locat.preview'"
+          "$aapt" dump badging preview-artifact/locat-2-preview.apk | grep "versionCode='$LOCAT_PREVIEW_VERSION_CODE'"
       - name: Package preview APK and metadata
         run: |
           (cd preview-artifact && sha256sum locat-2-preview.apk > locat-2-preview.apk.sha256)
-          printf 'commit=%s\nrun=%s\npackage=com.shaikibrahim.locat.preview\n' "$GITHUB_SHA" "$GITHUB_RUN_NUMBER" > preview-artifact/build-info.txt
+          printf 'commit=%s\nrun=%s\nversionCode=%s\npackage=com.shaikibrahim.locat.preview\n' "$GITHUB_SHA" "$GITHUB_RUN_NUMBER" "$LOCAT_PREVIEW_VERSION_CODE" > preview-artifact/build-info.txt
       - uses: actions/upload-artifact@v4
         with:
           name: locat-2-preview-apk

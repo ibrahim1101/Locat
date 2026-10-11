@@ -1,5 +1,13 @@
 # Locat — self-hosted encrypted messaging
 
+**Ecosystem development preview:** `feat/locat-complete-ecosystem` adds encrypted
+drafts/location, limited Vault/Secrets, scoped Search/Dashboard/Hub, device-key
+proof enforcement and practical Music controls. See the
+[current downloads and testing guide](docs/ECOSYSTEM_PREVIEW_DOWNLOADS.md),
+[49-item feature register](docs/LOCAT_COMPLETE_FEATURE_MATRIX.md) and
+[draft PR #7](https://github.com/ibrahim1101/Locat/pull/7).
+The full ecosystem and native physical acceptance remain incomplete.
+
 **Unified client preview:** This branch, `feat/locat-unified-platforms`, consolidates
 core messaging, Sentinel, Link, Cinema, Music EQ and the Remote prototype, with
 Capacitor Android and Tauri Windows/Linux/macOS packaging. Use the
