@@ -1,0 +1,11 @@
+# LAN HTTPS endpoint. The local CA is NOT trusted by default on other devices.
+# Do not turn off TLS validation to work around this.
+{
+    auto_https disable_redirects
+}
+
+https://{$LOCAT_LAN_HOST} {
+    tls internal
+    encode zstd gzip
+    reverse_proxy app:3000
+}
