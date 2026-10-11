@@ -58,6 +58,11 @@ class Session:
                 self.state = 'approved'
                 self.control = body.get('control') is True and self.input_sink is not None
                 return {'state': self.state, 'control': self.control}
+            if kind == 'revoke-control' and role == 'host':
+                self.control = False
+                if self.input_sink:
+                    self.input_sink.release()
+                return {'control': False}
             if kind == 'pairing' and role == 'host':
                 self.revoke()
                 self.pair_code, self.expires = secrets.token_urlsafe(16), self.clock() + 300
@@ -87,7 +92,11 @@ class Session:
                 if self.count > 240:
                     raise Denied('Input rate exceeded')
                 event = validate_input(body.get('event'))
-                self.input_sink.apply(event)
+                try:
+                    self.input_sink.apply(event)
+                except Exception as exc:
+                    self.revoke()
+                    raise Denied('Native input failed; session revoked') from exc
                 self.last_seq = seq
                 return {'ok': True}
             raise Denied('Action denied')

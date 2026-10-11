@@ -108,6 +108,22 @@ class SecurityTests(unittest.TestCase):
                  {'kind':'key','code':'KeyW','down':'true'}, {'kind':'exec','command':'cmd.exe'}]
         for event in invalid:
             with self.subTest(event=event),self.assertRaises(Denied):validate_input(event)
+    def test_host_heartbeat_loss(self):
+        c=self.pair();self.approve(c);self.now+=4;self.s.action(c,{'type':'poll'});self.now+=2
+        with self.assertRaises(Denied):self.send(c)
+        self.assertEqual(self.sink.releases,1)
+    def test_control_revocation_keeps_video(self):
+        c=self.pair();self.approve(c);self.send(c)
+        self.s.action(self.host,{'type':'revoke-control'})
+        self.assertEqual(self.s.state,'approved');self.assertFalse(self.s.control)
+        with self.assertRaises(Denied):self.send(c,2)
+        self.assertEqual(self.sink.releases,1)
+    def test_native_failure_revokes(self):
+        c=self.pair();self.approve(c)
+        def fail(event):raise OSError('native failure')
+        self.sink.apply=fail
+        with self.assertRaises(Denied):self.send(c)
+        self.assertIsNone(self.s.client_token)
     def test_touch_coordinates(self):
         self.assertEqual(validate_input({'kind':'move','x':0,'y':1}),{'kind':'move','x':0,'y':1})
 
