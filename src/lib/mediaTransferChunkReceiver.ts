@@ -1,4 +1,5 @@
 import { decryptMediaChunk, type EncryptedMediaChunk } from "./mediaTransferCrypto";
+import { verifyMediaPayload } from "./mediaTransferIntegrity";
 
 /**
  * Ordered, bounded, authenticated receiver for a single transfer.
@@ -39,6 +40,27 @@ export class MediaTransferChunkReceiver {
     this.receivedBytes += plaintext.byteLength;
     this.nextSequence += 1;
     return this.receivedBytes;
+  }
+
+  async finishVerified(expectedChunks: number, expectedBytes: number, expectedSha256: string): Promise<Uint8Array> {
+    if (this.complete) throw new Error("Transfer already finalized");
+    if (!Number.isSafeInteger(expectedChunks) || expectedChunks < 1 || expectedChunks !== this.nextSequence ||
+        !Number.isSafeInteger(expectedBytes) || expectedBytes !== this.receivedBytes) {
+      throw new Error("Incomplete or mismatched media transfer");
+    }
+    if (!/^[a-f0-9]{64}$/.test(expectedSha256)) throw new Error("Invalid expected file digest");
+    const payload = new Uint8Array(this.receivedBytes);
+    let offset = 0;
+    for (const chunk of this.chunks) {
+      payload.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    if (!(await verifyMediaPayload(payload, expectedSha256))) {
+      throw new Error("Completed media transfer digest mismatch");
+    }
+    this.complete = true;
+    this.chunks.length = 0;
+    return payload;
   }
 
   finish(expectedChunks: number, expectedBytes: number): Uint8Array {
