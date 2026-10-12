@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEphemeralMediaKeyPair, exportEphemeralMediaPublicKey, deriveMediaSessionKey } from "./mediaTransferKeyExchange";
+import { createEphemeralMediaKeyPair, exportEphemeralMediaPublicKey, deriveMediaSessionKey, mediaKeyFingerprint, deriveVerifiedMediaSessionKey } from "./mediaTransferKeyExchange";
 import { encryptMediaChunk, decryptMediaChunk } from "./mediaTransferCrypto";
 
 describe("ephemeral media session key agreement", () => {
