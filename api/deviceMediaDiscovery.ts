@@ -21,6 +21,9 @@ export function discoverDeviceLibraries(userId: number, deviceId: number, now = 
   }
   return record.libraries.map(item => ({ ...item }));
 }
+export function hasPublishedLibrary(userId: number, deviceId: number, libraryId: string, now = Date.now()) {
+  return discoverDeviceLibraries(userId, deviceId, now).some(item => item.id === libraryId);
+}
 export function unpublishDeviceLibraries(userId: number, deviceId: number) {
   publications.delete(key(userId, deviceId));
 }
