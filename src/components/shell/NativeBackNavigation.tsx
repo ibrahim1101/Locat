@@ -69,7 +69,7 @@ export function NativeBackNavigation() {
       })?.then(listener => {
         if (disposed) void listener.remove();
         else subscription = listener;
-      }).catch(() => { /* Some Android shells do not bundle Capacitor App. */ });
+      })?.catch(() => { /* Some Android shells do not bundle Capacitor App. */ });
     }
     window.addEventListener("locat:back", back);
     window.addEventListener("keydown", keyboard);
