@@ -1,4 +1,5 @@
 import { mediaAuthRequest } from "./mediaTickets";
+import { MEDIA_MIME } from "./mediaTypes";
 import { createReadStream } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
 import { Readable } from "node:stream";
@@ -8,14 +9,6 @@ import { parseMediaRange } from "./mediaRange";
 import { probeVideo } from "./mediaProbe";
 import { createRemuxStream, RemuxBusyError } from "./mediaRemux";
 
-const MIME: Record<string, string> = {
-  ".mp4": "video/mp4", ".m4v": "video/mp4", ".mov": "video/quicktime",
-  ".webm": "video/webm", ".mkv": "video/x-matroska", ".avi": "video/x-msvideo",
-  ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".aac": "audio/aac",
-  ".flac": "audio/flac", ".wav": "audio/wav", ".ogg": "audio/ogg", ".opus": "audio/ogg",
-  ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp",
-  ".gif": "image/gif", ".bmp": "image/bmp", ".avif": "image/avif", ".heic": "image/heic", ".heif": "image/heif",
-};
 
 export async function handleMediaStream(req: Request): Promise<Response> {
   if (req.method !== "GET" && req.method !== "HEAD") return new Response(null, { status: 405 });
@@ -34,7 +27,7 @@ export async function handleMediaStream(req: Request): Promise<Response> {
   const file = await realpath(path.resolve(root, relative)).catch(() => "");
   if (!file || !file.startsWith(root + path.sep)) return new Response("Not found", { status: 404 });
   const ext = path.extname(file).toLowerCase();
-  if (!MIME[ext]) return new Response("Unsupported media", { status: 415 });
+  if (!MEDIA_MIME[ext]) return new Response("Unsupported media", { status: 415 });
   const metadata = await stat(file).catch(() => null);
   if (!metadata?.isFile()) return new Response("Not found", { status: 404 });
   if (params.get("mode") === "remux" || params.get("mode") === "transcode") {
@@ -69,7 +62,7 @@ export async function handleMediaStream(req: Request): Promise<Response> {
   const { start, end } = range;
   const partial = range.status === 206;
   if (size === 0) return new Response(null, { status: 200, headers: { "Content-Length": "0", "Accept-Ranges": "bytes" } });
-  const headers = new Headers({ "Content-Type": MIME[ext], "Content-Length": String(end - start + 1),
+  const headers = new Headers({ "Content-Type": MEDIA_MIME[ext], "Content-Length": String(end - start + 1),
     "Accept-Ranges": "bytes", "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" });
   if (partial) headers.set("Content-Range", `bytes ${start}-${end}/${size}`);
   if (req.method === "HEAD") return new Response(null, { status: partial ? 206 : 200, headers });
