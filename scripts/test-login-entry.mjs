@@ -162,6 +162,67 @@ try {
   const jpeg = await readFile(await exported.path());
   assert.equal(jpeg[0], 255); assert.equal(jpeg[1], 216); assert.ok(jpeg.length > 0 && jpeg.length <= 2_900_000);
   await photoPage.close();
+  // Exercise permission state, paged native metadata and actual media decoding through
+  // a contract fixture. Native MediaStore permission behavior still needs device acceptance.
+  const library = await browser.newPage();
+  await library.addInitScript(({ audio, movie, photo }) => {
+    window.libraryAccess = { cinema: 'denied', music: 'denied', photos: 'denied' };
+    window.libraryCalls = [];
+    const entries = {
+      cinema: [{ id: '3', name: 'Movie 10.webm', folder: 'Movies/Family/', mime: 'video/webm', modified: 1000, size: 30, duration: 3000 }, { id: '2', name: 'Movie 2.webm', folder: 'Movies/Family/', mime: 'video/webm', modified: 2000, size: 20, duration: 3000 }, { id: '1', name: 'Clip.webm', folder: 'Download/', mime: 'video/webm', modified: 3000, size: 10, duration: 3000 }],
+      music: [{ id: '2', name: 'Second.wav', folder: 'Music/Album/', album: 'Test album', artist: 'Test artist', mime: 'audio/wav', modified: 2000, size: 20, duration: 5000 }, { id: '1', name: 'First.wav', folder: 'Music/Album/', album: 'Test album', artist: 'Test artist', mime: 'audio/wav', modified: 1000, size: 10, duration: 5000 }],
+      photos: [{ id: '1', name: 'Allowed.png', folder: 'Pictures/Camera/', mime: 'image/png', modified: 1000, size: 100, duration: 0 }],
+    };
+    window.Capacitor = { isNativePlatform: () => true, convertFileSrc: uri => uri.includes('/music/') ? audio : uri.includes('/photos/') ? photo : movie, Plugins: { LocatMedia: {
+      status: async ({ kind }) => ({ access: window.libraryAccess[kind] }),
+      authorize: async ({ kind }) => { window.libraryCalls.push('authorize:' + kind); window.libraryAccess[kind] = kind === 'photos' ? 'limited' : 'full'; return { access: window.libraryAccess[kind] }; },
+      list: async ({ kind, before }) => { window.libraryCalls.push('list:' + kind + ':' + before); const rows = entries[kind]; return { items: (before ? rows.slice(1) : rows.slice(0, 1)).map(row => ({ ...row, uri: 'content://media/' + kind + '/' + row.id })), next: !before && rows.length > 1 ? rows[0].id : '', access: window.libraryAccess[kind] }; },
+      thumbnail: async () => ({ data: photo }),
+    } } };
+  }, { audio: 'data:audio/wav;base64,' + wave.toString('base64'), movie: 'data:video/webm;base64,' + movieFixture.toString('base64'), photo: 'data:image/png;base64,' + Buffer.from(photoBytes).toString('base64') });
+  let libraryRpc = 0;
+  await library.route('**/api/trpc/**', route => { libraryRpc++; return route.abort(); });
+  await library.goto(origin);
+  await library.getByRole('button', { name: 'Use non-server mode', exact: true }).click();
+  await library.getByRole('link', { name: 'Local Cinema', exact: false }).click();
+  await library.getByRole('button', { name: 'Allow media access', exact: true }).click();
+  await library.getByText('3 supported files · 2 groups', { exact: true }).waitFor();
+  await library.getByRole('button', { name: 'Movies/Family/ 2 files', exact: true }).click();
+  const libraryItems = library.getByRole('region', { name: 'Device media library' }).locator('li button');
+  assert.equal(await libraryItems.first().locator('span.block').textContent(), 'Movie 2.webm');
+  await library.getByLabel('Media sorting').selectOption('oldest');
+  assert.equal(await libraryItems.first().locator('span.block').textContent(), 'Movie 10.webm');
+  await libraryItems.first().click();
+  await library.waitForFunction(() => document.querySelector('video')?.duration > 0);
+  await library.getByRole('button', { name: 'Close library media', exact: true }).click();
+  await library.getByLabel('Search device media').fill('Clip');
+  await library.getByRole('button', { name: 'Download/ 1 files', exact: true }).waitFor();
+  assert.equal(await library.getByRole('button', { name: 'Movies/Family/ 2 files', exact: true }).count(), 0);
+  await library.getByRole('link', { name: 'Back to local sections', exact: true }).click();
+  await library.getByRole('link', { name: 'Local Music', exact: false }).click();
+  await library.getByRole('button', { name: 'Allow media access', exact: true }).click();
+  await library.getByText('2 supported files · 1 groups', { exact: true }).waitFor();
+  await library.getByLabel('Media grouping').selectOption('album');
+  await library.getByRole('button', { name: 'Test album 2 files', exact: true }).click();
+  await library.getByRole('region', { name: 'Device media library' }).locator('li button').first().click();
+  await library.waitForFunction(() => document.querySelector('audio')?.duration > 0);
+  await library.locator('audio').evaluate(audio => audio.dispatchEvent(new Event('ended')));
+  await library.getByRole('heading', { name: 'Second.wav', exact: true }).waitFor();
+  await library.getByRole('link', { name: 'Back to local sections', exact: true }).click();
+  await library.getByRole('link', { name: 'Local Photos', exact: false }).click();
+  await library.getByRole('button', { name: 'Allow media access', exact: true }).click();
+  await library.getByText(/Selected photos\/videos only/).waitFor();
+  await library.getByRole('button', { name: 'Pictures/Camera/ 1 files', exact: true }).click();
+  await library.getByRole('region', { name: 'Device media library' }).locator('li button').first().click();
+  await library.waitForFunction(() => document.querySelector('[aria-label="Photo editor preview"]').width > 1);
+  await library.evaluate(() => { window.libraryAccess.photos = 'denied'; });
+  await library.getByRole('button', { name: 'Refresh library', exact: true }).click();
+  await library.getByText('0 supported files · 0 groups', { exact: true }).waitFor();
+  assert.equal(await library.getByRole('button', { name: 'Pictures/Camera/ 1 files', exact: true }).count(), 0);
+  assert.ok((await library.evaluate(() => window.libraryCalls)).includes('list:cinema:3'));
+  assert.equal(libraryRpc, 0);
+  await library.close();
+  console.log('Device media permission/pagination, folders, sorting/search, albums, real playback and selected-access photo checks passed (native bridge contract fixture)');
   console.log('Dedicated local pages, queues, movie resume/subtitles and photo adjustment/undo/export checks passed');
   console.log('Non-server Music/Cinema, disabled account features and local passphrase checks passed');
   console.log('Login-first browser deep link and unconfigured native entry checks passed');

@@ -113,3 +113,23 @@ if (!main.includes("registerPlugin(LocatStoragePlugin.class)")) {
 }`);
   fs.writeFileSync(mainActivity, main);
 }
+
+// Install the read-only MediaStore library alongside the existing SAF save plugin.
+fs.copyFileSync(path.join(root, "scripts/LocatMediaPlugin.java"), path.join(javaDir, "LocatMediaPlugin.java"));
+main = fs.readFileSync(mainActivity, "utf8");
+if (!main.includes("registerPlugin(LocatMediaPlugin.class)")) {
+  main = main.replace("registerPlugin(LocatStoragePlugin.class);", "registerPlugin(LocatStoragePlugin.class);\n        registerPlugin(LocatMediaPlugin.class);");
+  fs.writeFileSync(mainActivity, main);
+}
+const manifestPath = path.join(root, "android/app/src/main/AndroidManifest.xml");
+let manifest = fs.readFileSync(manifestPath, "utf8");
+for (const [permission, extra] of [
+  ["READ_EXTERNAL_STORAGE", ' android:maxSdkVersion="32"'],
+  ["READ_MEDIA_VIDEO", ""], ["READ_MEDIA_AUDIO", ""],
+  ["READ_MEDIA_IMAGES", ""], ["READ_MEDIA_VISUAL_USER_SELECTED", ""],
+]) {
+  if (!manifest.includes(`android.permission.${permission}"`)) {
+    manifest = manifest.replace("</manifest>", `    <uses-permission android:name="android.permission.${permission}"${extra} />\n</manifest>`);
+  }
+}
+fs.writeFileSync(manifestPath, manifest);

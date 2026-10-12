@@ -1,3 +1,4 @@
+import { DeviceMediaLibrary } from "./DeviceMediaLibrary";
 import { useEffect, useRef, useState } from "react";
 import { nextMusicIndex, type RepeatMode } from "@/lib/musicQueue";
 import { MusicEqualizer } from "./MusicEqualizer";
@@ -15,6 +16,7 @@ export function LocalMediaQueue({ kind }: { kind: "cinema" | "music" }) {
   };
   const music = kind === "music", file = files[index];
   return <section className="rounded-2xl border bg-card p-5" aria-label="Local media player"><h2 className="font-semibold">{music ? "Local Music" : "Local Cinema"}</h2><p className="my-2 text-xs text-secondary">Choose up to 256 files from this device. Files are not uploaded. Formats depend on its codecs; Music includes 5/10/15/31-band EQ.</p>
+    <DeviceMediaLibrary kind={kind} />
     <input aria-label={music ? "Choose local music" : "Choose local movie"} type="file" multiple accept={music ? "audio/*,.flac,.alac,.opus" : "video/*,.mkv,.mov"} onChange={event => { const selected = [...(event.target.files ?? [])]; if (!selected.length) return; setFeedback(selected.length > 256 ? "Loaded the first 256 files; choose a smaller selection to include the rest." : ""); open(selected.slice(0, 256), 0); event.target.value = ""; }} className="w-full text-sm" />
     {feedback && <p role="status" className="mt-2 text-xs text-secondary">{feedback}</p>}
     {file && url && <div className="mt-4 space-y-3"><p className="truncate text-sm" data-testid="local-now-playing">{file.name}</p>{music ? <MusicEqualizer key={url} src={url} autoplay={autoplay} repeatOne={repeat === "one"} onEnded={() => { const next = nextMusicIndex(index, files.length, repeat, false); if (next !== null) open(files, next, true); }} /> : <LocalCinemaPlayer key={url} file={file} src={url} onEnded={() => {}} />}

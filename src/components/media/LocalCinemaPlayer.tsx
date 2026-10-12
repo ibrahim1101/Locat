@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { PLAYBACK_PROGRESS_KEY, parsePlaybackProgress, playbackFileId, resumePosition, updatePlaybackProgress } from "@/lib/playbackProgress";
-export function LocalCinemaPlayer({ file, src, onEnded }: { file: File; src: string; onEnded: () => void }) {
+export function LocalCinemaPlayer({ file, src, onEnded }: { file: Pick<File, "name" | "size" | "lastModified">; src: string; onEnded: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const idRef = useRef("");
   const lastWrite = useRef(0);
