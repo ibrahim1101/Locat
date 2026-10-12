@@ -1,6 +1,6 @@
 import { issueLinkChallenge, answerLinkChallenge, verifyLinkProof, validateLinkPublicKey, canonicalLinkPublicKey, revokeLinkProofs } from "./linkProof";
 import { z } from "zod";
-import { createMediaAccessRequest, listMediaAccessRequests, getMediaAccessRequest, decideMediaAccessRequest, revokeMediaAccessRequests, revokeMediaLibraryRequests } from "./deviceMediaAccess";
+import { createMediaAccessRequest, listMediaAccessRequests, getMediaAccessRequest, decideMediaAccessRequest, revokeMediaAccessRequests, revokeMediaLibraryRequests, consumeMediaAccessApproval } from "./deviceMediaAccess";
 import { publishDeviceLibraries, discoverDeviceLibraries, unpublishDeviceLibraries, hasPublishedLibrary } from "./deviceMediaDiscovery";
 import { TRPCError } from "@trpc/server";
 import { getTableColumns, and, eq, desc, inArray, isNull, ne, lt, sql } from "drizzle-orm";
@@ -172,6 +172,23 @@ export const linkRouter = createRouter({
         requesterDeviceId: ctx.linkDeviceId, libraryId: input.libraryId,
       });
       return { requestId: request.id, status: request.status, requiresSourceApproval: true };
+    }),
+    negotiateTransfer: deviceQuery.input(z.object({ requestId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+      limit(`media-transfer-negotiate:${ctx.user.id}:${ctx.linkDeviceId}`, 30, 60_000);
+      const request = getMediaAccessRequest(ctx.user.id, ctx.linkDeviceId, input.requestId);
+      if (!request || request.status !== "approved") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "An active source-device approval is required" });
+      }
+      await ownedDevice(ctx.user.id, request.sourceDeviceId);
+      await requireVerifiedPair(ctx.user.id, ctx.linkDeviceId, request.sourceDeviceId);
+      if (!hasPublishedLibrary(ctx.user.id, request.sourceDeviceId, request.libraryId)) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Source library is no longer shared" });
+      }
+      const consumed = consumeMediaAccessApproval(ctx.user.id, ctx.linkDeviceId, input.requestId);
+      if (!consumed) throw new TRPCError({ code: "CONFLICT", message: "Approval expired or already used" });
+      // The source device must separately select files and establish an
+      // encrypted transfer. Never return a filesystem path or download URL.
+      return { authorized: true, sourceDeviceId: consumed.sourceDeviceId, libraryId: consumed.libraryId, transferReady: false };
     }),
     pendingRequests: deviceQuery.query(({ ctx }) => {
       return listMediaAccessRequests(ctx.user.id, ctx.linkDeviceId);
