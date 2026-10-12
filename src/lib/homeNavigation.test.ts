@@ -11,11 +11,11 @@ const mobileNav = readFileSync(fileURLToPath(new URL("../components/shell/Mobile
 const appShell = readFileSync(fileURLToPath(new URL("../components/shell/AppShell.tsx", import.meta.url)), "utf8");
 const chatWindow = readFileSync(fileURLToPath(new URL("../components/chat/ChatWindow.tsx", import.meta.url)), "utf8");
 
-describe("mobile home navigation", () => {
-  it("exposes a single Home affordance in the primary bottom nav", () => {
+describe("mobile chat-first navigation", () => {
+  it("exposes the optional Modules launcher in the primary bottom nav", () => {
     expect(mobileNav).toContain('data-testid="mobile-bottom-nav"');
     expect(mobileNav).toContain('data-testid={m.id === "dashboard" ? "bottomnav-home" : `bottomnav-${m.id}`}');
-    expect(mobileNav).toContain('const label = m.id === "dashboard" ? "Home" : m.name;');
+    expect(mobileNav).toContain('const label = m.id === "dashboard" ? "Modules" : m.name;');
   });
 
   it("renders the shared bottom nav on the Messages conversation list", () => {
@@ -36,7 +36,7 @@ describe("mobile home navigation", () => {
 
   it("drops drawer entries that duplicate the primary bottom nav", () => {
     // The hamburger drawer no longer offers Ecosystem home or Chats because
-    // Home + Messages are reachable with one tap from the bottom bar.
+    // Modules + Messages are reachable with one tap from the bottom bar.
     expect(chat).not.toContain("Ecosystem home");
     // The duplicate "Chats" button that previously re-opened the message list
     // from inside the drawer is gone. The sidebar's "Chats" / "Hidden chats"

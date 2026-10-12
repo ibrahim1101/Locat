@@ -29,14 +29,14 @@ export type LocatModule = {
  */
 export const MODULES: LocatModule[] = [
   {
-    id: "dashboard", name: "Dashboard", tagline: "Ecosystem home",
-    description: "Your private command center across every Locat module.",
-    icon: LayoutDashboard, route: "/", status: "available", milestone: "M0", primary: true,
-  },
-  {
     id: "messages", name: "Messages", tagline: "End-to-end encrypted chat",
     description: "Direct and group conversations, encrypted on your device.",
     icon: MessageCircle, route: "/messages", status: "available", milestone: "M0", primary: true,
+  },
+  {
+    id: "dashboard", name: "Dashboard", tagline: "Optional module explorer",
+    description: "Explore available Locat modules and upcoming features.",
+    icon: LayoutDashboard, route: "/dashboard", status: "available", milestone: "M0", primary: true,
   },
   {
     id: "sentinel", name: "Sentinel", tagline: "Security incidents & alerts",

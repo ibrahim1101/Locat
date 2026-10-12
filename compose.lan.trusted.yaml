@@ -1,0 +1,14 @@
+# Optional trusted-certificate override for the LAN preview.
+# Apply AFTER compose.lan.yaml. This replaces only the proxy's Caddyfile
+# and adds read-only certificate mounts; MariaDB and app storage are unchanged.
+#
+# Requires a certificate from a CA trusted by BOTH Windows and Android,
+# issued for LOCAT_LAN_HOST (a DNS name, not an arbitrary LAN IP).
+# Set LOCAT_CERT_DIR to an absolute directory containing fullchain.pem and
+# privkey.pem. Never commit the private key to Git.
+services:
+  lan-proxy:
+    volumes:
+      - ./deploy/lan/Caddyfile.trusted:/etc/caddy/Caddyfile:ro
+      - ${LOCAT_CERT_DIR:?Set LOCAT_CERT_DIR to an absolute certificate directory}/fullchain.pem:/certs/fullchain.pem:ro
+      - ${LOCAT_CERT_DIR:?Set LOCAT_CERT_DIR to an absolute certificate directory}/privkey.pem:/certs/privkey.pem:ro

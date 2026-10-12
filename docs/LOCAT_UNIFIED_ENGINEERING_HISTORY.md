@@ -226,3 +226,12 @@ The Linux/Pi installer now installs Debian's FFmpeg package and checks both FFmp
 ### Verified overnight builds and browser download memory
 
 Revision be44d4d passed both core/database/Docker checks and Android/Windows/Linux/macOS packaging. Download guide now links those verified artifacts. Browser download no longer reads/encodes the entire Blob before discovering that no Android folder is selected. Selected-folder writes still require base64 for the native bridge. Regression verifies Blob.arrayBuffer and folder write are never called on the browser path; targeted tests 12/12, TypeScript, targeted ESLint and production build passed. New revision packaging is pending.
+
+
+### Complete-ecosystem build consolidation, 2026-10-12 morning
+
+The user re-confirmed Android launch and authorized continued work without waiting for manual testing. CI caught the browser-folder preference check invoking localStorage without a browser window in the image-download regression. Added the browser guard; targeted image/download regressions passed 15/15. This corrects the prior partial-suite verification; failed push/PR core runs were 38192329612/38192332500, while APK packaging passed.
+
+Merged unified branch 2845da6 (without changing that branch): chat-first route/navigation, LAN diagnostic CLI and tests, trusted-certificate proxy overlay and strict database-ready native onboarding. The complete ecosystem keeps encrypted private stores, Link context/lifecycle and media work. Merge had no conflicts. LAN private-CA acceptance, certificate issuance/renewal and physical performance are still unresolved; the trusted overlay requires an operator-supplied valid certificate.
+
+Consolidated local validation: 348/348 tests across 58 files passed twice with disposable MariaDB, including after fresh canonical migrations (25 tables); LAN CLI tests also passed. TypeScript/build passed, lint has no errors and 12 existing warnings. Packaging/core CI for this consolidated revision must pass before its downloads are advertised as verified. This remains an incomplete ecosystem preview; the canonical feature matrix lists remaining features and release gates. No main merge, production deployment or device-testing claims were made.
