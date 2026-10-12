@@ -17,6 +17,16 @@ describe("ephemeral media session key agreement", () => {
     const wrongContextKey = await deriveMediaSessionKey(b.privateKey, aPublic, "transfer-2", 101, 102);
     await expect(decryptMediaChunk(wrongContextKey, "transfer-1", chunk)).rejects.toThrow();
   });
+  it("fails closed for an untrusted peer key", async () => {
+    const a = await createEphemeralMediaKeyPair();
+    const b = await createEphemeralMediaKeyPair();
+    const c = await createEphemeralMediaKeyPair();
+    const bPublic = await exportEphemeralMediaPublicKey(b.publicKey);
+    const trusted = await mediaKeyFingerprint(await exportEphemeralMediaPublicKey(c.publicKey));
+    await expect(deriveVerifiedMediaSessionKey(a.privateKey, bPublic, trusted, "transfer-1", 101, 102)).rejects.toThrow("Untrusted");
+    const verified = await deriveVerifiedMediaSessionKey(a.privateKey, bPublic, await mediaKeyFingerprint(bPublic), "transfer-1", 101, 102);
+    expect(verified.algorithm.name).toBe("AES-GCM");
+  });
   it("rejects invalid session contexts", async () => {
     const a = await createEphemeralMediaKeyPair();
     const b = await createEphemeralMediaKeyPair();
