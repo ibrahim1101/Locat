@@ -235,3 +235,10 @@ The user re-confirmed Android launch and authorized continued work without waiti
 Merged unified branch 2845da6 (without changing that branch): chat-first route/navigation, LAN diagnostic CLI and tests, trusted-certificate proxy overlay and strict database-ready native onboarding. The complete ecosystem keeps encrypted private stores, Link context/lifecycle and media work. Merge had no conflicts. LAN private-CA acceptance, certificate issuance/renewal and physical performance are still unresolved; the trusted overlay requires an operator-supplied valid certificate.
 
 Consolidated local validation: 348/348 tests across 58 files passed twice with disposable MariaDB, including after fresh canonical migrations (25 tables); LAN CLI tests also passed. TypeScript/build passed, lint has no errors and 12 existing warnings. Packaging/core CI for this consolidated revision must pass before its downloads are advertised as verified. This remains an incomplete ecosystem preview; the canonical feature matrix lists remaining features and release gates. No main merge, production deployment or device-testing claims were made.
+
+
+### Consolidated preview verification and artifacts
+
+Application revision 13d87ed passed core PR run 38192834956 and push run 38192831712, including full MariaDB tests, fresh migrations/bootstrap, Docker/media readiness and Chromium audio signals. Android run 38192831774 passed and produced signed artifact 11722735364. Desktop run 38192831708 produced Windows 11722047544, Linux 11721819857 and macOS 11722281819. Download/readiness docs now reference this consolidated revision. Documentation-only follow-up does not change runtime source.
+
+The build milestone is complete for this partial preview. It does not complete the 49-feature ecosystem or establish physical performance, native secure storage, LAN certificate trust on devices, release signing/notarization or production readiness. Main, production and the unified source branch were not modified by this session.

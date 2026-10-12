@@ -19,16 +19,18 @@ installer inside the ZIP, rather than the repository source ZIP.
 
 | Platform | Workflow | Artifact | File inside |
 |---|---|---|---|
-| Windows | [Desktop run](https://github.com/ibrahim1101/Locat/actions/runs/38176698051) | [locat-windows-preview](https://github.com/ibrahim1101/Locat/actions/runs/38176698051/artifacts/11715609784) | NSIS `.exe` |
-| Android | [Signed APK run](https://github.com/ibrahim1101/Locat/actions/runs/38176698038) | [locat-2-preview-apk](https://github.com/ibrahim1101/Locat/actions/runs/38176698038/artifacts/11715948554) | `locat-2-preview.apk`, checksum, build info and signing certificate |
-| Linux | Desktop run | [locat-linux-preview](https://github.com/ibrahim1101/Locat/actions/runs/38176698051/artifacts/11716410465) | `.deb` / `.AppImage` |
-| macOS | Desktop run | [locat-macos-preview](https://github.com/ibrahim1101/Locat/actions/runs/38176698051/artifacts/11716320702) | `.app` / `.dmg` |
+| Windows | [Desktop run](https://github.com/ibrahim1101/Locat/actions/runs/38192831708) | [locat-windows-preview](https://github.com/ibrahim1101/Locat/actions/runs/38192831708/artifacts/11722047544) | NSIS `.exe` |
+| Android | [Signed APK run](https://github.com/ibrahim1101/Locat/actions/runs/38192831774) | [locat-2-preview-apk](https://github.com/ibrahim1101/Locat/actions/runs/38192831774/artifacts/11722735364) | `locat-2-preview.apk`, checksum, build info and signing certificate |
+| Linux | Desktop run | [locat-linux-preview](https://github.com/ibrahim1101/Locat/actions/runs/38192831708/artifacts/11721819857) | `.deb` / `.AppImage` |
+| macOS | Desktop run | [locat-macos-preview](https://github.com/ibrahim1101/Locat/actions/runs/38192831708/artifacts/11722281819) | `.app` / `.dmg` |
 
 Verified 2026-10-12: all four packages passed at file-context revision
-`be44d4d`; core/database/Docker checks passed in
-[38176701509](https://github.com/ibrahim1101/Locat/actions/runs/38176701509) and
-[38176698043](https://github.com/ibrahim1101/Locat/actions/runs/38176698043).
-These verified packages include the clipboard/lifecycle and bounded Link file-buffer changes. A later browser download-memory fix requires fresh packaging. Read build info
+`13d87ed`; core/database/Docker checks passed in
+[38192834956](https://github.com/ibrahim1101/Locat/actions/runs/38192834956) and
+[38192831712](https://github.com/ibrahim1101/Locat/actions/runs/38192831712).
+These packages include clipboard/lifecycle protection, bounded file buffering,
+chat-first navigation, the browser download fix and merged LAN readiness work.
+The later documentation-only follow-up does not alter application source. Read build info
 for the packaged revision and Android version code.
 Artifacts expire after 14 days. Sign in to GitHub if a direct artifact link
 requires authentication. No device behavior or release signing is inferred
