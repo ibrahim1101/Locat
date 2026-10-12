@@ -19,17 +19,19 @@ export function ServerMediaPicker({ open, onClose, onSelect }: {
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("all");
   const [busy, setBusy] = useState("");
+  const busyRef = useRef(false);
   const [error, setError] = useState("");
   const visible = useMemo(() => (items.data ?? []).filter(item =>
     (kind === "all" || item.kind === kind) &&
     (item.name + " " + item.library).toLocaleLowerCase().includes(query.toLocaleLowerCase())
   ), [items.data, query, kind]);
   async function attach(item: NonNullable<typeof items.data>[number]) {
-    if (busy) return;
+    if (busyRef.current) return;
     if (item.sizeBytes > MAX_ATTACHMENT_BYTES) {
       setError("Encrypted chat attachments are currently limited to 2.9 MB. Choose a smaller file.");
       return;
     }
+    busyRef.current = true;
     setBusy(item.id); setError("");
     controller.current?.abort();
     const request = new AbortController();
@@ -61,12 +63,13 @@ export function ServerMediaPicker({ open, onClose, onSelect }: {
         }
         chunks.push(value);
       }
-      const blob = new Blob(chunks as BlobPart[], { type: response.headers.get("content-type") ?? "application/octet-stream" });
+      const mime = response.headers.get("content-type") ?? "application/octet-stream";
+      const blob = new Blob(chunks as BlobPart[], { type: mime });
       if (request.signal.aborted) return;
       onSelect(new File([blob], item.name, { type: blob.type }));
       onClose();
     } catch (cause) { if (!request.signal.aborted) setError(cause instanceof Error ? cause.message : "Could not attach media."); }
-    finally { if (controller.current === request) { controller.current = null; setBusy(""); } }
+    finally { if (controller.current === request) { controller.current = null; busyRef.current = false; setBusy(""); } }
   }
   return <Dialog open={open} onOpenChange={value => { if (!value && !busy) onClose(); }}>
     <DialogContent className="max-h-[85dvh] overflow-y-auto">
