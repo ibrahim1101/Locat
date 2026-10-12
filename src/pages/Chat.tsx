@@ -1,3 +1,5 @@
+import { forwardPayload, forwardDestinations } from "@/lib/messageForwarding";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { acknowledgeArchivedDeliveries } from "../lib/deliveryAck";
 import { readGroupEpoch } from "../lib/groupEpoch";
 import packageInfo from "../../package.json";
@@ -155,6 +157,10 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   const [unread, setUnread] = useState<Map<number, number>>(new Map());
   const [online, setOnline] = useState<Set<number>>(new Set());
   const [newConvOpen, setNewConvOpen] = useState(false);
+  const [forwarding, setForwarding] = useState<LocalMessage | null>(null);
+  const [forwardBusy, setForwardBusy] = useState(false);
+  const [forwardError, setForwardError] = useState("");
+  const [forwardTarget, setForwardTarget] = useState<number | null>(null);
   const [groupOpen, setGroupOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [storageOpen, setStorageOpen] = useState(false);
@@ -753,6 +759,46 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       await transmit(item);
     } catch { setArchiveError("Could not queue the message change. Try again."); }
   }
+  async function forwardToConversation() {
+    if (!forwarding || forwardTarget === null || forwardBusy) return;
+    setForwardBusy(true); setForwardError("");
+    try {
+      const sourceConv = convsRef.current.find(conv => conv.id === forwarding.conversationId);
+      const destination = forwardDestinations(convsRef.current, user.id, hiddenIds, blockedIds).find(conv => conv.id === forwardTarget);
+      if (!sourceConv || sourceConv.archived || !sourceConv.members.some(member => member.id === user.id) || !destination) throw new Error("Conversation unavailable");
+      const current = (await getMessages(user.id, sourceConv.id)).find(message => message.mid === forwarding.mid);
+      if (!current || current.deleted || current.hidden) throw new Error("Message unavailable");
+      if (!await sendPayload(destination, forwardPayload(current.payload), crypto.randomUUID())) throw new Error("Could not queue");
+      setForwarding(null); setForwardTarget(null);
+    } catch { setForwardError("Could not forward this message. Check the chat and retry."); }
+    finally { setForwardBusy(false); }
+  }
+  async function sendPin(conv: ConversationSummary, target: LocalMessage, pinned: boolean) {
+    if (target.deleted || conv.archived || conv.rotationRequired || target.conversationId !== conv.id) return;
+    const control: MessageControl = { type: "control", version: 1, action: "pin",
+      target: messageReference(target), targetSenderId: target.senderId, pinned };
+    try {
+      const item: PendingMessage = { clientMessageId: crypto.randomUUID(), conversationId: conv.id,
+        senderId: user.id, senderName: user.displayName, payload: { type: "text", text: "" }, control,
+        createdAt: Date.now(), envelope: await encryptedFor(conv, control) };
+      await savePending(user.id, item);
+      setArchiveError("Pin change queued. All current members can pin or unpin messages.");
+      await transmit(item);
+    } catch { setArchiveError("Could not queue the pin change. Try again."); }
+  }
+  async function sendReaction(conv: ConversationSummary, target: LocalMessage, emoji: import("@contracts/messagePayload").ReactionEmoji | null) {
+    if (target.deleted || conv.archived || conv.rotationRequired || target.conversationId !== conv.id) return;
+    const control: MessageControl = { type: "control", version: 1, action: "reaction",
+      target: messageReference(target), targetSenderId: target.senderId, emoji };
+    try {
+      const item: PendingMessage = { clientMessageId: crypto.randomUUID(), conversationId: conv.id,
+        senderId: user.id, senderName: user.displayName, payload: { type: "text", text: "" }, control,
+        createdAt: Date.now(), envelope: await encryptedFor(conv, control) };
+      await savePending(user.id, item);
+      setArchiveError("Reaction queued. It reaches recipients when they reconnect.");
+      await transmit(item);
+    } catch { setArchiveError("Could not queue this reaction. Try again."); }
+  }
   async function sendReadReceipt(conv: ConversationSummary, target: LocalMessage) {
     const ref = messageReference(target);
     const marker = `read-receipt:${conv.id}:${target.senderId}:${ref}`;
@@ -796,12 +842,14 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         ]);
       setLatest(prev => new Map(prev).set(conv.id, optimistic));
       await transmit(item);
+      return true;
     } catch (error) {
       setArchiveError(
         error instanceof Error
           ? error.message
           : "Could not save this message on your device. Check available storage and try again."
       );
+      return false;
     }
   }
 
@@ -1057,10 +1105,10 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
               await blockedQ.refetch();
             })().catch(error => setArchiveError(error instanceof Error ? error.message : "Could not update blocked contacts."))}
             onBack={() => setActiveId(null)}
-            onSendText={text =>
+            onSendText={(text, replyTo) =>
               void sendPayload(
                 activeConv,
-                { type: "text", text },
+                { type: "text", text, ...(replyTo ? { replyTo } : {}) },
                 crypto.randomUUID()
               )
             }
@@ -1093,6 +1141,9 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
             }}
             onShowGroup={() => setGroupOpen(true)}
             onShowSecurity={() => setSecurityOpen(true)}
+            onForward={message => { setForwarding(message); setForwardTarget(null); setForwardError(""); }}
+            onPin={(message, pinned) => void sendPin(activeConv, message, pinned)}
+            onReact={(message, emoji) => void sendReaction(activeConv, message, emoji)}
             onEdit={(message, text) => void sendControl(activeConv, message, "edit", text)}
             onDeleteForAll={message => void sendControl(activeConv, message, "delete")}
             onDelete={mid => {
@@ -1127,6 +1178,20 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
           onOpenChange={setGroupOpen}
         />
       )}
+      <Dialog open={forwarding !== null} onOpenChange={open => { if (!open && !forwardBusy) setForwarding(null); }}>
+        <DialogContent><DialogTitle>Forward a copy</DialogTitle>
+          <p className="text-sm text-secondary">Choose the chat that will receive a copy. Deleting the original will not remove forwarded copies.</p>
+          {forwarding?.payload.type === "location" && <p className="text-sm text-primary">This shares the location coordinates with the selected chat.</p>}
+          <select aria-label="Forward destination" value={forwardTarget ?? ""} disabled={forwardBusy}
+            onChange={event => setForwardTarget(event.target.value ? Number(event.target.value) : null)} className="min-h-11 w-full rounded-xl border bg-background px-3">
+            <option value="">Choose a chat…</option>
+            {forwardDestinations(conversations, user.id, hiddenIds, blockedIds).map(conv => <option key={conv.id} value={conv.id}>{conversationTitle(conv, user.id).title}</option>)}
+          </select>
+          {forwardError && <p role="alert" className="text-sm text-destructive">{forwardError}</p>}
+          <button type="button" disabled={forwardTarget === null || forwardBusy} onClick={() => void forwardToConversation()}
+            className="locat-metal-button min-h-11 rounded-xl px-4 text-sm disabled:opacity-50">{forwardBusy ? "Queueing…" : "Forward copy"}</button>
+        </DialogContent>
+      </Dialog>
       {profileOpen && <ProfileDialog user={user} open={profileOpen} onOpenChange={setProfileOpen} />}
       <StorageDialog
         user={user}

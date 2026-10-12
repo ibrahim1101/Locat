@@ -3,6 +3,9 @@
 // only relays. Clearing site data wipes the local archive (by design).
 import { openDB, type IDBPDatabase } from "idb";
 import type { ConversationSummary, MessagePayload } from "@contracts/types";
+import { projectPin } from "./messagePins";
+import type { PinState } from "@contracts/messagePayload";
+import { mergeReactions, type ReactionState } from "./messageReactions";
 import type { MessageControl } from "@contracts/messagePayload";
 
 export type LocalMessage = {
@@ -17,6 +20,8 @@ export type LocalMessage = {
   deleted?: boolean;
   editedAt?: number;
   readBy?: number[];
+  reactions?: ReactionState;
+  pin?: PinState;
   hidden?: boolean; // Derived device-only view state, excluded from archives.
 };
 
@@ -133,6 +138,47 @@ export async function loadDeviceKeys(userId: number): Promise<{ privateKey: Cryp
 export function messageReference(message: LocalMessage): string {
   return message.payload.messageRef ?? `legacy:${message.mid}`;
 }
+const reactionKey = (conversationId: number, ownerId: number, target: string) =>
+  `reaction:${conversationId}:${ownerId}:${target}`;
+function projectReactions(message: LocalMessage, state?: ReactionState): LocalMessage {
+  if (!state && !message.reactions) return message;
+  return { ...message, reactions: mergeReactions(message.reactions, state) };
+}
+/** Other conversation members may react; the relay authenticates their actor ID. */
+async function applyReaction(userId: number, conversationId: number, actorId: number,
+  control: Extract<MessageControl, { action: "reaction" }>, mid: number, pendingId?: string) {
+  const tx = (await db(userId)).transaction(["messages", "kv", "outbox"], "readwrite");
+  const kv = tx.objectStore("kv"), messages = tx.objectStore("messages");
+  const key = reactionKey(conversationId, control.targetSenderId, control.target);
+  let state: ReactionState = await kv.get(key) ?? {};
+  const rows: LocalMessage[] = await messages.index("byConv").getAll(conversationId);
+  const targets = rows.filter(row => row.senderId === control.targetSenderId && messageReference(row) === control.target);
+  for (const row of targets) state = mergeReactions(state, row.reactions);
+  state = mergeReactions(state, { [actorId]: { emoji: control.emoji, mid } });
+  await kv.put(state, key);
+  for (const row of targets) await messages.put(projectReactions(row, state));
+  if (pendingId) await tx.objectStore("outbox").delete(pendingId);
+  await tx.done;
+}
+
+const pinKey = (conversationId: number, ownerId: number, target: string) => `pin:${conversationId}:${ownerId}:${target}`;
+async function applyPin(userId: number, conversationId: number, actorId: number,
+  control: Extract<MessageControl, { action: "pin" }>, mid: number, pendingId?: string) {
+  const tx = (await db(userId)).transaction(["messages", "kv", "outbox"], "readwrite");
+  const kv = tx.objectStore("kv"), messages = tx.objectStore("messages");
+  const key = pinKey(conversationId, control.targetSenderId, control.target);
+  let state: PinState = { pinned: control.pinned, actorId, mid };
+  const previous: PinState | undefined = await kv.get(key);
+  if (previous && previous.mid >= state.mid) state = previous;
+  const rows: LocalMessage[] = await messages.index("byConv").getAll(conversationId);
+  const targets = rows.filter(row => row.senderId === control.targetSenderId && messageReference(row) === control.target);
+  for (const row of targets) if (row.pin && row.pin.mid >= state.mid) state = row.pin;
+  await kv.put(state, key);
+  for (const row of targets) await messages.put(projectPin(row, state));
+  if (pendingId) await tx.objectStore("outbox").delete(pendingId);
+  await tx.done;
+}
+
 type ControlState = { control: MessageControl; mid: number; at: number };
 const controlKey = (conversationId: number, senderId: number, target: string) =>
   `control:${conversationId}:${senderId}:${target}`;
@@ -149,6 +195,8 @@ function projectControl(message: LocalMessage, state?: ControlState): LocalMessa
  */
 export async function applyMessageControl(userId: number, conversationId: number, senderId: number,
   control: MessageControl, mid: number, at: number, pendingId?: string): Promise<void> {
+  if (control.action === "pin") return applyPin(userId, conversationId, senderId, control, mid, pendingId);
+  if (control.action === "reaction") return applyReaction(userId, conversationId, senderId, control, mid, pendingId);
   const tx = (await db(userId)).transaction(["messages", "kv", "outbox"], "readwrite");
   const key = controlKey(conversationId, senderId, control.target);
   const previous: ControlState | undefined = await tx.objectStore("kv").get(key);
@@ -188,7 +236,9 @@ export async function storeMessage(userId: number, msg: LocalMessage): Promise<b
     return false;
   }
   const state = await tx.objectStore("kv").get(controlKey(msg.conversationId, msg.senderId, messageReference(msg)));
-  await messages.add(projectControl(msg, state));
+  const reactions = await tx.objectStore("kv").get(reactionKey(msg.conversationId, msg.senderId, messageReference(msg)));
+  const pin = await tx.objectStore("kv").get(pinKey(msg.conversationId, msg.senderId, messageReference(msg)));
+  await messages.add(projectPin(projectReactions(projectControl(msg, state), reactions), pin));
   await tx.done;
   return true;
 }
@@ -257,7 +307,9 @@ export async function importMessages(userId: number, messages: LocalMessage[]): 
   for (const message of messages) {
     if (await messagesStore.index("byMid").getKey(message.mid) !== undefined) continue;
     const state = await tx.objectStore("kv").get(controlKey(message.conversationId, message.senderId, messageReference(message)));
-    await messagesStore.add(projectControl(message, state));
+    const reactions = await tx.objectStore("kv").get(reactionKey(message.conversationId, message.senderId, messageReference(message)));
+    const pin = await tx.objectStore("kv").get(pinKey(message.conversationId, message.senderId, messageReference(message)));
+    await messagesStore.add(projectPin(projectReactions(projectControl(message, state), reactions), pin));
     count++;
   }
   await tx.done;
@@ -287,7 +339,9 @@ export async function completePending(userId: number, clientMessageId: string, m
   const messages = tx.objectStore("messages");
   if (await messages.index("byMid").getKey(message.mid) === undefined) {
     const state = await tx.objectStore("kv").get(controlKey(message.conversationId, message.senderId, messageReference(message)));
-    await messages.add(projectControl(message, state));
+    const reactions = await tx.objectStore("kv").get(reactionKey(message.conversationId, message.senderId, messageReference(message)));
+    const pin = await tx.objectStore("kv").get(pinKey(message.conversationId, message.senderId, messageReference(message)));
+    await messages.add(projectPin(projectReactions(projectControl(message, state), reactions), pin));
   }
   await tx.objectStore("outbox").delete(clientMessageId);
   await tx.done;

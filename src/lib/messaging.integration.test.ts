@@ -448,6 +448,48 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     expect(await count("messages")).toBe(0);
   }, 20000);
 
+  it("relays encrypted reactions with member-bound actor identity after original purge", async () => {
+    const local = await import("./localdb");
+    await local.wipeAll(99);
+    const target = crypto.randomUUID();
+    const source = await alice.messages.send({ conversationId, clientMessageId: crypto.randomUUID(),
+      envelope: await encryptPayload(receivingKey, { type: "text", text: "react here", messageRef: target }) });
+    await local.storeMessage(99, { mid: source.messageId, conversationId, senderId: aliceId,
+      senderName: "Alice", outgoing: false, payload: { type: "text", text: "react here", messageRef: target }, createdAt: source.createdAt.getTime() });
+    await alice.messages.ack({ messageIds: [source.messageId] });
+    await bob.messages.ack({ messageIds: [source.messageId] });
+    const control = { type: "control" as const, version: 1 as const, action: "reaction" as const,
+      target, targetSenderId: aliceId, emoji: "👍" as const };
+    const envelope = await encryptPayload(receivingKey, control);
+    expect(envelope).not.toContain(target); expect(envelope).not.toContain("👍");
+    await expect(outsider.messages.send({ conversationId, clientMessageId: crypto.randomUUID(), envelope })).rejects.toThrow();
+    const sent = await bob.messages.send({ conversationId, clientMessageId: crypto.randomUUID(), envelope });
+    const event = (await alice.messages.sync({ after: sent.messageId - 1 })).items.find(row => row.messageId === sent.messageId)!;
+    expect(event.senderId).toBe(bobId);
+    const decrypted = await decryptPayload(receivingKey, event.envelope);
+    if (decrypted.type !== "control") throw new Error("Expected control");
+    await local.applyMessageControl(99, event.conversationId, event.senderId, decrypted, event.messageId, event.createdAt.getTime());
+    expect((await local.allMessages(99))[0].reactions?.[String(bobId)]?.emoji).toBe("👍");
+    await alice.messages.ack({ messageIds: [sent.messageId] });
+    await bob.messages.ack({ messageIds: [sent.messageId] });
+    const pinned = await bob.messages.send({ conversationId, clientMessageId: crypto.randomUUID(),
+      envelope: await encryptPayload(receivingKey, { type: "control", version: 1, action: "pin", target, targetSenderId: aliceId, pinned: true }) });
+    const pinEvent = (await alice.messages.sync({ after: pinned.messageId - 1 })).items.find(row => row.messageId === pinned.messageId)!;
+    const pinPayload = await decryptPayload(receivingKey, pinEvent.envelope);
+    if (pinPayload.type !== "control") throw new Error("Expected pin control");
+    await local.applyMessageControl(99, pinEvent.conversationId, pinEvent.senderId, pinPayload, pinEvent.messageId, pinEvent.createdAt.getTime());
+    expect((await local.allMessages(99))[0].pin).toEqual({ pinned: true, actorId: bobId, mid: pinned.messageId });
+    await alice.messages.ack({ messageIds: [pinned.messageId] });
+    await bob.messages.ack({ messageIds: [pinned.messageId] });
+    const reply = await bob.messages.send({ conversationId, clientMessageId: crypto.randomUUID(),
+      envelope: await encryptPayload(receivingKey, { type: "text", text: "answer", replyTo: { target, senderId: aliceId } }) });
+    const replyEvent = (await alice.messages.sync({ after: reply.messageId - 1 })).items.find(row => row.messageId === reply.messageId)!;
+    expect(await decryptPayload(receivingKey, replyEvent.envelope)).toEqual({ type: "text", text: "answer", replyTo: { target, senderId: aliceId } });
+    await alice.messages.ack({ messageIds: [reply.messageId] });
+    await bob.messages.ack({ messageIds: [reply.messageId] });
+    await local.wipeAll(99);
+  });
+
   it("relays encrypted controls after original delivery is purged and preserves sender authority", async () => {
     const sendingKey = await deriveDirectKey(identities[0].privateKey, identities[1].publicKeyB64, aliceId, bobId);
     const local = await import("./localdb");

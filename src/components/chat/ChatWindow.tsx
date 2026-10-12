@@ -1,3 +1,8 @@
+import { visiblePins } from "@/lib/messagePins";
+import { REACTION_EMOJIS, type ReactionEmoji, type MessageReply } from "@contracts/messagePayload";
+import { replyPreview } from "@/lib/messageReplies";
+import { messageReference } from "@/lib/localdb";
+import { reactionSummary } from "@/lib/messageReactions";
 import { loadEncryptedDraft, saveEncryptedDraft, MAX_ENCRYPTED_DRAFT } from "@/lib/encryptedDraft";
 import type { IdentityKeys } from "@/lib/crypto";
 import { LocationShareDialog } from "./LocationShareDialog";
@@ -83,6 +88,9 @@ export function ChatWindow({
   onShowGroup,
   onDelete,
   onEdit,
+  onReact,
+  onPin,
+  onForward,
   onDeleteForAll,
   blocked,
   onToggleBlock,
@@ -97,7 +105,7 @@ export function ChatWindow({
   myId: number;
   online: Set<number>;
   onBack: () => void;
-  onSendText: (text: string) => void;
+  onSendText: (text: string, replyTo?: MessageReply) => void;
   onSendImage: (file: File) => void;
   onSendFile: (file: File) => void;
   onSendVoice: (blob: Blob, durationMs: number) => void;
@@ -107,6 +115,9 @@ export function ChatWindow({
   onShowGroup: () => void;
   onDelete: (mid: number) => void;
   onEdit: (message: LocalMessage, text: string) => void;
+  onReact: (message: LocalMessage, emoji: ReactionEmoji | null) => void;
+  onPin: (message: LocalMessage, pinned: boolean) => void;
+  onForward: (message: LocalMessage) => void;
   onDeleteForAll: (message: LocalMessage) => void;
   blocked: boolean;
   onToggleBlock: () => void;
@@ -162,7 +173,7 @@ export function ChatWindow({
   const [atBottom, setAtBottom] = useState(true);
   const nearBottom = useRef(true);
   const previousLength = useRef(0);
-  const [reply, setReply] = useState<string | null>(null);
+  const [reply, setReply] = useState<MessageReply | null>(null);
   const [recording, setRecording] = useState(false);
   const [recordingMs, setRecordingMs] = useState(0);
   const [recordingError, setRecordingError] = useState("");
@@ -262,7 +273,7 @@ export function ChatWindow({
     setDraft("");
     clearDraft(conversation.id, myId, draftServer);
     persistDraft("");
-    onSendText(reply ? `> ${reply.replaceAll("\n", "\n> ")}\n\n${text}` : text);
+    onSendText(text, reply ?? undefined);
     setReply(null);
   }
 
@@ -274,6 +285,10 @@ export function ChatWindow({
     draft,
   });
 
+  function jumpToMessage(mid: number) {
+    setSearch(""); setShowHiddenMessages(false);
+    requestAnimationFrame(() => document.getElementById(`message-${mid}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  }
   const visibleMessages = messages.filter(m => Boolean(m.hidden) === showHiddenMessages)
     .filter(m => !searchOpen || !search || (m.payload.type === "text" && m.payload.text.toLowerCase().includes(search.toLowerCase())));
 
@@ -383,6 +398,12 @@ export function ChatWindow({
         </div>
       )}
       {locationOpen && composer.canAttach && <LocationShareDialog key={conversation.id} recipient={title} onSend={onSendLocation} onClose={() => setLocationOpen(false)} />}
+      {!showHiddenMessages && visiblePins(messages, conversation.id).length > 0 && <nav aria-label="Pinned messages" className="max-h-32 overflow-y-auto border-b border-primary/30 bg-primary/5 px-3 py-2">
+        {visiblePins(messages, conversation.id).map(message => <button key={message.mid} type="button" onClick={() => jumpToMessage(message.mid)}
+          className="block min-h-11 w-full truncate rounded-lg px-2 text-left text-xs hover:bg-accent">
+          Pinned · {message.senderName}: {message.payload.type === "text" ? message.payload.text.slice(0, 120) : message.payload.type === "location" ? "Shared location" : message.payload.type === "voice" ? "Voice message" : message.payload.name}
+        </button>)}
+      </nav>}
       {/* messages */}
       <div
         ref={scrollRef}
@@ -413,7 +434,7 @@ export function ChatWindow({
                 !m.outgoing &&
                 (!prev || prev.senderId !== m.senderId || showDay);
               return (
-                <div key={m.tempId ?? m.mid}>
+                <div key={m.tempId ?? m.mid} id={`message-${m.mid}`}>
                   {showDay && (
                     <div className="flex justify-center py-3">
                       <span className="micro-label rounded-full border px-3 py-1">
@@ -422,16 +443,22 @@ export function ChatWindow({
                     </div>
                   )}
                   <MessageBubble
+                    reply={m.payload.replyTo ? replyPreview(m.payload.replyTo, messages, conversation.id) : undefined}
+                    myId={myId}
                     m={m}
                     showSender={showSender}
                     onRetry={onRetry}
                     onDelete={onDelete}
                     onToggleHidden={onToggleMessageHidden}
-                    canControl={!conversation.archived && !conversation.rotationRequired}
+                    canControl={!blocked && !conversation.archived && !conversation.rotationRequired}
+                    onForward={onForward}
+                    onPin={onPin}
+                    onJump={jumpToMessage}
+                    onReact={onReact}
                     onEdit={onEdit}
                     onDeleteForAll={onDeleteForAll}
-                    onReply={text => {
-                      setReply(text);
+                    onReply={message => {
+                      setReply({ target: messageReference(message), senderId: message.senderId });
                       textareaRef.current?.focus();
                     }}
                   />
@@ -453,7 +480,7 @@ export function ChatWindow({
       {reply && (
         <div className="flex items-center gap-3 border-t px-4 py-2 text-sm">
           <Reply className="h-4 w-4" />
-          <p className="flex-1 truncate">{reply}</p>
+          <p className="flex-1 truncate">{replyPreview(reply, messages, conversation.id).label}: {replyPreview(reply, messages, conversation.id).text}</p>
           <button aria-label="Cancel reply" onClick={() => setReply(null)}>
             <X className="h-4 w-4" />
           </button>
@@ -580,24 +607,36 @@ export function ChatWindow({
 }
 
 function MessageBubble({
+  onJump,
+  reply,
+  myId,
   canControl,
   m,
   showSender,
   onRetry,
   onDelete,
   onEdit,
+  onReact,
+  onPin,
+  onForward,
   onDeleteForAll,
   onReply,
   onToggleHidden,
 }: {
+  onJump: (mid: number) => void;
+  reply?: ReturnType<typeof replyPreview>;
+  myId: number;
   canControl: boolean;
   m: UiMessage;
   showSender: boolean;
   onRetry: (tempId: string) => void;
   onDelete: (mid: number) => void;
   onEdit: (message: LocalMessage, text: string) => void;
+  onReact: (message: LocalMessage, emoji: ReactionEmoji | null) => void;
+  onPin: (message: LocalMessage, pinned: boolean) => void;
+  onForward: (message: LocalMessage) => void;
   onDeleteForAll: (message: LocalMessage) => void;
-  onReply: (text: string) => void;
+  onReply: (message: LocalMessage) => void;
   onToggleHidden: (message: LocalMessage) => void;
 }) {
   const [menu, setMenu] = useState(false);
@@ -640,6 +679,11 @@ function MessageBubble({
         </div>
         {menu && (
           <div className="mb-2 flex flex-wrap gap-2 rounded-xl border bg-card p-2 text-xs [&_button]:min-h-11 [&_button]:rounded-lg [&_button]:px-3 [&_button]:touch-manipulation [&_button]:hover:bg-accent [&_button]:focus-visible:outline [&_button]:focus-visible:outline-2 [&_button]:focus-visible:outline-ring">
+            {canControl && !m.tempId && !m.deleted && !m.hidden && <div className="flex flex-wrap gap-1" aria-label="Choose a reaction">
+              {REACTION_EMOJIS.map(emoji => <button key={emoji} type="button" aria-label={`React ${emoji}`}
+                aria-pressed={m.reactions?.[String(myId)]?.emoji === emoji}
+                onClick={() => { onReact(m, m.reactions?.[String(myId)]?.emoji === emoji ? null : emoji); setMenu(false); }}>{emoji}</button>)}
+            </div>}
             {!m.tempId && <button className="min-h-11 p-2" onClick={() => { onToggleHidden(m); setMenu(false); }}>
               {m.hidden ? "Restore message" : "Hide on this device"}
             </button>}
@@ -661,18 +705,15 @@ function MessageBubble({
                   <Copy size={14} />
                   Copy
                 </button>
-                <button
-                  className="flex items-center gap-1 p-2"
-                  onClick={() => {
-                    if (m.payload.type === "text") onReply(m.payload.text);
-                    setMenu(false);
-                  }}
-                >
-                  <Reply size={14} />
-                  Reply
-                </button>
+
               </>
             )}
+            {canControl && !m.tempId && !m.deleted && !m.hidden && <button type="button" className="flex items-center gap-1 p-2"
+              onClick={() => { onReply(m); setMenu(false); }}><Reply size={14} /> Reply</button>}
+            {canControl && !m.tempId && !m.deleted && !m.hidden && <button type="button" className="p-2"
+              onClick={() => { onPin(m, !m.pin?.pinned); setMenu(false); }}>{m.pin?.pinned ? "Unpin for members" : "Pin for members"}</button>}
+            {canControl && !m.tempId && !m.deleted && !m.hidden && <button type="button" className="p-2"
+              onClick={() => { onForward(m); setMenu(false); }}>Forward a copy</button>}
             {canControl && mine && !m.tempId && !m.deleted && <>
               {m.payload.type === "text" && <button className="p-2" onClick={() => {
                 const text = window.prompt("Edit message", m.payload.type === "text" ? m.payload.text : "");
@@ -713,6 +754,12 @@ function MessageBubble({
               : "locat-bubble-in rounded-bl-md"
           } ${m.pending ? "opacity-60" : ""} ${m.failed ? "border-destructive" : ""}`}
         >
+          {m.payload.forwarded && !m.deleted && <p className="mb-1 text-[11px] italic opacity-70">Forwarded</p>}
+          {reply && <button type="button" disabled={reply.mid === undefined}
+            onClick={() => { if (reply.mid !== undefined) onJump(reply.mid); }}
+            className="mb-2 block min-h-11 w-full rounded-lg border-l-2 border-primary bg-background/10 px-3 py-2 text-left text-xs disabled:cursor-default">
+            <span className="block font-semibold">{reply.label}</span><span className="block truncate opacity-80">{reply.text}</span>
+          </button>}
           {m.payload.type === "image" && img && !imageBroken && (
             <img
               onClick={() => setExpanded(true)}
@@ -795,6 +842,12 @@ function MessageBubble({
             )}
           </div>
         </div>
+        {!m.deleted && !m.hidden && <div className="mt-1 flex flex-wrap gap-1" aria-label="Message reactions">
+          {reactionSummary(m.reactions, myId).map(({ emoji, count, mine: reacted }) => <button key={emoji} type="button"
+            aria-label={`${emoji}, ${count} reaction${count === 1 ? "" : "s"}`} aria-pressed={reacted}
+            disabled={!canControl || Boolean(m.tempId)} onClick={() => onReact(m, reacted ? null : emoji)}
+            className={`min-h-11 rounded-xl border px-3 text-xs ${reacted ? "border-primary bg-primary/15 ember-text" : "border-border text-secondary"}`}>{emoji} {count}</button>)}
+        </div>}
       </div>
       {img && m.payload.type === "image" && (
         <Dialog open={expanded} onOpenChange={setExpanded}>

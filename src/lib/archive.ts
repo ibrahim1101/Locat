@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { b64encode, b64decode } from "./crypto";
 import type { LocalMessage } from "./localdb";
-import { messagePayloadSchema } from "@contracts/messagePayload";
+import { messagePayloadSchema, reactionEmojiSchema, pinStateSchema } from "@contracts/messagePayload";
 export { messagePayloadSchema } from "@contracts/messagePayload";
 
 export const MAX_BACKUP_BYTES = 50 * 1024 * 1024;
@@ -10,6 +10,10 @@ const messageSchema = z.object({
   mid: z.number().int().positive(), conversationId: z.number().int().positive(),
   senderId: z.number().int().positive(), senderName: z.string().max(128),
   outgoing: z.boolean(), payload: messagePayloadSchema,
+  pin: pinStateSchema.optional(),
+  reactions: z.record(z.string().regex(/^[1-9][0-9]{0,15}$/), z.object({
+    emoji: reactionEmojiSchema.nullable(), mid: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+  }).strict()).optional(),
   deleted: z.boolean().optional(), editedAt: z.number().int().nonnegative().optional(),
   createdAt: z.number().int().nonnegative().max(8_640_000_000_000_000),
 });
