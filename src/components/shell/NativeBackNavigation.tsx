@@ -44,7 +44,7 @@ export function NativeBackNavigation() {
       event.preventDefault();
     };
     const keyboard = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented) back(event);
+      if (event.key === "Escape" && event.isTrusted && !event.defaultPrevented) back(event);
     };
     window.addEventListener("locat:back", back);
     window.addEventListener("keydown", keyboard);
