@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { trpc } from "@/providers/trpc";
 
 type Peer = { id: number; name: string };
@@ -18,8 +18,8 @@ export function DeviceLibrarySharing({ proof, peers }: { proof: string; peers: P
   const [enabled, setEnabled] = useState(false);
   const [notice, setNotice] = useState("");
   const [peerId, setPeerId] = useState<number | null>(null);
-  useEffect(() => { if (peerId !== null && !peers.some(peer => peer.id === peerId)) setPeerId(null); }, [peerId, peers]);
-  const discovery = trpc.link.mediaDiscovery.discover.useQuery({ proof, deviceId: peerId ?? 0 }, { enabled: !!peerId, retry: false });
+  const activePeerId = peerId !== null && peers.some(peer => peer.id === peerId) ? peerId : null;
+  const discovery = trpc.link.mediaDiscovery.discover.useQuery({ proof, deviceId: activePeerId ?? 0 }, { enabled: !!activePeerId, retry: false });
   const selected = Object.entries(counts).filter(([, count]) => count > 0).map(([kind, count]) => ({
     id: `folder-${kind}`, name: libraryName, kind: kind as MediaKind, count,
   }));
@@ -68,13 +68,13 @@ export function DeviceLibrarySharing({ proof, peers }: { proof: string; peers: P
     </div>
     {notice && <p role="status" className="text-xs text-secondary">{notice}</p>}
     <h3 className="text-sm font-semibold">Discover paired libraries</h3>
-    <select aria-label="Paired device libraries" className="w-full rounded-lg border bg-background p-2" value={peerId ?? ""} onChange={event => setPeerId(event.target.value ? Number(event.target.value) : null)}>
+    <select aria-label="Paired device libraries" className="w-full rounded-lg border bg-background p-2" value={activePeerId ?? ""} onChange={event => setPeerId(event.target.value ? Number(event.target.value) : null)}>
       <option value="">Select verified paired device</option>
       {peers.map(peer => <option key={peer.id} value={peer.id}>{peer.name}</option>)}
     </select>
     {discovery.isFetching && <p role="status" className="text-xs">Loading shared libraries…</p>}
     {discovery.isError && <p role="alert" className="text-xs text-destructive">Unable to discover this device's libraries.</p>}
     {discovery.data && <ul className="space-y-1 text-sm">{discovery.data.libraries.map(item => <li key={item.id} className="rounded-lg border p-2">{item.name} · {item.kind} · {item.count} files</li>)}{!discovery.data.libraries.length && <li className="text-secondary">No active shared libraries.</li>}</ul>}
-    {peerId && <button type="button" onClick={() => void discovery.refetch()} className="rounded-lg border px-3 py-2 text-sm">Refresh discovery</button>}
+    {activePeerId && <button type="button" onClick={() => void discovery.refetch()} className="rounded-lg border px-3 py-2 text-sm">Refresh discovery</button>}
   </section>;
 }
