@@ -13,6 +13,8 @@ const MIME: Record<string, string> = {
   ".webm": "video/webm", ".mkv": "video/x-matroska", ".avi": "video/x-msvideo",
   ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".aac": "audio/aac",
   ".flac": "audio/flac", ".wav": "audio/wav", ".ogg": "audio/ogg", ".opus": "audio/ogg",
+  ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp",
+  ".gif": "image/gif", ".bmp": "image/bmp", ".avif": "image/avif", ".heic": "image/heic", ".heif": "image/heif",
 };
 
 export async function handleMediaStream(req: Request): Promise<Response> {
