@@ -10,12 +10,18 @@ export class MediaTransferChunkReceiver {
   private receivedBytes = 0;
   private readonly chunks: Uint8Array[] = [];
   private complete = false;
+  private readonly key: CryptoKey;
+  private readonly transferId: string;
+  private readonly maxBytes: number;
 
   constructor(
-    private readonly key: CryptoKey,
-    private readonly transferId: string,
-    private readonly maxBytes: number,
+    key: CryptoKey,
+    transferId: string,
+    maxBytes: number,
   ) {
+    this.key = key;
+    this.transferId = transferId;
+    this.maxBytes = maxBytes;
     if (!transferId || !Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
       throw new Error("Invalid transfer limits");
     }
