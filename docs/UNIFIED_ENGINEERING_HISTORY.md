@@ -106,3 +106,15 @@ Prior CI for 6973fcc passed Locat and Remote workflows (38184647061 and 38184647
 ### 2026-10-12 — chat-first CI fixes
 
 Commit 9f787c1 restored messaging as the default screen. CI run 38188780570 failed TypeScript TS6142 because a test under contracts imported TSX without JSX support; commit 728d1d7 moved it under src/modules. Run 38188914206 then failed an older navigation test expecting the obsolete Home label; commit ac49ee7 updated the assertion to Modules. Runs 38189030205 (Locat verification and Docker smoke) and 38189030259 (Remote) passed. Commit 70fd382 now runs the five mocked LAN readiness tests through npm test; its CI is pending verification. No physical Windows, Android or Pi 5 acceptance is claimed.
+
+### 2026-10-12 — LAN onboarding readiness gate
+
+Commits 977828d and bc2e42c update the native server setup to probe
+`/api/ready` rather than process-only `/api/health` before saving the
+server origin. The client now requires HTTP 200 and the schema-ready Locat
+response; redirect handling is manual and cached responses are bypassed.
+A source-level regression test guards the endpoint, redirect and persistence
+ordering. This prevents onboarding a server whose database/schema is not
+ready; it does not prove physical Windows/Android connectivity or certificate
+trust. New CI/native artifact results must be inspected. Docker Desktop and
+Pi 5 ARM64 remain untested, as do original feature parity and media performance.
