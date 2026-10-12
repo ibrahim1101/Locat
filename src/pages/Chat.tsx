@@ -1007,7 +1007,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
       </div>
 
       {/* Mobile bottom nav: visible only on the conversation list so a single
-          tap on Home returns to the Dashboard. Hidden when a chat is open so
+          tap on Modules opens the optional Dashboard. Hidden when a chat is open so
           the composer and keyboard are not obscured. */}
       {!activeId && <MobileBottomNav active="messages" />}
 

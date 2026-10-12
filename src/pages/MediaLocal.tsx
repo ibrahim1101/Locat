@@ -49,7 +49,7 @@ export default function MediaLocal({ kind }: { kind: "cinema" | "music" }) {
   return <AppShell active={kind}>
     <main className="locat-mesh flex-1 overflow-y-auto px-4 py-8 text-foreground">
       <div className="mx-auto max-w-3xl space-y-6">
-        <Link to="/" className="inline-flex items-center gap-2 text-sm text-secondary"><ArrowLeft className="h-4 w-4" /> Dashboard</Link>
+        <Link to="/" className="inline-flex items-center gap-2 text-sm text-secondary"><ArrowLeft className="h-4 w-4" /> Messages</Link>
         <header className="flex items-center gap-4">
           <span className="rounded-2xl border border-primary/40 bg-primary/10 p-4 ember-text"><Icon className="h-7 w-7" /></span>
           <div><p className="obsidian-kicker">Locat Media Hub · Early access</p><h1 className="text-3xl font-semibold">{music ? "Music" : "Cinema"}</h1></div>

@@ -15,7 +15,8 @@ export default function App() {
     <Routes>
       <Route path="/remote" element={<Suspense fallback={<p role="status">Opening Remote…</p>}><Remote /></Suspense>} />
       <Route path="/performance" element={<Suspense fallback={<p role="status">Opening diagnostics…</p>}><Performance /></Suspense>} />
-      <Route path="/" element={<Dashboard />} />
+      <Route path="/" element={<Chat />} />
+      <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/messages" element={<Chat />} />
       <Route path="/cinema" element={<Suspense fallback={<p role="status" className="p-6 text-secondary">Opening Cinema…</p>}><MediaLocal kind="cinema" /></Suspense>} />
       <Route path="/music" element={<Suspense fallback={<p role="status" className="p-6 text-secondary">Opening Music…</p>}><MediaLocal kind="music" /></Suspense>} />
@@ -43,7 +44,7 @@ export default function App() {
           </Suspense>
         }
       />
-      <Route path="*" element={<Dashboard />} />
+      <Route path="*" element={<Chat />} />
     </Routes>
   );
 }

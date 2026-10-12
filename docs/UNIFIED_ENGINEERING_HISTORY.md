@@ -94,3 +94,10 @@ errors and 12 existing warnings. Documentation-only follow-up does not change
 the tested application tree. Native compilation/package output is verified;
 physical device acceptance, GPU/codec behavior and browser UI runtime remain
 unverified. No production deployment or main merge occurred.
+
+
+## 2026-10-12 — chat-first UI source restoration
+
+After verifying that the unified preview's dashboard-first startup diverged from the original chat-first Locat, changed the root and fallback routes to Chat. The old /messages route remains valid, while the module dashboard now lives at /dashboard. Reordered primary navigation, made the optional launcher explicitly “Modules” on mobile, and corrected media back navigation and shell labeling. Added contracts/chat-first-navigation.test.ts to guard routes, module order, and mobile labeling. No authentication, encryption, server, database, or native package logic was changed in this increment.
+
+Prior CI for 6973fcc passed Locat and Remote workflows (38184647061 and 38184647019). New source and regression tests require CI verification; native builds and physical Windows/Android acceptance are not yet verified. No claim of full feature parity or release readiness.

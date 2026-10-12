@@ -17,7 +17,7 @@ export function AppShell({ children, active }: { children: ReactNode; active: st
     <div className="locat-mesh flex app-height text-foreground">
       {/* Desktop rail */}
       <aside className="hidden w-[76px] shrink-0 flex-col items-center gap-1 border-r border-border/70 bg-background/60 py-4 pt-safe md:flex lg:w-60 lg:items-stretch lg:px-3">
-        <Link to="/" className="mb-4 flex items-center gap-2 px-2 lg:px-1" aria-label="Locat home">
+        <Link to="/" className="mb-4 flex items-center gap-2 px-2 lg:px-1" aria-label="Locat messages">
           <LocatMark className="h-10 w-10" />
           <LocatWordmark className="hidden text-xl lg:inline" />
         </Link>
