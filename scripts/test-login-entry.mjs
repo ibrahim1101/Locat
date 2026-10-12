@@ -83,6 +83,7 @@ try {
   await native.getByRole('button', { name: 'Close media', exact: true }).click();
   await native.getByRole("link", { name: "Back to local sections", exact: true }).click();
   await native.getByRole('link', { name: 'Local Cinema', exact: false }).click();
+  await native.getByLabel('Choose local movie').waitFor();
   await native.evaluate(bytes => { window.fixtureFile = new File([new Uint8Array(bytes)], 'offline.webm', { type: 'video/webm', lastModified: 12345 }); const transfer = new DataTransfer(); transfer.items.add(window.fixtureFile); const input = document.querySelector('[aria-label="Choose local movie"]'); input.files = transfer.files; input.dispatchEvent(new Event('change', { bubbles: true })); }, [...movieFixture]);
   await native.waitForFunction(() => document.querySelector('video')?.readyState >= 1);
   await native.evaluate(() => { const video = document.querySelector('video'); video.currentTime = 1.2; });
@@ -124,6 +125,9 @@ try {
   await native.mouse.move(box.x + box.width * .25, box.y + box.height * .25);
   await native.mouse.down(); await native.mouse.move(box.x + box.width * .75, box.y + box.height * .25); await native.mouse.up();
   await native.waitForFunction(() => { const pixel = document.querySelector('[aria-label="Photo editor preview"]').getContext('2d').getImageData(40, 10, 1, 1).data; return pixel[0] > 200 && pixel[1] > 50 && pixel[1] < 150; });
+  await native.getByLabel('Open local photo').setInputFiles({ name: 'blocked.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>') });
+  await native.getByText('Choose a supported raster picture; SVG documents are not opened.', { exact: true }).waitFor();
+  assert.equal(await native.getByLabel('Photo editor preview').evaluate(canvas => canvas.getContext('2d').getImageData(0, 0, 1, 1).data[3]), 0);
   await native.getByRole("link", { name: "Back to local sections", exact: true }).click();
   await native.getByRole('link', { name: 'Set or manage device passphrase' }).click();
   await native.getByTestId('app-lock-set').click();
