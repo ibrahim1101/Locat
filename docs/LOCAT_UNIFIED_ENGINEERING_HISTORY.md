@@ -295,3 +295,40 @@ requirement without changing its cadence or creating another task.
 Scheduling retry/quota/worker hardening and encrypted local schedule-copy
 helpers remain separate uncommitted work; this networking publication does
 not claim a finished scheduling composer or the full ecosystem.
+
+### 2026-10-12 — Scheduled text composer, manager and recovery
+
+Connected text/reply scheduling to the existing encrypted relay backend.
+The composer selects local device time, preserves edits while a request is
+in flight, and keeps the draft after failure. The manager shows pending-first
+host status, owner cancellation, exact saved-request retries, recovery text
+and local-copy deletion, with hidden-chat previews redacted. Requests are
+saved before RPC as identity-derived AES-GCM encrypted copies scoped to
+origin/account/UUID; local writes are atomically capped at 200. Unconfirmed
+requests never enter the normal outbox. Released is explicitly distinguished
+from received/read. The original matte-black/burnt-orange UI tokens remain.
+
+Review corrected expired-time exact retries, concurrent retry result state,
+normal-send/scheduled retry-ID collisions, sender queue backpressure, batch
+starvation, conflicting legacy receipt isolation and authorization lock
+ordering. Cancellation tombstones survive through the original future date
+plus seven days so delayed retries cannot recreate cancelled jobs after early
+cleanup. Terminal ciphertext is still cleared immediately.
+
+Verified final source: 378/378 tests across 64 files, including 35 real
+MariaDB integration cases, twice including after fresh canonical migrations
+(26 tables). Eight LAN/Tailscale CLI cases passed each run. Regressions include
+concurrent scheduled creation/workers, owner cancellation, retries after due
+time, receipt conflicts, a real >100 MB relay backlog, bounded batch fairness,
+pending-first listing, future cancellation tombstones, encrypted recovery
+context/tamper/isolation and atomic local write bounds. TypeScript passed;
+lint has zero errors and 12 existing warnings. Production build verified
+before publication; browser/native packaging CI follows this source commit.
+
+No physical device, notification, timezone-change, LAN DNS or real host
+restart acceptance is inferred. Scheduling UI is text-only; direct identity
+key changes are not yet detected and can make prepared envelopes unreadable.
+Group rekeying fails closed. See SCHEDULED_MESSAGES.md and the feature matrix;
+the full 49-feature ecosystem remains incomplete. Prior networking revision
+c1c768f passed both core checks and signed Android/Windows/Linux/macOS package
+workflows (38199692626, 38199689307, 38199689218, 38199689280).

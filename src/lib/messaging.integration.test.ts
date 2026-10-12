@@ -419,7 +419,11 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     const { releaseScheduledMessages } = await import("../../api/scheduledMessages");
     const clientMessageId = crypto.randomUUID();
     const deliverAt = new Date(Date.now() + 60_000);
-    const scheduled = await alice.messages.schedule({ conversationId, envelope, clientMessageId, deliverAt });
+    const [scheduled, concurrent] = await Promise.all([
+      alice.messages.schedule({ conversationId, envelope, clientMessageId, deliverAt }),
+      alice.messages.schedule({ conversationId, envelope, clientMessageId, deliverAt }),
+    ]);
+    expect(concurrent).toEqual(scheduled);
     expect(scheduled.state).toBe("pending");
     expect(await count("messages")).toBe(0);
     expect((await alice.messages.schedule({ conversationId, envelope, clientMessageId, deliverAt })).id).toBe(scheduled.id);
@@ -451,6 +455,96 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     expect(await count("messages")).toBe(0);
     await alice.users.requestContact({ userId: bobId });
     await bob.users.respondContact({ requestId: (await bob.users.contactRequests())[0].id, accept: true });
+  });
+
+  it("accepts exact scheduled retries after the due time and reserves IDs against immediate sends", async () => {
+    const clientMessageId = crypto.randomUUID(), deliverAt = new Date(Date.now() + 60_000);
+    const scheduled = await alice.messages.schedule({ conversationId, envelope, clientMessageId, deliverAt });
+    await expect(bob.messages.cancelScheduled({ id: scheduled.id })).rejects.toThrow("no longer cancellable");
+    await expect(alice.messages.send({ conversationId, envelope, clientMessageId })).rejects.toThrow("scheduled message");
+    const past = new Date(Math.floor((Date.now() - 60_000) / 1000) * 1000);
+    await db.update(schema.scheduledMessages).set({ deliverAt: past }).where(eq(schema.scheduledMessages.id, scheduled.id));
+    expect((await alice.messages.schedule({ conversationId, envelope, clientMessageId, deliverAt: past })).id).toBe(scheduled.id);
+    await alice.messages.cancelScheduled({ id: scheduled.id });
+    expect((await alice.messages.schedule({ conversationId, envelope, clientMessageId, deliverAt: past })).state).toBe("cancelled");
+    // A cancelled future request must not be resurrected by cleanup plus retry.
+    const futureId = crypto.randomUUID();
+    const future = await alice.messages.schedule({ conversationId, envelope, clientMessageId: futureId, deliverAt });
+    await alice.messages.cancelScheduled({ id: future.id });
+    await db.update(schema.scheduledMessages).set({ updatedAt: new Date(Date.now() - 8 * 86400000) }).where(eq(schema.scheduledMessages.id, future.id));
+    const { releaseScheduledMessages } = await import("../../api/scheduledMessages");
+    await releaseScheduledMessages();
+    expect((await alice.messages.schedule({ conversationId, envelope, clientMessageId: futureId, deliverAt })).state).toBe("cancelled");
+    const immediateId = crypto.randomUUID();
+    const sent = await alice.messages.send({ conversationId, envelope, clientMessageId: immediateId });
+    await expect(alice.messages.schedule({ conversationId, envelope, clientMessageId: immediateId, deliverAt })).rejects.toThrow("sent message");
+    await alice.messages.ack({ messageIds: [sent.messageId] });
+    await bob.messages.ack({ messageIds: [sent.messageId] });
+  });
+
+  it("contains a conflicting legacy schedule receipt and continues releasing healthy jobs", async () => {
+    const { releaseScheduledMessages } = await import("../../api/scheduledMessages");
+    const clientMessageId = crypto.randomUUID(), deliverAt = new Date(Date.now() + 60_000);
+    const bad = await alice.messages.schedule({ conversationId, envelope, clientMessageId, deliverAt });
+    const goodId = crypto.randomUUID();
+    await alice.messages.schedule({ conversationId, envelope, clientMessageId: goodId, deliverAt });
+    await db.insert(schema.sendReceipts).values({ senderId: aliceId, conversationId, clientMessageId,
+      messageId: 999999, envelopeHash: "0".repeat(64), createdAt: new Date() });
+    try {
+      expect(await releaseScheduledMessages(new Date(deliverAt.getTime() + 1000))).toBe(1);
+      const row = await db.query.scheduledMessages.findFirst({ where: eq(schema.scheduledMessages.id, bad.id) });
+      expect(row).toMatchObject({ state: "failed", failureCode: "retry_conflict", envelope: null });
+      const item = (await bob.messages.sync({ after: 0 })).items[0];
+      await alice.messages.ack({ messageIds: [item.messageId] });
+      await bob.messages.ack({ messageIds: [item.messageId] });
+    } finally { await db.delete(schema.sendReceipts).where(eq(schema.sendReceipts.clientMessageId, clientMessageId)); }
+  });
+
+  it("applies normal relay backpressure to due schedules without discarding them", async () => {
+    const { releaseScheduledMessages } = await import("../../api/scheduledMessages");
+    const deliverAt = new Date(Date.now() + 60_000);
+    const job = await alice.messages.schedule({ conversationId, envelope, clientMessageId: crypto.randomUUID(), deliverAt });
+    const ids: number[] = [];
+    try {
+      // Real MEDIUMTEXT rows: the SQL aggregate exceeds the 100 MB relay bound.
+      for (let n = 0; n < 7; n++) {
+        const [{ id }] = await db.insert(schema.messages).values({ conversationId, senderId: aliceId,
+          envelope: sql`REPEAT('x', 14300000)` }).$returningId();
+        ids.push(id);
+      }
+      const healthyId = crypto.randomUUID();
+      await bob.messages.schedule({ conversationId, envelope, clientMessageId: healthyId, deliverAt: new Date(deliverAt.getTime() + 2000) });
+      const due = new Date(deliverAt.getTime() + 5000);
+      expect(await releaseScheduledMessages(due, 1)).toBe(0);
+      expect(await db.query.scheduledMessages.findFirst({ where: eq(schema.scheduledMessages.id, job.id) })).toMatchObject({ state: "pending", envelope });
+      // The next bounded batch must reach another sender, not repeat the blocked job.
+      expect(await releaseScheduledMessages(due, 1)).toBe(1);
+      const healthy = (await alice.messages.sync({ after: 0 })).items.find(item => item.senderId === bobId)!;
+      await alice.messages.ack({ messageIds: [healthy.messageId] });
+      await bob.messages.ack({ messageIds: [healthy.messageId] });
+    } finally { for (const id of ids) await db.delete(schema.messages).where(eq(schema.messages.id, id)); }
+    expect(await releaseScheduledMessages(new Date(deliverAt.getTime() + 1000))).toBe(1);
+    const item = (await bob.messages.sync({ after: 0 })).items[0];
+    await alice.messages.ack({ messageIds: [item.messageId] });
+    await bob.messages.ack({ messageIds: [item.messageId] });
+  }, 20000);
+
+  it("lists pending schedules before a large terminal history", async () => {
+    const ids: number[] = [];
+    const deliverAt = new Date(Date.now() + 60_000);
+    try {
+      for (let n = 0; n < 151; n++) {
+        const [{ id }] = await db.insert(schema.scheduledMessages).values({ senderId: aliceId, conversationId,
+          clientMessageId: crypto.randomUUID(), envelopeHash: "0".repeat(64), envelope: null,
+          deliverAt: new Date(Date.now() - 60000), state: "cancelled" }).$returningId();
+        ids.push(id);
+      }
+      const pending = await alice.messages.schedule({ conversationId, envelope, clientMessageId: crypto.randomUUID(), deliverAt });
+      ids.push(pending.id);
+      const list = await alice.messages.scheduled();
+      expect(list[0]).toMatchObject({ id: pending.id, state: "pending" });
+      expect(list).toHaveLength(150);
+    } finally { for (const id of ids) await db.delete(schema.scheduledMessages).where(eq(schema.scheduledMessages.id, id)); }
   });
 
   it("rolls back the envelope and receipts when delivery creation fails", async () => {

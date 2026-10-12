@@ -1,4 +1,5 @@
 import { visiblePins } from "@/lib/messagePins";
+import { ScheduleTextDialog } from "./ScheduleTextDialog";
 import { REACTION_EMOJIS, type ReactionEmoji, type MessageReply } from "@contracts/messagePayload";
 import { replyPreview } from "@/lib/messageReplies";
 import { messageReference } from "@/lib/localdb";
@@ -79,6 +80,8 @@ export function ChatWindow({
   online,
   onBack,
   onSendText,
+  onScheduleText,
+  onShowSchedules,
   onSendImage,
   onSendFile,
   onSendVoice,
@@ -106,6 +109,8 @@ export function ChatWindow({
   online: Set<number>;
   onBack: () => void;
   onSendText: (text: string, replyTo?: MessageReply) => void;
+  onScheduleText: (text: string, date: Date, replyTo?: MessageReply) => Promise<void>;
+  onShowSchedules: () => void;
   onSendImage: (file: File) => void;
   onSendFile: (file: File) => void;
   onSendVoice: (blob: Blob, durationMs: number) => void;
@@ -126,6 +131,7 @@ export function ChatWindow({
   onToggleMessageHidden: (message: LocalMessage) => void;
 }) {
   const [locationOpen, setLocationOpen] = useState(false);
+  const [scheduleDraft, setScheduleDraft] = useState<{ text: string; reply?: MessageReply; revision: number } | null>(null);
   const [draft, setDraft] = useState(() => loadDraft(conversation.id, myId, draftServer));
   const draftRevision = useRef(0);
   const [draftError, setDraftError] = useState("");
@@ -486,6 +492,13 @@ export function ChatWindow({
           </button>
         </div>
       )}
+      {scheduleDraft && <ScheduleTextDialog text={scheduleDraft.text} onClose={() => setScheduleDraft(null)} onManager={onShowSchedules}
+        onSchedule={async date => {
+          if (!composer.canSend || recording) throw new Error("This conversation is no longer available for scheduling.");
+          await onScheduleText(scheduleDraft.text, date, scheduleDraft.reply);
+          // Keep edits made while the request was in flight.
+          if (draftRevision.current === scheduleDraft.revision) { setDraft(""); persistDraft(""); setReply(null); }
+        }} />}
       {!composer.composerVisible ? (
         <p role="status" className="border-t px-4 py-4 text-sm text-secondary">
           {composer.unavailableReason}
@@ -591,6 +604,11 @@ export function ChatWindow({
               >
                 <SendHorizonal className="h-5 w-5" />
               </button>
+            </div>
+            <div className="mx-auto mt-2 flex max-w-3xl flex-wrap gap-2">
+              <button type="button" disabled={!composer.canSend || recording} onClick={() => setScheduleDraft({ text: draft.trim(), reply: reply ?? undefined, revision: draftRevision.current })}
+                className="min-h-11 rounded-xl border px-3 text-xs text-secondary disabled:opacity-40">Schedule text</button>
+              <button type="button" onClick={onShowSchedules} className="min-h-11 rounded-xl px-3 text-xs text-secondary">Scheduled messages</button>
             </div>
             {composer.unavailableReason && (
               <p id="composer-unavailable-reason" role="status" className="mx-auto mt-2 max-w-3xl text-xs text-secondary">

@@ -7,7 +7,7 @@ import { emitToUsers, onlineUserIds } from "./hub";
 import { notifyUsers } from "./push";
 import type { RelayEvent } from "@contracts/types";
 
-export type ScheduledFailureCode = "account_disabled" | "membership_changed" | "destination_unavailable" | "key_epoch_changed";
+export type ScheduledFailureCode = "account_disabled" | "membership_changed" | "destination_unavailable" | "key_epoch_changed" | "retry_conflict";
 
 type SelectDatabase = Pick<ReturnType<typeof getDb>, "select">;
 type ScheduledDestination = Pick<typeof scheduledMessages.$inferSelect, "senderId" | "conversationId" | "groupEpoch">;
@@ -27,11 +27,11 @@ export async function scheduledDestinationFailure(tx: SelectDatabase, row: Sched
   if (!peer) return "destination_unavailable";
   const [blocked] = await tx.select({ id: userBlocks.id }).from(userBlocks).where(or(
     and(eq(userBlocks.blockerId, row.senderId), eq(userBlocks.blockedId, peer.id)),
-    and(eq(userBlocks.blockerId, peer.id), eq(userBlocks.blockedId, row.senderId)))).limit(1);
+    and(eq(userBlocks.blockerId, peer.id), eq(userBlocks.blockedId, row.senderId)))).limit(1).for("update");
   const low = Math.min(row.senderId, peer.id), high = Math.max(row.senderId, peer.id);
   const [contact] = await tx.select({ id: contactRelationships.id }).from(contactRelationships).where(and(
     eq(contactRelationships.userLowId, low), eq(contactRelationships.userHighId, high),
-    eq(contactRelationships.status, "accepted"))).limit(1);
+    eq(contactRelationships.status, "accepted"))).limit(1).for("update");
   return blocked || !contact ? "destination_unavailable" : null;
 }
 
@@ -42,13 +42,16 @@ export async function scheduledDestinationFailure(tx: SelectDatabase, row: Sched
 export async function releaseScheduledMessages(now = new Date(), limit = 25): Promise<number> {
   const db = getDb();
   await db.delete(scheduledMessages).where(and(ne(scheduledMessages.state, "pending"),
-    lt(scheduledMessages.updatedAt, new Date(now.getTime() - 7 * 86400000))));
-  const candidates = await db.select({ id: scheduledMessages.id }).from(scheduledMessages)
+    lt(scheduledMessages.updatedAt, new Date(now.getTime() - 7 * 86400000)),
+    lt(scheduledMessages.deliverAt, new Date(now.getTime() - 7 * 86400000))));
+  const candidates = await db.select({ id: scheduledMessages.id, conversationId: scheduledMessages.conversationId, senderId: scheduledMessages.senderId }).from(scheduledMessages)
     .where(and(eq(scheduledMessages.state, "pending"), lte(scheduledMessages.deliverAt, now)))
-    .orderBy(asc(scheduledMessages.deliverAt)).limit(limit);
+    .orderBy(asc(scheduledMessages.updatedAt), asc(scheduledMessages.deliverAt)).limit(limit);
   let released = 0;
   for (const candidate of candidates) {
     const result = await db.transaction(async tx => {
+      await tx.select({ id: conversations.id }).from(conversations).where(eq(conversations.id, candidate.conversationId)).for("update");
+      await tx.select({ id: users.id }).from(users).where(eq(users.id, candidate.senderId)).for("update");
       const [row] = await tx.select().from(scheduledMessages).where(eq(scheduledMessages.id, candidate.id)).for("update");
       if (!row || row.state !== "pending" || row.deliverAt > now) return null;
       const envelope = row.envelope;
@@ -66,10 +69,21 @@ export async function releaseScheduledMessages(now = new Date(), limit = 25): Pr
       const [existing] = await tx.select().from(sendReceipts).where(and(
         eq(sendReceipts.senderId, row.senderId), eq(sendReceipts.clientMessageId, row.clientMessageId))).limit(1);
       if (existing) {
-        if (existing.conversationId !== row.conversationId || existing.envelopeHash !== row.envelopeHash)
-          throw new Error("Scheduled retry receipt mismatch");
+        if (existing.conversationId !== row.conversationId || existing.envelopeHash !== row.envelopeHash) {
+          await tx.update(scheduledMessages).set({ state: "failed", failureCode: "retry_conflict", envelope: null, updatedAt: now })
+            .where(eq(scheduledMessages.id, row.id));
+          return null;
+        }
         await tx.update(scheduledMessages).set({ state: "delivered", messageId: existing.messageId, envelope: null, updatedAt: now })
           .where(eq(scheduledMessages.id, row.id));
+        return null;
+      }
+      const [queued] = await tx.select({ bytes: sql<number>`COALESCE(SUM(OCTET_LENGTH(${messages.envelope})), 0)` })
+        .from(messages).where(eq(messages.senderId, row.senderId));
+      // Backpressure preserves the schedule instead of exceeding the normal relay limit.
+      if (Number(queued.bytes) + Buffer.byteLength(envelope) > 100_000_000) {
+        // Move blocked work behind untouched jobs, avoiding batch starvation.
+        await tx.update(scheduledMessages).set({ updatedAt: now }).where(eq(scheduledMessages.id, row.id));
         return null;
       }
       const createdAt = new Date(Math.floor(now.getTime() / 1000) * 1000);

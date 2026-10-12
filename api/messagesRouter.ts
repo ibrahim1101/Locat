@@ -4,7 +4,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { limit } from "./rateLimit";
 import { observable } from "@trpc/server/observable";
-import { eq, and, asc, gt, lt, inArray, sql, or } from "drizzle-orm";
+import { eq, and, asc, desc, gt, lt, inArray, sql, or } from "drizzle-orm";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import {
@@ -50,6 +50,15 @@ export const messagesRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb(), me = ctx.user!.id, now = Date.now();
     const deliverAt = new Date(Math.floor(input.deliverAt.getTime() / 1000) * 1000);
+    const hash = scheduledEnvelopeHash(input.envelope);
+    const [existing] = await db.select().from(scheduledMessages).where(and(
+      eq(scheduledMessages.senderId, me), eq(scheduledMessages.clientMessageId, input.clientMessageId))).limit(1);
+    if (existing) {
+      if (existing.conversationId !== input.conversationId || existing.envelopeHash !== hash ||
+          existing.deliverAt.getTime() !== deliverAt.getTime())
+        throw new TRPCError({ code: "CONFLICT", message: "Scheduled retry does not match the original" });
+      return { id: existing.id, state: existing.state, deliverAt: existing.deliverAt };
+    }
     if (deliverAt.getTime() < now + 30_000 || deliverAt.getTime() > now + 30 * 86400000)
       throw new TRPCError({ code: "BAD_REQUEST", message: "Schedule messages from 30 seconds to 30 days ahead" });
     await requireMembership(input.conversationId, me);
@@ -64,18 +73,15 @@ export const messagesRouter = createRouter({
     const destinationFailure = await scheduledDestinationFailure(db, { senderId: me,
       conversationId: input.conversationId, groupEpoch });
     if (destinationFailure) throw new TRPCError({ code: "FORBIDDEN", message: "Conversation is no longer available" });
-    const hash = scheduledEnvelopeHash(input.envelope);
-    const [existing] = await db.select().from(scheduledMessages).where(and(
-      eq(scheduledMessages.senderId, me), eq(scheduledMessages.clientMessageId, input.clientMessageId))).limit(1);
-    if (existing) {
-      if (existing.conversationId !== input.conversationId || existing.envelopeHash !== hash ||
-          existing.deliverAt.getTime() !== deliverAt.getTime())
-        throw new TRPCError({ code: "CONFLICT", message: "Scheduled retry does not match the original" });
-      return { id: existing.id, state: existing.state, deliverAt: existing.deliverAt };
-    }
     limit(`schedule:${me}`, 120, 60000);
     const id = await db.transaction(async tx => {
+      await tx.select({ id: conversations.id }).from(conversations).where(eq(conversations.id, input.conversationId)).for("update");
       await tx.select({ id: users.id }).from(users).where(eq(users.id, me)).for("update");
+      if (await scheduledDestinationFailure(tx, { senderId: me, conversationId: input.conversationId, groupEpoch }))
+        throw new TRPCError({ code: "FORBIDDEN", message: "Conversation is no longer available" });
+      const [receipt] = await tx.select({ id: sendReceipts.id }).from(sendReceipts).where(and(
+        eq(sendReceipts.senderId, me), eq(sendReceipts.clientMessageId, input.clientMessageId))).limit(1).for("update");
+      if (receipt) throw new TRPCError({ code: "CONFLICT", message: "Retry ID already belongs to a sent message" });
       const [{ count, bytes }] = await tx.select({ count: sql<number>`COUNT(*)`,
         bytes: sql<number>`COALESCE(SUM(OCTET_LENGTH(${scheduledMessages.envelope})), 0)` }).from(scheduledMessages)
         .where(and(eq(scheduledMessages.senderId, me), eq(scheduledMessages.state, "pending")));
@@ -92,8 +98,9 @@ export const messagesRouter = createRouter({
       if (concurrent.conversationId !== input.conversationId || concurrent.envelopeHash !== hash ||
           concurrent.deliverAt.getTime() !== deliverAt.getTime())
         throw new TRPCError({ code: "CONFLICT", message: "Scheduled retry does not match the original" });
-      return concurrent.id;
+      return { id: concurrent.id, state: concurrent.state, deliverAt: concurrent.deliverAt };
     });
+    if (typeof id !== "number") return id;
     return { id, state: "pending" as const, deliverAt };
   }),
 
@@ -103,7 +110,9 @@ export const messagesRouter = createRouter({
       clientMessageId: scheduledMessages.clientMessageId, deliverAt: scheduledMessages.deliverAt,
       state: scheduledMessages.state, messageId: scheduledMessages.messageId, failureCode: scheduledMessages.failureCode })
       .from(scheduledMessages).where(eq(scheduledMessages.senderId, ctx.user!.id))
-      .orderBy(asc(scheduledMessages.deliverAt)).limit(100);
+      .orderBy(sql`CASE WHEN ${scheduledMessages.state} = 'pending' THEN 0 ELSE 1 END`,
+        sql`CASE WHEN ${scheduledMessages.state} = 'pending' THEN ${scheduledMessages.deliverAt} END ASC`,
+        desc(scheduledMessages.updatedAt)).limit(150);
   }),
 
   cancelScheduled: authedQuery.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
@@ -154,6 +163,9 @@ export const messagesRouter = createRouter({
         if (!contact) throw new TRPCError({ code: "FORBIDDEN", message: "Direct contact is no longer accepted" });
       }
 
+      const [reserved] = await db.select({ id: scheduledMessages.id }).from(scheduledMessages).where(and(
+        eq(scheduledMessages.senderId, me), eq(scheduledMessages.clientMessageId, input.clientMessageId))).limit(1);
+      if (reserved) throw new TRPCError({ code: "CONFLICT", message: "Retry ID belongs to a scheduled message" });
       const envelopeHash = createHash("sha256").update(input.envelope).digest("hex");
       await db.delete(sendReceipts).where(lt(sendReceipts.createdAt, new Date(Date.now() - 7 * 86400000)));
       const findExisting = async () => {
@@ -179,6 +191,9 @@ export const messagesRouter = createRouter({
           if(conversation.rotationRequired || epoch !== conversation.groupEpoch) throw new TRPCError({code:"PRECONDITION_FAILED",message:"Group encryption changed. Refresh and retry after the owner rotates the key."});
         }
         await tx.select({ id: users.id }).from(users).where(eq(users.id, me)).for("update");
+        const [scheduled] = await tx.select({ id: scheduledMessages.id }).from(scheduledMessages).where(and(
+          eq(scheduledMessages.senderId, me), eq(scheduledMessages.clientMessageId, input.clientMessageId))).limit(1).for("update");
+        if (scheduled) throw new TRPCError({ code: "CONFLICT", message: "Retry ID belongs to a scheduled message" });
         const [queued] = await tx.select({ bytes: sql<number>`COALESCE(SUM(OCTET_LENGTH(${messages.envelope})), 0)` }).from(messages).where(eq(messages.senderId, me));
         if (Number(queued.bytes) + Buffer.byteLength(input.envelope) > 100_000_000) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Your undelivered queue is full. Wait for recipients to connect." });
         const createdAt = new Date(Math.floor(Date.now() / 1000) * 1000);

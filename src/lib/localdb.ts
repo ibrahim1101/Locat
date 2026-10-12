@@ -97,6 +97,20 @@ export async function setMessageHidden(userId: number, mid: number, hidden: bool
   else await kvDel(userId, key);
 }
 
+/** Atomically bound a metadata namespace without introducing a new store. */
+export async function putBoundedKv(userId: number, key: string, prefix: string, value: Record<string, unknown>, limit: number): Promise<void> {
+  if (!key.startsWith(prefix) || !Number.isSafeInteger(limit) || limit < 1) throw new Error("Invalid local namespace");
+  const tx = (await db(userId)).transaction("kv", "readwrite");
+  if (await tx.store.get(key) === undefined) {
+    const keys = await tx.store.getAllKeys();
+    if (keys.filter(k => typeof k === "string" && k.startsWith(prefix)).length >= limit) {
+      tx.abort(); await tx.done.catch(() => undefined); throw new Error("Local scheduled-copy limit reached");
+    }
+  }
+  await tx.store.put(value, key); await tx.done;
+}
+export async function kvKeys(userId: number): Promise<IDBValidKey[]> { return (await db(userId)).getAllKeys("kv"); }
+
 // ─── identity keys ───────────────────────────────────────────────────────────
 
 export async function saveIdentity(

@@ -24,7 +24,7 @@ Earlier user reports accepted original numbered 01/03/06/07/17/41 and older Andr
 - Limited client-encrypted Vault and Secrets previews using separate passphrase-wrapped keys (PBKDF2 600k), authenticated ciphertext storage, folder labels/device search, atomic quota/revision checks, bounded files, background/five-minute lock and encrypted same-store missing-ID backup restore.
 - Read-only M5 Hub beta reuses authorized admin statistics; OS-reported RAM/uptime are shown, while CPU, media activity and alerts remain absent. M4 scoped Search/Dashboard are integrated previews.
 - New-registration 15 Unicode-character policy restored per current assignment; legacy 8-character login remains supported, with the earlier f5d37d9 decision preserved in history.
-- Scheduled-message relay preview persists only opaque ciphertext until due, bounds each account to 100 pending messages/100 MB/30 days, rechecks current membership, direct-contact/block state and group key epoch at delivery, and atomically releases once across workers. Delivered/cancelled/failed ciphertext is cleared. The composer/list UI and physical restart/native acceptance are not yet implemented.
+- Scheduled-message relay preview persists only opaque ciphertext until due, bounds each account to 100 pending messages/100 MB/30 days, rechecks current membership, direct-contact/block state and group key epoch at delivery, and atomically releases once across workers. Delivered/cancelled/failed ciphertext is cleared. Encrypted text/reply composer and manager now support local-time selection, exact saved-request retries, owner cancellation and recovery copies. Physical restart/native UI/notification acceptance and direct identity key-change detection remain open.
 
 These are limited implementations, not completion of their full module requirements. Final test evidence must be read from `docs/LOCAT_UNIFIED_ENGINEERING_HISTORY.md`. Data model/migration changes require fresh-database and upgrade/restore verification, not merely a TypeScript build.
 
@@ -32,7 +32,7 @@ These are limited implementations, not completion of their full module requireme
 
 | Gate | Status | Required action |
 |---|---|---|
-| All historical requirements | Open | Account for all 49; complete scheduled-message UI/acceptance and implement missing calling/MFA/passkeys/closure/expiry/view limits/widgets/share integration and mission additions |
+| All historical requirements | Open | Account for all 49; complete scheduled-message device acceptance and implement missing calling/MFA/passkeys/closure/expiry/view limits/widgets/share integration and mission additions |
 | Missing milestone history | Unresolved | M12/M13 identities not recovered; preserve uncertainty, do not invent |
 | Messaging security/recovery | Partially tested baseline | Current payload/draft/archive/group/offline integration; cross-device regression and real restore drill |
 | Link trust/revocation/replay | Partially tested preview | Session-bound private-key proof, actor checks, legacy-pair reproof and revoked-key alias/API regressions pass. Multi-worker shared proof state, contextual transfer ciphertext replay protection and genuine LAN discovery remain open |

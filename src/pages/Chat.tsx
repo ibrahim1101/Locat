@@ -1,4 +1,7 @@
 import { forwardPayload, forwardDestinations } from "@/lib/messageForwarding";
+import { ScheduledMessagesDialog } from "@/components/chat/ScheduledMessagesDialog";
+import { saveScheduledCopy, type ScheduledCopy } from "@/lib/scheduledDrafts";
+import type { MessageReply } from "@contracts/messagePayload";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { acknowledgeArchivedDeliveries } from "../lib/deliveryAck";
 import { readGroupEpoch } from "../lib/groupEpoch";
@@ -165,6 +168,8 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [storageOpen, setStorageOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
+  const [schedulesOpen, setSchedulesOpen] = useState(false);
+  const scheduleAttempts = useRef(new Map<string, ScheduledCopy>());
 
   const alive = useRef(true);
   useEffect(() => {
@@ -175,6 +180,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   }, []);
   const [connection, setConnection] = useState("Connecting…");
   const sendMut = trpc.messages.send.useMutation();
+  const scheduleMut = trpc.messages.schedule.useMutation();
   const ackMut = trpc.messages.ack.useMutation();
   const blockedQ = trpc.users.blocked.useQuery();
   const blockMut = trpc.users.block.useMutation();
@@ -745,6 +751,26 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
         })
       : envelope;
   }
+  async function scheduleText(conv: ConversationSummary, text: string, date: Date, replyTo?: MessageReply) {
+    if (conv.archived || conv.rotationRequired || (conv.type === "direct" && conv.members.some(m => m.id !== user.id && blockedIds.has(m.id))))
+      throw new Error("This conversation is unavailable for scheduling.");
+    const signature = JSON.stringify([nativeServerUrl(), user.id, conv.id, text, date.toISOString(), replyTo]);
+    let copy = scheduleAttempts.current.get(signature);
+    if (!copy) {
+      const id = crypto.randomUUID();
+      const payload: MessagePayload = { type: "text", text, messageRef: id, ...(replyTo ? { replyTo } : {}) };
+      copy = { clientMessageId: id, conversationId: conv.id, deliverAt: date.toISOString(), payload, envelope: await encryptedFor(conv, payload) };
+      await saveScheduledCopy(keys, nativeServerUrl(), user.id, copy);
+      scheduleAttempts.current.set(signature, copy);
+    }
+    try {
+      const result = await scheduleMut.mutateAsync({ conversationId: copy.conversationId, clientMessageId: copy.clientMessageId, envelope: copy.envelope, deliverAt: new Date(copy.deliverAt) });
+      if (result.state !== "pending" && result.state !== "delivered") throw new Error(`The saved request is ${result.state}. Review scheduled messages.`);
+      scheduleAttempts.current.delete(signature);
+    } catch (error) {
+      throw new Error(`${error instanceof Error ? error.message : "Schedule response unavailable."} Review saved requests before creating another schedule.`);
+    }
+  }
   async function sendControl(conv: ConversationSummary, target: LocalMessage, action: "edit" | "delete", text?: string) {
     if (target.senderId !== user.id || target.deleted || conv.archived || conv.rotationRequired) return;
     const control: MessageControl = action === "delete"
@@ -1048,6 +1074,7 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
               <button type="button" onClick={() => { setNavOpen(false); setNewConvOpen(true); }} className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.035] px-4 text-left text-sm text-[#d5d9e0] hover:bg-white/10"><MessageSquarePlus className="h-5 w-5" /> People &amp; requests</button>
               <button type="button" onClick={() => { setActiveId(null); setNavOpen(false); window.requestAnimationFrame(() => searchRef.current?.focus()); }} className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.035] px-4 text-left text-sm text-[#d5d9e0] hover:bg-white/10"><Search className="h-5 w-5" /> Search conversations</button>
               <button type="button" onClick={() => { setNavOpen(false); setStorageOpen(true); }} className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.035] px-4 text-left text-sm text-[#d5d9e0] hover:bg-white/10"><HardDrive className="h-5 w-5" /> Settings &amp; backups</button>
+              <button type="button" onClick={() => { setNavOpen(false); setSchedulesOpen(true); }} className="flex min-h-12 w-full items-center rounded-2xl border border-white/[0.06] bg-white/[0.035] px-4 text-left text-sm">Scheduled messages</button>
             </div>
             <div className="min-h-8 flex-1" />
             <div className="mt-auto space-y-3 border-t border-white/10 pt-4">
@@ -1073,6 +1100,8 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
 
       {/* In-app foreground alerts for incoming messages. */}
       <ToastHost onOpenConversation={id => void openConversation(id)} />
+      {schedulesOpen && <ScheduledMessagesDialog identity={keys} server={nativeServerUrl()} userId={user.id} conversations={conversations}
+        hiddenIds={hiddenIds} hiddenReady={hiddenReady} onClose={() => setSchedulesOpen(false)} />}
 
       {/* main pane */}
       <div className={`${activeId ? "flex" : "hidden"} min-w-0 flex-1 md:flex`}>
@@ -1105,6 +1134,8 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
               await blockedQ.refetch();
             })().catch(error => setArchiveError(error instanceof Error ? error.message : "Could not update blocked contacts."))}
             onBack={() => setActiveId(null)}
+            onScheduleText={(text, date, replyTo) => scheduleText(activeConv, text, date, replyTo)}
+            onShowSchedules={() => setSchedulesOpen(true)}
             onSendText={(text, replyTo) =>
               void sendPayload(
                 activeConv,
