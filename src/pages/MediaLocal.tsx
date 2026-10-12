@@ -66,7 +66,7 @@ export default function MediaLocal({ kind }: { kind: "cinema" | "music" }) {
   const Icon = music ? Music2 : Film;
   return <AppShell active={kind}>
     <main className="locat-mesh flex-1 overflow-y-auto px-4 py-8 text-foreground">
-      <DeviceMediaLibrary kind={kind} />
+      <DeviceMediaLibrary key={kind} kind={kind} />
       <div className="mx-auto max-w-3xl space-y-6">
         <Link to="/" className="inline-flex items-center gap-2 text-sm text-secondary"><ArrowLeft className="h-4 w-4" /> Messages</Link>
         <header className="flex items-center gap-4">
