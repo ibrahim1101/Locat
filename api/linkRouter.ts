@@ -1,6 +1,6 @@
 import { issueLinkChallenge, answerLinkChallenge, verifyLinkProof, validateLinkPublicKey, canonicalLinkPublicKey, revokeLinkProofs } from "./linkProof";
 import { z } from "zod";
-import { publishDeviceLibraries, discoverDeviceLibraries, unpublishDeviceLibraries } from "./deviceMediaDiscovery";
+import { publishDeviceLibraries, discoverDeviceLibraries, unpublishDeviceLibraries, hasPublishedLibrary } from "./deviceMediaDiscovery";
 import { TRPCError } from "@trpc/server";
 import { getTableColumns, and, eq, desc, inArray, isNull, ne, lt, sql } from "drizzle-orm";
 import { createRouter, authedQuery } from "./middleware";
@@ -148,6 +148,21 @@ export const linkRouter = createRouter({
     unpublish: deviceQuery.mutation(({ ctx }) => {
       unpublishDeviceLibraries(ctx.user.id, ctx.linkDeviceId);
       return { ok: true };
+    }),
+    requestAccess: deviceQuery.input(z.object({
+      deviceId: z.number().int().positive(),
+      libraryId: z.string().trim().min(1).max(80),
+    })).mutation(async ({ ctx, input }) => {
+      limit(`media-access-request:${ctx.user.id}:${ctx.linkDeviceId}`, 30, 60_000);
+      if (ctx.linkDeviceId === input.deviceId) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose another device" });
+      await ownedDevice(ctx.user.id, input.deviceId);
+      await requireVerifiedPair(ctx.user.id, ctx.linkDeviceId, input.deviceId);
+      if (!hasPublishedLibrary(ctx.user.id, input.deviceId, input.libraryId)) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Library is no longer published" });
+      }
+      // This only validates a request. File access requires a separate
+      // source-device approval and encrypted transfer protocol.
+      return { approved: false, requiresSourceApproval: true, libraryId: input.libraryId, deviceId: input.deviceId };
     }),
     discover: deviceQuery.input(z.object({ deviceId: z.number().int().positive() })).query(async ({ ctx, input }) => {
       await ownedDevice(ctx.user.id, input.deviceId);
