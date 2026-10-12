@@ -4,9 +4,9 @@ Development branch: `feat/locat-complete-ecosystem`. Review:
 [draft PR #7](https://github.com/ibrahim1101/Locat/pull/7), stacked on the unified
 preview. This is an incomplete test preview, not a production release.
 
-Application revision `cb1785d` passed core/MariaDB/Docker checks in
-[38195261112](https://github.com/ibrahim1101/Locat/actions/runs/38195261112) and
-[38195258093](https://github.com/ibrahim1101/Locat/actions/runs/38195258093).
+Current server/Android revision `fa27df4` passed core/MariaDB/Docker checks in
+[38196947506](https://github.com/ibrahim1101/Locat/actions/runs/38196947506) and
+[38196943842](https://github.com/ibrahim1101/Locat/actions/runs/38196943842).
 These include real Chromium audio measurements, conventional Q conversion,
 Butterworth cutoff, resonant headroom and LAN/media Compose validation.
 Native packaging is separate from physical device acceptance.
@@ -20,19 +20,22 @@ installer inside the ZIP, rather than the repository source ZIP.
 | Platform | Workflow | Artifact | File inside |
 |---|---|---|---|
 | Windows | [Desktop run](https://github.com/ibrahim1101/Locat/actions/runs/38195258114) | [locat-windows-preview](https://github.com/ibrahim1101/Locat/actions/runs/38195258114/artifacts/11723291595) | NSIS `.exe` |
-| Android | [Signed APK run](https://github.com/ibrahim1101/Locat/actions/runs/38195258094) | [locat-2-preview-apk](https://github.com/ibrahim1101/Locat/actions/runs/38195258094/artifacts/11722648628) | `locat-2-preview.apk`, checksum, build info and signing certificate |
+| Android | [Signed APK run](https://github.com/ibrahim1101/Locat/actions/runs/38196943742) | [locat-2-preview-apk](https://github.com/ibrahim1101/Locat/actions/runs/38196943742/artifacts/11723349489) | `locat-2-preview.apk`, checksum, build info and signing certificate |
 | Linux | Desktop run | [locat-linux-preview](https://github.com/ibrahim1101/Locat/actions/runs/38195258114/artifacts/11723451199) | `.deb` / `.AppImage` |
 | macOS | Desktop run | [locat-macos-preview](https://github.com/ibrahim1101/Locat/actions/runs/38195258114/artifacts/11722673625) | `.app` / `.dmg` |
 
-Verified 2026-10-12: all four packages passed at file-context revision
-`cb1785d`; core/database/Docker checks passed in
-[38195261112](https://github.com/ibrahim1101/Locat/actions/runs/38195261112) and
-[38195258093](https://github.com/ibrahim1101/Locat/actions/runs/38195258093).
-These packages include clipboard/lifecycle protection, bounded file buffering,
+Verified 2026-10-12: Android passed at `fa27df4`; Windows/Linux/macOS remain the
+successful `cb1785d` packages because the later server/docs-only change did not
+match desktop workflow paths. Current core/database/Docker checks passed in
+[38196947506](https://github.com/ibrahim1101/Locat/actions/runs/38196947506) and
+[38196943842](https://github.com/ibrahim1101/Locat/actions/runs/38196943842).
+The previews include clipboard/lifecycle protection, bounded file buffering,
 chat-first navigation, LAN readiness, reactions, shared pins, reply references
-and explicit forwarding. Update every communicating client before using the
+and explicit forwarding. The current server additionally includes restart-safe
+encrypted scheduling APIs, but the composer/schedule-manager UI is not yet built.
+Update every communicating client before using the
 new message/control fields; older clients may reject them.
-The later documentation-only follow-up does not alter application source. Read build info
+Read build info
 for the packaged revision and Android version code.
 Artifacts expire after 14 days. Sign in to GitHub if a direct artifact link
 requires authentication. No device behavior or release signing is inferred
