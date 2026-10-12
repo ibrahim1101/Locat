@@ -1,5 +1,6 @@
 import { issueLinkChallenge, answerLinkChallenge, verifyLinkProof, validateLinkPublicKey, canonicalLinkPublicKey, revokeLinkProofs } from "./linkProof";
 import { z } from "zod";
+import { createMediaAccessRequest, listMediaAccessRequests, getMediaAccessRequest, decideMediaAccessRequest, revokeMediaAccessRequests } from "./deviceMediaAccess";
 import { publishDeviceLibraries, discoverDeviceLibraries, unpublishDeviceLibraries, hasPublishedLibrary } from "./deviceMediaDiscovery";
 import { TRPCError } from "@trpc/server";
 import { getTableColumns, and, eq, desc, inArray, isNull, ne, lt, sql } from "drizzle-orm";
@@ -120,6 +121,8 @@ export const linkRouter = createRouter({
         if (!devs.find(d => d.id === input.id) || !devs.find(d => d.id === ctx.linkDeviceId && !d.revokedAt)) throw new TRPCError({ code: "FORBIDDEN" });
       await tx.update(linkDevices).set({ revokedAt: new Date() }).where(eq(linkDevices.id, input.id));
       revokeLinkProofs(ctx.user.id, input.id);
+      unpublishDeviceLibraries(ctx.user.id, input.id);
+      revokeMediaAccessRequests(ctx.user.id, input.id);
       await tx.update(linkPairings).set({ status: "rejected", confirmedA: false, confirmedB: false, updatedAt: new Date() })
         .where(and(eq(linkPairings.userId, ctx.user.id), sql`(${linkPairings.deviceA} = ${input.id} OR ${linkPairings.deviceB} = ${input.id})`));
       const affected = await tx.select({ id: linkTransfers.id }).from(linkTransfers).where(and(eq(linkTransfers.userId, ctx.user.id), sql`(${linkTransfers.fromDevice} = ${input.id} OR ${linkTransfers.toDevice} = ${input.id})`));
@@ -160,9 +163,32 @@ export const linkRouter = createRouter({
       if (!hasPublishedLibrary(ctx.user.id, input.deviceId, input.libraryId)) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Library is no longer published" });
       }
-      // This only validates a request. File access requires a separate
-      // source-device approval and encrypted transfer protocol.
-      return { approved: false, requiresSourceApproval: true, libraryId: input.libraryId, deviceId: input.deviceId };
+      const request = createMediaAccessRequest({
+        userId: ctx.user.id, sourceDeviceId: input.deviceId,
+        requesterDeviceId: ctx.linkDeviceId, libraryId: input.libraryId,
+      });
+      return { requestId: request.id, status: request.status, requiresSourceApproval: true };
+    }),
+    pendingRequests: deviceQuery.query(({ ctx }) => {
+      return listMediaAccessRequests(ctx.user.id, ctx.linkDeviceId);
+    }),
+    requestStatus: deviceQuery.input(z.object({ requestId: z.string().uuid() })).query(({ ctx, input }) => {
+      const request = getMediaAccessRequest(ctx.user.id, ctx.linkDeviceId, input.requestId);
+      if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "Request expired or unavailable" });
+      return { status: request.status, libraryId: request.libraryId, sourceDeviceId: request.sourceDeviceId };
+    }),
+    decideRequest: deviceQuery.input(z.object({ requestId: z.string().uuid(), approve: z.boolean() })).mutation(async ({ ctx, input }) => {
+      limit(`media-access-decision:${ctx.user.id}:${ctx.linkDeviceId}`, 60, 60_000);
+      const request = decideMediaAccessRequest(ctx.user.id, ctx.linkDeviceId, input.requestId, input.approve);
+      if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "Request expired, unavailable, or already decided" });
+      if (request.status === "approved") {
+        await ownedDevice(ctx.user.id, request.requesterDeviceId);
+        await requireVerifiedPair(ctx.user.id, ctx.linkDeviceId, request.requesterDeviceId);
+        if (!hasPublishedLibrary(ctx.user.id, ctx.linkDeviceId, request.libraryId)) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Library is no longer published" });
+        }
+      }
+      return { requestId: request.id, status: request.status };
     }),
     discover: deviceQuery.input(z.object({ deviceId: z.number().int().positive() })).query(async ({ ctx, input }) => {
       await ownedDevice(ctx.user.id, input.deviceId);
