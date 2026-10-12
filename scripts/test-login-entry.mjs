@@ -83,9 +83,9 @@ try {
   await native.getByRole('button', { name: 'Close media', exact: true }).click();
   await native.getByRole("link", { name: "Back to local sections", exact: true }).click();
   await native.getByRole('link', { name: 'Local Cinema', exact: false }).click();
-  await native.getByLabel('Choose local movie').setInputFiles({ name: 'offline.webm', mimeType: 'video/webm', buffer: movieFixture });
+  await native.evaluate(bytes => { window.fixtureFile = new File([new Uint8Array(bytes)], 'offline.webm', { type: 'video/webm', lastModified: 12345 }); const transfer = new DataTransfer(); transfer.items.add(window.fixtureFile); const input = document.querySelector('[aria-label="Choose local movie"]'); input.files = transfer.files; input.dispatchEvent(new Event('change', { bubbles: true })); }, [...movieFixture]);
   await native.waitForFunction(() => document.querySelector('video')?.readyState >= 1);
-  await native.evaluate(() => { window.fixtureFile = document.querySelector('[aria-label="Choose local movie"]').files[0]; const video = document.querySelector('video'); video.currentTime = 1.2; });
+  await native.evaluate(() => { const video = document.querySelector('video'); video.currentTime = 1.2; });
   await native.waitForFunction(() => document.querySelector('video')?.currentTime > 1);
   await native.locator('video').evaluate(video => video.dispatchEvent(new Event('pause')));
   await native.waitForFunction(() => JSON.parse(localStorage.getItem('locat-local-video-progress-v1') ?? '[]').some(row => row.position > 1));
