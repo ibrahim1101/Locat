@@ -45,3 +45,6 @@ Baseline: release/locat-v1.0 from PR #7 application revision f7dd4806. This is a
 4. Implement unified Cinema/Music/Photos source selector and chat picker.
 5. Implement Android Back stack handling with regression tests.
 6. Complete CI and real-device acceptance before release.
+
+## October 13 security review
+- Key-signaling endpoints currently check verified pairing but are not bound to a consumed source-approved media-access request. Treat them as signaling prototypes only; do not enable file transport until this authorization gap is closed.
