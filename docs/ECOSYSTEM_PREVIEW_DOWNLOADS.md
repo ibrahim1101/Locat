@@ -4,9 +4,9 @@ Development branch: `feat/locat-complete-ecosystem`. Review:
 [draft PR #7](https://github.com/ibrahim1101/Locat/pull/7), stacked on the unified
 preview. This is an incomplete test preview, not a production release.
 
-Application revision `723647f` passed core/MariaDB/Docker checks in
-[38174523675](https://github.com/ibrahim1101/Locat/actions/runs/38174523675) and
-[38174520002](https://github.com/ibrahim1101/Locat/actions/runs/38174520002).
+Application revision `cb1785d` passed core/MariaDB/Docker checks in
+[38195261112](https://github.com/ibrahim1101/Locat/actions/runs/38195261112) and
+[38195258093](https://github.com/ibrahim1101/Locat/actions/runs/38195258093).
 These include real Chromium audio measurements, conventional Q conversion,
 Butterworth cutoff, resonant headroom and LAN/media Compose validation.
 Native packaging is separate from physical device acceptance.
@@ -19,17 +19,19 @@ installer inside the ZIP, rather than the repository source ZIP.
 
 | Platform | Workflow | Artifact | File inside |
 |---|---|---|---|
-| Windows | [Desktop run](https://github.com/ibrahim1101/Locat/actions/runs/38192831708) | [locat-windows-preview](https://github.com/ibrahim1101/Locat/actions/runs/38192831708/artifacts/11722047544) | NSIS `.exe` |
-| Android | [Signed APK run](https://github.com/ibrahim1101/Locat/actions/runs/38192831774) | [locat-2-preview-apk](https://github.com/ibrahim1101/Locat/actions/runs/38192831774/artifacts/11722735364) | `locat-2-preview.apk`, checksum, build info and signing certificate |
-| Linux | Desktop run | [locat-linux-preview](https://github.com/ibrahim1101/Locat/actions/runs/38192831708/artifacts/11721819857) | `.deb` / `.AppImage` |
-| macOS | Desktop run | [locat-macos-preview](https://github.com/ibrahim1101/Locat/actions/runs/38192831708/artifacts/11722281819) | `.app` / `.dmg` |
+| Windows | [Desktop run](https://github.com/ibrahim1101/Locat/actions/runs/38195258114) | [locat-windows-preview](https://github.com/ibrahim1101/Locat/actions/runs/38195258114/artifacts/11723291595) | NSIS `.exe` |
+| Android | [Signed APK run](https://github.com/ibrahim1101/Locat/actions/runs/38195258094) | [locat-2-preview-apk](https://github.com/ibrahim1101/Locat/actions/runs/38195258094/artifacts/11722648628) | `locat-2-preview.apk`, checksum, build info and signing certificate |
+| Linux | Desktop run | [locat-linux-preview](https://github.com/ibrahim1101/Locat/actions/runs/38195258114/artifacts/11723451199) | `.deb` / `.AppImage` |
+| macOS | Desktop run | [locat-macos-preview](https://github.com/ibrahim1101/Locat/actions/runs/38195258114/artifacts/11722673625) | `.app` / `.dmg` |
 
 Verified 2026-10-12: all four packages passed at file-context revision
-`13d87ed`; core/database/Docker checks passed in
-[38192834956](https://github.com/ibrahim1101/Locat/actions/runs/38192834956) and
-[38192831712](https://github.com/ibrahim1101/Locat/actions/runs/38192831712).
+`cb1785d`; core/database/Docker checks passed in
+[38195261112](https://github.com/ibrahim1101/Locat/actions/runs/38195261112) and
+[38195258093](https://github.com/ibrahim1101/Locat/actions/runs/38195258093).
 These packages include clipboard/lifecycle protection, bounded file buffering,
-chat-first navigation, the browser download fix and merged LAN readiness work.
+chat-first navigation, LAN readiness, reactions, shared pins, reply references
+and explicit forwarding. Update every communicating client before using the
+new message/control fields; older clients may reject them.
 The later documentation-only follow-up does not alter application source. Read build info
 for the packaged revision and Android version code.
 Artifacts expire after 14 days. Sign in to GitHub if a direct artifact link

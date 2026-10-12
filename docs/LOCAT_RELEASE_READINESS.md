@@ -40,8 +40,8 @@ These are limited implementations, not completion of their full module requireme
 | Cinema performance/completeness | Unverified physical; features partial | Real 4K direct-play/decoder/transcode benchmarks; quality timeline/buffer/seek; subtitles/tracks/series/history/artwork missing |
 | Music quality/native lifecycle | Partial | Measure DSP local/server and headroom; gapless/native focus/background/headset/lock screen, album/artist metadata/playlists |
 | Remote Play | Prototype | Actual Windows approval/input/capture; audio/controller/encoding/latency/reconnect and cross-platform host scope |
-| Current source automated checks | Preview CI passed | 13d87ed passed both core runs; local 348/348 tests plus five LAN CLI tests passed twice with MariaDB/fresh migrations. TypeScript/build passed; lint has zero errors and 12 warnings. Historical local fixture failure remains recorded; current checks do not establish physical acceptance |
-| Current native packaging | Preview packaging passed | Consolidated 13d87ed: Android 38192831774 and desktop 38192831708; both core runs 38192834956/38192831712 passed. Native device acceptance remains open |
+| Current source automated checks | Preview CI passed | cb1785d passed both core runs; local 365/365 tests plus five LAN CLI tests passed twice with MariaDB/fresh migrations. TypeScript/build passed; lint has zero errors and 12 warnings. Historical local fixture failure remains recorded; current checks do not establish physical acceptance |
+| Current native packaging | Preview packaging passed | Consolidated cb1785d: Android 38195258094 and desktop 38195258114; both core runs 38195261112/38195258093 passed. Native device acceptance remains open |
 | Native physical acceptance | Open on all targets | Run `docs/LOCAT_CROSS_PLATFORM_TESTING.md`; packaging is insufficient |
 | Native credential security | Open | OS-backed secure storage and verified biometric assertion/hardware authentication; UI app lock is not local data encryption |
 | Distribution trust | Preview only | Windows signing, macOS signing/notarization, signed updater feed; Android persistent preview key is separate from production identity |
@@ -50,7 +50,7 @@ These are limited implementations, not completion of their full module requireme
 
 ## Packaging and CI failure surfaces
 
-- **Branch filters:** native preview workflows originally target unified/biometric branches. The complete-ecosystem branch is published and all four native packages passed at 13d87ed. A green core run does not create an installer.
+- **Branch filters:** native preview workflows originally target unified/biometric branches. The complete-ecosystem branch is published and all four native packages passed at cb1785d. A green core run does not create an installer.
 - **Generated Android project:** CI installs an isolated Capacitor toolchain, generates Android and installs the SAF plugin with `scripts/install-android-storage-plugin.mjs`. Native project/plugin generation and package/version checks are release gates; a TypeScript bridge declaration is insufficient.
 - **Signing secrets:** missing approved preview keystore/password/alias secrets fail closed. Never create a different signing key to force an update or read/change production credentials. Verify APK certificate/checksum/build-info and exact preview package. `INSTALL_FAILED_VERSION_DOWNGRADE` is not fixed by destructive uninstallation.
 - **Toolchains/registries:** Linux WebKitGTK/C++/Rust packages and Java/Gradle/Android SDK need network availability; npm/image registries can rate-limit. Cargo absent or registry failures are environment failures until logs show a code error. Use trusted isolated tools; do not weaken checks.
