@@ -11,7 +11,10 @@ export function ServerMediaPicker({ open, onClose, onSelect }: {
 }) {
   const utils = trpc.useUtils();
   const controller = useRef<AbortController | null>(null);
-  useEffect(() => () => controller.current?.abort(), []);
+  useEffect(() => {
+    if (!open) controller.current?.abort();
+    return () => controller.current?.abort();
+  }, [open]);
   const items = trpc.media.items.useQuery(undefined, { enabled: open, retry: false });
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("all");
@@ -35,6 +38,7 @@ export function ServerMediaPicker({ open, onClose, onSelect }: {
       const ticket = isNativeShell()
         ? (await utils.media.playbackTicket.fetch({ libraryId: item.libraryId, id: item.id })).ticket
         : null;
+      if (request.signal.aborted) return;
       const base = nativeServerUrl();
       const url = new URL(`${base}/api/media/stream?library=${encodeURIComponent(String(item.libraryId))}&id=${encodeURIComponent(item.id)}`, window.location.href);
       if (ticket) url.searchParams.set("ticket", ticket);
