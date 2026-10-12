@@ -116,6 +116,7 @@ if (!main.includes("registerPlugin(LocatStoragePlugin.class)")) {
 
 // Install the read-only MediaStore library alongside the existing SAF save plugin.
 fs.copyFileSync(path.join(root, "scripts/LocatMediaPlugin.java"), path.join(javaDir, "LocatMediaPlugin.java"));
+fs.copyFileSync(path.join(root, "scripts/MediaByteRange.java"), path.join(javaDir, "MediaByteRange.java"));
 main = fs.readFileSync(mainActivity, "utf8");
 if (!main.includes("registerPlugin(LocatMediaPlugin.class)")) {
   main = main.replace("registerPlugin(LocatStoragePlugin.class);", "registerPlugin(LocatStoragePlugin.class);\n        registerPlugin(LocatMediaPlugin.class);");

@@ -25,6 +25,70 @@ import com.getcapacitor.annotation.PermissionCallback;
     @Permission(alias = "selected", strings = {"android.permission.READ_MEDIA_VISUAL_USER_SELECTED"})
 })
 public class LocatMediaPlugin extends Plugin {
+    @Override
+    public void load() {
+        // Capacitor 8's default content handler uses int-sized available() and does
+        // not seek the content stream for Range requests. Keep the standard bridge
+        // client for every other URL, but serve our own indexed media with long ranges.
+        getBridge().executeOnMainThread(() -> getBridge().setWebViewClient(new com.getcapacitor.BridgeWebViewClient(getBridge()) {
+            @Override
+            public android.webkit.WebResourceResponse shouldInterceptRequest(android.webkit.WebView view, android.webkit.WebResourceRequest request) {
+                android.webkit.WebResourceResponse media = mediaResponse(request);
+                return media == null ? super.shouldInterceptRequest(view, request) : media;
+            }
+        }));
+    }
+    private android.webkit.WebResourceResponse emptyResponse(int status, String reason, java.util.Map<String, String> headers) {
+        return new android.webkit.WebResourceResponse("text/plain", "UTF-8", status, reason, headers, new java.io.ByteArrayInputStream(new byte[0]));
+    }
+    private android.webkit.WebResourceResponse mediaResponse(android.webkit.WebResourceRequest request) {
+        Uri url = request.getUrl();
+        if (!"https".equals(url.getScheme()) || !"localhost".equals(url.getHost()) || !url.getPath().startsWith("/_locat_media_/")) return null;
+        java.util.Map<String, String> headers = new java.util.HashMap<>(); headers.put("Cache-Control", "no-store"); headers.put("Accept-Ranges", "bytes");
+        java.io.FileInputStream stream = null;
+        android.content.res.AssetFileDescriptor descriptor = null;
+        try {
+            java.util.List<String> parts = url.getPathSegments();
+            if (parts.size() != 3 || !valid(parts.get(1)) || !parts.get(2).matches("[0-9]{1,19}")) return emptyResponse(404, "Not Found", headers);
+            if (!"GET".equals(request.getMethod()) && !"HEAD".equals(request.getMethod())) return emptyResponse(405, "Method Not Allowed", headers);
+            String kind = parts.get(1);
+            if ("denied".equals(access(kind))) return emptyResponse(403, "Forbidden", headers);
+            Uri collection = "photos".equals(kind) ? MediaStore.Images.Media.EXTERNAL_CONTENT_URI : "music".equals(kind) ? MediaStore.Audio.Media.EXTERNAL_CONTENT_URI : MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
+            Uri media = ContentUris.withAppendedId(collection, Long.parseLong(parts.get(2)));
+            long length;
+            String mime;
+            try (Cursor cursor = getContext().getContentResolver().query(media, new String[] {"_size", "mime_type"}, null, null, null)) {
+                if (cursor == null || !cursor.moveToFirst()) return emptyResponse(404, "Not Found", headers);
+                length = cursor.getLong(0); mime = cursor.getString(1);
+            }
+            if (length <= 0) return emptyResponse(404, "Not Found", headers);
+            String range = request.getRequestHeaders().get("Range");
+            if (range == null) range = request.getRequestHeaders().get("range");
+            long[] bounds = MediaByteRange.parse(range, length);
+            if (bounds == null) { headers.put("Content-Range", "bytes */" + length); return emptyResponse(416, "Range Not Satisfiable", headers); }
+            long start = bounds[0], end = bounds[1], count = end - start + 1;
+            headers.put("Content-Length", Long.toString(count));
+            int status = range == null ? 200 : 206;
+            if (range != null) headers.put("Content-Range", "bytes " + start + "-" + end + "/" + length);
+            if ("HEAD".equals(request.getMethod())) return emptyResponse(status, status == 200 ? "OK" : "Partial Content", headers);
+            descriptor = getContext().getContentResolver().openAssetFileDescriptor(media, "r");
+            if (descriptor == null) return emptyResponse(404, "Not Found", headers);
+            stream = descriptor.createInputStream();
+            stream.getChannel().position(descriptor.getStartOffset() + start);
+            final java.io.FileInputStream input = stream;
+            final android.content.res.AssetFileDescriptor ownedDescriptor = descriptor;
+            java.io.InputStream bounded = new java.io.FilterInputStream(input) {
+                long remaining = count;
+                @Override public int read() throws java.io.IOException { if (remaining <= 0) return -1; int value = in.read(); if (value >= 0) remaining--; return value; }
+                @Override public int read(byte[] bytes, int offset, int requested) throws java.io.IOException { if (requested == 0) return 0; if (remaining <= 0) return -1; int read = in.read(bytes, offset, (int) Math.min(remaining, requested)); if (read > 0) remaining -= read; return read; }
+                @Override public int available() throws java.io.IOException { return (int) Math.min(remaining, in.available()); }
+                @Override public void close() throws java.io.IOException { try { super.close(); } finally { ownedDescriptor.close(); } }
+            };
+            stream = null; descriptor = null;
+            return new android.webkit.WebResourceResponse(mime == null ? "application/octet-stream" : mime, null, status, status == 200 ? "OK" : "Partial Content", headers, bounded);
+        } catch (Exception error) { return emptyResponse(404, "Not Found", headers); }
+        finally { try { if (stream != null) stream.close(); if (descriptor != null) descriptor.close(); } catch (java.io.IOException ignored) {} }
+    }
     private boolean valid(String kind) { return "cinema".equals(kind) || "music".equals(kind) || "photos".equals(kind); }
     private String access(String kind) {
         String alias = Build.VERSION.SDK_INT >= 33 ? kind : "legacy";
@@ -95,7 +159,7 @@ public class LocatMediaPlugin extends Plugin {
                         while (cursor.moveToNext()) {
                             if (count == 200) { next = items.getJSONObject(199).getString("id"); break; }
                             long id = cursor.getLong(cursor.getColumnIndexOrThrow("_id"));
-                            JSObject row = new JSObject(); row.put("id", Long.toString(id)); row.put("uri", ContentUris.withAppendedId(collection, id).toString());
+                            JSObject row = new JSObject(); row.put("id", Long.toString(id)); row.put("uri", "https://localhost/_locat_media_/" + kind + "/" + id);
                             row.put("name", cursor.getString(cursor.getColumnIndexOrThrow("_display_name")));
                             row.put("mime", cursor.getString(cursor.getColumnIndexOrThrow("mime_type")));
                             row.put("size", cursor.getLong(cursor.getColumnIndexOrThrow("_size")));

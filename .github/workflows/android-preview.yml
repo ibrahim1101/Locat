@@ -50,6 +50,8 @@ jobs:
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: npm run build:web
+      - name: Verify native media byte ranges
+        run: node scripts/test-media-ranges.mjs
       - run: npx cap add android
       - run: node scripts/install-android-storage-plugin.mjs
       - run: npx cap sync android

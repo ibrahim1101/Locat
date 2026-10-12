@@ -12,7 +12,7 @@ type Plugin = {
 export function deviceMediaBridge(): { plugin: Plugin; source(uri: string): string } | null {
   if (detectPlatform() !== "capacitor-android") return null;
   const cap = window.Capacitor as unknown as { Plugins?: { LocatMedia?: Plugin }; convertFileSrc?: (uri: string) => string };
-  return cap?.Plugins?.LocatMedia && cap.convertFileSrc ? { plugin: cap.Plugins.LocatMedia, source: uri => cap.convertFileSrc!(uri) } : null;
+  return cap?.Plugins?.LocatMedia && cap.convertFileSrc ? { plugin: cap.Plugins.LocatMedia, source: uri => uri.startsWith("https://localhost/_locat_media_/") ? uri : cap.convertFileSrc!(uri) } : null;
 }
 const extensions = {
   cinema: /\.(mp4|m4v|webm|mkv|mov|avi|3gp|mpeg|mpg|ts)$/i,
