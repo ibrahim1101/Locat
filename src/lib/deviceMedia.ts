@@ -22,7 +22,8 @@ const extensions = {
 export function supportsMedia(row: Pick<DeviceMedia, "name" | "mime">, kind: MediaKind): boolean {
   // Indexed type is not a guarantee that the device has a decoder. SVG is never edited.
   const mime = row.mime.toLowerCase();
-  return extensions[kind].test(row.name) || (kind === "photos" ? mime.startsWith("image/") && mime !== "image/svg+xml" : mime.startsWith(kind === "cinema" ? "video/" : "audio/"));
+  if (kind === "photos" && (mime === "image/svg+xml" || /\.svgz?$/i.test(row.name))) return false;
+  return extensions[kind].test(row.name) || (kind === "photos" ? mime.startsWith("image/") : mime.startsWith(kind === "cinema" ? "video/" : "audio/"));
 }
 export function sortMedia(rows: DeviceMedia[], sort: MediaSort): DeviceMedia[] {
   return [...rows].sort((a, b) => {
