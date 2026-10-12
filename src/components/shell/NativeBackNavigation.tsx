@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { isNativeShell } from "@/lib/native";
+import { detectPlatform } from "@/lib/platform";
 
 /**
  * Native shell Back navigation: first let overlays consume Back, then navigate
@@ -55,9 +56,24 @@ export function NativeBackNavigation() {
     const keyboard = (event: KeyboardEvent) => {
       if (event.key === "Escape" && event.isTrusted && !event.defaultPrevented) back(event);
     };
+    // Capacitor App's backButton listener overrides the default Activity exit.
+    // Keep the listener registered while the native router is mounted.
+    let disposed = false;
+    let subscription: { remove(): Promise<void> } | undefined;
+    if (detectPlatform() === "capacitor-android") {
+      const cap = window.Capacitor as unknown as {
+        Plugins?: { App?: { addListener(name: "backButton", handler: () => void): Promise<{ remove(): Promise<void> }> } }
+      };
+      void cap?.Plugins?.App?.addListener("backButton", () => {
+        window.dispatchEvent(new Event("locat:back", { cancelable: true }));
+      }).then(listener => {
+        if (disposed) void listener.remove();
+        else subscription = listener;
+      }).catch(() => { /* Some Android shells do not bundle Capacitor App. */ });
+    }
     window.addEventListener("locat:back", back);
     window.addEventListener("keydown", keyboard);
-    return () => { window.removeEventListener("locat:back", back); window.removeEventListener("keydown", keyboard); };
+    return () => { disposed = true; void subscription?.remove(); window.removeEventListener("locat:back", back); window.removeEventListener("keydown", keyboard); };
   }, [current, navigate]);
   return null;
 }
