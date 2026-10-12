@@ -20,7 +20,7 @@ export async function scheduledDirectKeyContext(tx: SelectDatabase, conversation
   return createHash("sha256").update(scheduledKeyMaterial(conversationId, keys)).digest("hex");
 }
 export async function scheduledDestinationFailure(tx: SelectDatabase, row: ScheduledDestination): Promise<ScheduledFailureCode | null> {
-  const [sender] = await tx.select({ disabled: users.disabled }).from(users).where(eq(users.id, row.senderId)).limit(1);
+  const [sender] = await tx.select({ disabled: users.disabled }).from(users).where(eq(users.id, row.senderId)).limit(1).for("update");
   if (!sender || sender.disabled) return "account_disabled";
   const [conversation] = await tx.select().from(conversations).where(eq(conversations.id, row.conversationId)).limit(1);
   const [membership] = await tx.select({ id: conversationMembers.id }).from(conversationMembers).where(and(

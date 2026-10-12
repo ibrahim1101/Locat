@@ -429,3 +429,21 @@ conversation/identity binding and encrypted context persistence. TypeScript
 and production build passed; lint has zero errors and 12 existing warnings.
 This supersedes the prior pre-acceptance limitation; physical native/clock/
 notification acceptance and the other ecosystem work remain open.
+
+### 2026-10-12 — Current account-state check after scheduling lock waits
+
+Review found that the participant enumeration establishes an InnoDB snapshot
+before waiting for identity locks. The sender-disabled query now uses a
+locking current read, so an account disabled while the worker waits is not
+released using its older enabled snapshot. A real MariaDB regression holds
+an uncommitted disable, observes the worker's SQL lock wait through its own
+process list, commits the disable and verifies failed/account_disabled with
+cleared ciphertext and no release.
+
+Final local verification: 386/386 tests across 66 files, including 37 MariaDB
+cases, passed twice including fresh migrations; eight route CLI cases passed
+per run. TypeScript/build passed and lint has zero errors/12 existing warnings.
+The previous client-context runtime 9d9b29e passed both core workflows
+38217577398 / 38217571750, signed APK 38217571748 and all three desktop jobs
+38217571780. This follow-up tightens authorization while preserving the same
+client key-context protocol. No live database or production change occurred.

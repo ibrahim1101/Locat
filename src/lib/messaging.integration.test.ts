@@ -568,6 +568,34 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     expect(await db.query.scheduledMessages.findFirst({ where: eq(schema.scheduledMessages.id, legacy.id) })).toMatchObject({ state: "failed", failureCode: "direct_key_changed" });
   });
 
+  it("reads the current disabled state after waiting for a participant lock", async () => {
+    const { releaseScheduledMessages } = await import("../../api/scheduledMessages");
+    const job = await alice.messages.schedule({ directKeyContext, conversationId, envelope,
+      clientMessageId: crypto.randomUUID(), deliverAt: new Date(Date.now() + 60000) });
+    const blocker = await mysql.createConnection(databaseUrl!);
+    let release: Promise<number> | undefined;
+    try {
+      await blocker.beginTransaction();
+      await blocker.query("UPDATE users SET disabled=1 WHERE id=?", [aliceId]);
+      release = releaseScheduledMessages(new Date(Date.now() + 61000));
+      // Observe the actual database lock wait, rather than assuming a timing delay.
+      let waiting = false;
+      for (let n = 0; n < 300; n++) {
+        const [processes] = await connection.query<RowDataPacket[]>("SHOW FULL PROCESSLIST");
+        if (processes.some(p => typeof p.Info === "string" && p.Info.includes("from `users`") && p.Info.includes("for update"))) { waiting = true; break; }
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      expect(waiting).toBe(true);
+      await blocker.commit();
+      expect(await release).toBe(0);
+      expect(await db.query.scheduledMessages.findFirst({ where: eq(schema.scheduledMessages.id, job.id) })).toMatchObject({ state: "failed", failureCode: "account_disabled", envelope: null });
+    } finally {
+      await blocker.rollback(); await release?.catch(() => undefined);
+      await db.update(schema.users).set({ disabled: false }).where(eq(schema.users.id, aliceId));
+      await blocker.end();
+    }
+  });
+
   it("rolls back the envelope and receipts when delivery creation fails", async () => {
     const receiptsBefore = await count("send_receipts");
     await connection.query("CREATE TRIGGER locat_test_fail_delivery BEFORE INSERT ON message_deliveries FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'test failure'");
