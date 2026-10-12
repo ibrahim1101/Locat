@@ -1,4 +1,5 @@
 import { mediaTickets } from "./mediaTickets";
+import { VIDEO_EXTENSIONS, AUDIO_EXTENSIONS, PHOTO_EXTENSIONS } from "./mediaTypes";
 import { readdir, stat, realpath } from "node:fs/promises";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -6,9 +7,6 @@ import { probeVideo } from "./mediaProbe";
 import path from "node:path";
 import { createRouter, authedQuery } from "./middleware";
 
-const VIDEO_EXTENSIONS = new Set([".mp4", ".m4v", ".mov", ".mkv", ".webm", ".avi"]);
-const AUDIO_EXTENSIONS = new Set([".mp3", ".m4a", ".aac", ".flac", ".wav", ".ogg", ".opus"]);
-const PHOTO_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif", ".heic", ".heif"]);
 const MAX_FILES = 3000;
 const MAX_DEPTH = 6;
 
