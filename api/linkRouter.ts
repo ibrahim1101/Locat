@@ -176,9 +176,16 @@ export const linkRouter = createRouter({
     pendingRequests: deviceQuery.query(({ ctx }) => {
       return listMediaAccessRequests(ctx.user.id, ctx.linkDeviceId);
     }),
-    requestStatus: deviceQuery.input(z.object({ requestId: z.string().uuid() })).query(({ ctx, input }) => {
+    requestStatus: deviceQuery.input(z.object({ requestId: z.string().uuid() })).query(async ({ ctx, input }) => {
       const request = getMediaAccessRequest(ctx.user.id, ctx.linkDeviceId, input.requestId);
       if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "Request expired or unavailable" });
+      if (request.status === "approved") {
+        await ownedDevice(ctx.user.id, request.sourceDeviceId);
+        await requireVerifiedPair(ctx.user.id, ctx.linkDeviceId, request.sourceDeviceId);
+        if (!hasPublishedLibrary(ctx.user.id, request.sourceDeviceId, request.libraryId)) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Library is no longer published" });
+        }
+      }
       return { status: request.status, libraryId: request.libraryId, sourceDeviceId: request.sourceDeviceId };
     }),
     decideRequest: deviceQuery.input(z.object({ requestId: z.string().uuid(), approve: z.boolean() })).mutation(async ({ ctx, input }) => {
