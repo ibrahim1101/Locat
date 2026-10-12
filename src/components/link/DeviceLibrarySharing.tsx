@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { trpc } from "@/providers/trpc";
 
 type Peer = { id: number; name: string };
@@ -20,6 +20,7 @@ export function DeviceLibrarySharing({ proof, peers }: { proof: string; peers: P
   const [requestId, setRequestId] = useState("");
   const requestStatus = trpc.link.mediaDiscovery.requestStatus.useQuery({ proof, requestId }, { enabled: !!requestId, refetchInterval: 6000, retry: false });
   const [libraryName, setLibraryName] = useState("");
+  const outgoingFileRefs = useRef<File[]>([]);
   const [outgoingFiles, setOutgoingFiles] = useState<{ name: string; size: number; type: string }[]>([]);
   const [counts, setCounts] = useState<Record<MediaKind, number>>({ cinema: 0, music: 0, photos: 0 });
   const [enabled, setEnabled] = useState(false);
@@ -87,11 +88,12 @@ export function DeviceLibrarySharing({ proof, peers }: { proof: string; peers: P
     <p className="text-xs text-secondary">Source-device selection only. Files stay on this device; no upload starts until encrypted transfer support is implemented.</p>
     <input aria-label="Select source files for a future approved transfer" type="file" multiple onChange={event => {
       const files = Array.from(event.target.files ?? []);
-      setOutgoingFiles(files.slice(0, 50).map(file => ({ name: file.name, size: file.size, type: file.type })));
+      outgoingFileRefs.current = files.slice(0, 50);
+      setOutgoingFiles(outgoingFileRefs.current.map(file => ({ name: file.name, size: file.size, type: file.type })));
       setNotice(files.length > 50 ? "Only the first 50 files are listed. No files were sent." : "Files selected locally. No files were sent.");
       event.target.value = "";
     }} />
-    {outgoingFiles.length > 0 && <div className="space-y-2"><p className="text-xs text-secondary">{outgoingFiles.length} files selected locally (not shared)</p><ul className="max-h-36 space-y-1 overflow-y-auto text-xs">{outgoingFiles.map((file, index) => <li key={index} className="rounded border p-2">{file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB</li>)}</ul><button type="button" className="rounded-lg border px-3 py-1.5 text-xs" onClick={() => setOutgoingFiles([])}>Clear selection</button></div>}
+    {outgoingFiles.length > 0 && <div className="space-y-2"><p className="text-xs text-secondary">{outgoingFiles.length} files selected locally (not shared)</p><ul className="max-h-36 space-y-1 overflow-y-auto text-xs">{outgoingFiles.map((file, index) => <li key={index} className="rounded border p-2">{file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB</li>)}</ul><button type="button" className="rounded-lg border px-3 py-1.5 text-xs" onClick={() => { outgoingFileRefs.current = []; setOutgoingFiles([]); }}>Clear selection</button></div>}
     <h3 className="text-sm font-semibold">Incoming access requests</h3>
     {pending.isError && <p role="alert" className="text-xs text-destructive">Could not load incoming requests.</p>}
     <ul className="space-y-2 text-sm">{(pending.data ?? []).filter(item => item.status === "pending").map(item => <li key={item.id} className="rounded-lg border p-3"><p>Device #{item.requesterDeviceId} requests access to {item.libraryId}</p><div className="mt-2 flex gap-2">{([true, false] as const).map(approve => <button key={String(approve)} type="button" disabled={decideRequest.isPending} className="rounded-lg border px-3 py-1.5 text-xs" onClick={() => void decideRequest.mutateAsync({ proof, requestId: item.id, approve }).then(() => void pending.refetch()).catch(error => setNotice(error instanceof Error ? error.message : "Decision failed."))}>{approve ? "Approve" : "Deny"}</button>)}</div></li>)}</ul>
