@@ -27,19 +27,19 @@ export function NativeBackNavigation() {
   useEffect(() => {
     if (!isNativeShell()) return;
     const back = (event: Event) => {
+      // Dialogs take priority over text fields inside them.
+      const overlay = document.querySelector<HTMLElement>('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]');
+      if (overlay) {
+        overlay.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+        event.preventDefault();
+        return;
+      }
       const active = document.activeElement;
       if (active instanceof HTMLElement && (
         active.matches("input, textarea, select, [contenteditable='true']") ||
         active.getAttribute("role") === "textbox"
       )) {
         active.blur();
-        event.preventDefault();
-        return;
-      }
-      const overlay = document.querySelector<HTMLElement>('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]');
-      if (overlay) {
-        const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
-        overlay.dispatchEvent(escape);
         event.preventDefault();
         return;
       }
@@ -66,7 +66,7 @@ export function NativeBackNavigation() {
       };
       void cap?.Plugins?.App?.addListener("backButton", () => {
         window.dispatchEvent(new Event("locat:back", { cancelable: true }));
-      }).then(listener => {
+      })?.then(listener => {
         if (disposed) void listener.remove();
         else subscription = listener;
       }).catch(() => { /* Some Android shells do not bundle Capacitor App. */ });
