@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { Radio, Smartphone, Monitor, Trash2, ShieldCheck, Upload, Download, Clipboard, Check, X, Send } from "lucide-react";
 import { nativeServerUrl } from "@/lib/native";
+import { DeviceLibrarySharing } from "@/components/link/DeviceLibrarySharing";
 import { useAuth } from "@/state/auth";
 import { trpc } from "@/providers/trpc";
 import { AppShell, ModuleHeader } from "@/components/shell/AppShell";
@@ -182,6 +183,8 @@ function Devices({ userId, myId, identity }: { userId: number; myId: number; ide
           })}
         </div>
       </section>
+
+      <DeviceLibrarySharing proof={proof} peers={others.filter(d => pairStatus(d.id)?.status === "verified").map(d => ({ id: d.id, name: d.name }))} />
 
       {pairId !== null && <PairModal pairId={pairId} myId={myId} userId={userId} onClose={() => { setPairId(null); void utils.link.pair.list.invalidate(); }} />}
     </div>
