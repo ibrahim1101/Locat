@@ -55,7 +55,7 @@ function notifyDownload(filename: string, status: "saving" | "saved" | "failed",
 function browserDependencies(): DownloadDependencies {
   return {
     saveSelected: saveToSelectedFolder,
-    useSelectedFolder: () => storagePreference().mode === "user-folder",
+    useSelectedFolder: () => typeof window !== "undefined" && storagePreference().mode === "user-folder",
     isNativeShell: () => typeof window !== "undefined" && Boolean((window.Capacitor as { isNativePlatform?: () => boolean } | undefined)?.isNativePlatform?.()),
     createObjectURL: (blob) => URL.createObjectURL(blob),
     revokeObjectURL: (url) => URL.revokeObjectURL(url),
