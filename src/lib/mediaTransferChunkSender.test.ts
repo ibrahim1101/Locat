@@ -19,7 +19,7 @@ describe("encrypted media file sender", () => {
   it("rejects empty, oversized, and invalid chunk configurations", async () => {
     const key = await importMediaTransferKey(crypto.getRandomValues(new Uint8Array(32)).buffer);
     await expect(async () => {
-      for await (const _ of encryptMediaFile(new Blob([]), key, "id")) { /* empty */ }
+      for await (const chunk of encryptMediaFile(new Blob([]), key, "id")) { void chunk; }
     }).rejects.toThrow("Unsupported");
     expect(() => mediaTransferChunkCount(0)).toThrow();
     expect(() => mediaTransferChunkCount(1, 0)).toThrow();
