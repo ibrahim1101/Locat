@@ -6,6 +6,10 @@ const TTL_MS = 5 * 60_000;
 const key = (userId: number, deviceId: number) => `${userId}:${deviceId}`;
 
 export function publishDeviceLibraries(userId: number, deviceId: number, libraries: PublishedLibrary[], now = Date.now()) {
+  if (libraries.length === 0) {
+    publications.delete(key(userId, deviceId));
+    return;
+  }
   publications.set(key(userId, deviceId), { libraries: libraries.map(item => ({ ...item })), updatedAt: now });
 }
 export function discoverDeviceLibraries(userId: number, deviceId: number, now = Date.now()) {
