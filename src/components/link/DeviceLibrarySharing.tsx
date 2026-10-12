@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { trpc } from "@/providers/trpc";
 
 type Peer = { id: number; name: string };
@@ -18,11 +18,13 @@ export function DeviceLibrarySharing({ proof, peers }: { proof: string; peers: P
   const [enabled, setEnabled] = useState(false);
   const [notice, setNotice] = useState("");
   const [peerId, setPeerId] = useState<number | null>(null);
+  useEffect(() => { if (peerId !== null && !peers.some(peer => peer.id === peerId)) setPeerId(null); }, [peerId, peers]);
   const discovery = trpc.link.mediaDiscovery.discover.useQuery({ proof, deviceId: peerId ?? 0 }, { enabled: !!peerId, retry: false });
   const selected = Object.entries(counts).filter(([, count]) => count > 0).map(([kind, count]) => ({
     id: `folder-${kind}`, name: libraryName, kind: kind as MediaKind, count,
   }));
   async function share() {
+    if (!selected.length || !libraryName || unpublish.isPending) return;
     try {
       await publish.mutateAsync({ proof, libraries: selected });
       setEnabled(true);
@@ -37,8 +39,20 @@ export function DeviceLibrarySharing({ proof, peers }: { proof: string; peers: P
     <h2 className="font-semibold">Share device library discovery</h2>
     <p className="text-xs text-secondary">Choose a folder to publish its name and supported media counts to your verified paired devices. No file names, paths, or contents are uploaded. Discovery expires after five minutes; remote file access is not yet available.</p>
     <input aria-label="Choose library folder for discovery" type="file" multiple {...{ webkitdirectory: "", directory: "" }}
+      disabled={publish.isPending || unpublish.isPending}
       onChange={event => {
         const files = Array.from(event.target.files ?? []);
+        // Withdraw the old publication before accepting another folder. Do not
+        // silently leave the previously authorized folder discoverable.
+        if (enabled) {
+          setNotice("Withdrawing previous library summary…");
+          void unpublish.mutateAsync({ proof }).then(() => {
+            setEnabled(false);
+            setNotice("Previous sharing stopped. Choose the new folder again to publish it.");
+          }).catch(() => setNotice("Could not withdraw the previous library. Use Stop sharing and retry."));
+          event.target.value = "";
+          return;
+        }
         const next = { cinema: 0, music: 0, photos: 0 };
         for (const file of files) { const kind = kinds[file.name.split(".").pop()?.toLowerCase() ?? ""]; if (kind) next[kind]++; }
         setCounts(next);
@@ -49,7 +63,7 @@ export function DeviceLibrarySharing({ proof, peers }: { proof: string; peers: P
       }} />
     <p className="text-xs text-secondary">{libraryName || "No folder selected"} · {counts.cinema} videos · {counts.music} audio · {counts.photos} photos</p>
     <div className="flex flex-wrap gap-2">
-      <button type="button" disabled={!selected.length || publish.isPending} onClick={() => void share()} className="rounded-lg border px-3 py-2 text-sm">{enabled ? "Refresh sharing" : "Publish library summary"}</button>
+      <button type="button" disabled={!selected.length || publish.isPending || unpublish.isPending} onClick={() => void share()} className="rounded-lg border px-3 py-2 text-sm">{enabled ? "Refresh sharing" : "Publish library summary"}</button>
       <button type="button" disabled={unpublish.isPending} onClick={() => void stop()} className="rounded-lg border px-3 py-2 text-sm">Stop sharing</button>
     </div>
     {notice && <p role="status" className="text-xs text-secondary">{notice}</p>}
