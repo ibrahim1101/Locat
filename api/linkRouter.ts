@@ -1,5 +1,6 @@
 import { issueLinkChallenge, answerLinkChallenge, verifyLinkProof, validateLinkPublicKey, canonicalLinkPublicKey, revokeLinkProofs } from "./linkProof";
 import { z } from "zod";
+import { publishMediaTransferSignal, consumeMediaTransferSignal, revokeMediaTransferSignals } from "./mediaTransferSignals";
 import { createMediaAccessRequest, listMediaAccessRequests, getMediaAccessRequest, decideMediaAccessRequest, revokeMediaAccessRequests, revokeMediaLibraryRequests, consumeMediaAccessApproval } from "./deviceMediaAccess";
 import { publishDeviceLibraries, discoverDeviceLibraries, unpublishDeviceLibraries, hasPublishedLibrary } from "./deviceMediaDiscovery";
 import { TRPCError } from "@trpc/server";
@@ -123,6 +124,7 @@ export const linkRouter = createRouter({
       revokeLinkProofs(ctx.user.id, input.id);
       unpublishDeviceLibraries(ctx.user.id, input.id);
       revokeMediaAccessRequests(ctx.user.id, input.id);
+      revokeMediaTransferSignals(ctx.user.id, input.id);
       await tx.update(linkPairings).set({ status: "rejected", confirmedA: false, confirmedB: false, updatedAt: new Date() })
         .where(and(eq(linkPairings.userId, ctx.user.id), sql`(${linkPairings.deviceA} = ${input.id} OR ${linkPairings.deviceB} = ${input.id})`));
       const affected = await tx.select({ id: linkTransfers.id }).from(linkTransfers).where(and(eq(linkTransfers.userId, ctx.user.id), sql`(${linkTransfers.fromDevice} = ${input.id} OR ${linkTransfers.toDevice} = ${input.id})`));
@@ -172,6 +174,30 @@ export const linkRouter = createRouter({
         requesterDeviceId: ctx.linkDeviceId, libraryId: input.libraryId,
       });
       return { requestId: request.id, status: request.status, requiresSourceApproval: true };
+    }),
+    publishKeySignal: deviceQuery.input(z.object({
+      transferId: z.string().uuid(), toDeviceId: z.number().int().positive(),
+      publicKey: z.string().regex(/^[A-Za-z0-9_-]{80,100}$/),
+    })).mutation(async ({ ctx, input }) => {
+      limit(`media-key-publish:${ctx.user.id}:${ctx.linkDeviceId}`, 30, 60_000);
+      if (ctx.linkDeviceId === input.toDeviceId) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose another device" });
+      await ownedDevice(ctx.user.id, input.toDeviceId);
+      await requireVerifiedPair(ctx.user.id, ctx.linkDeviceId, input.toDeviceId);
+      const ok = publishMediaTransferSignal({ userId: ctx.user.id, transferId: input.transferId, fromDeviceId: ctx.linkDeviceId, toDeviceId: input.toDeviceId, publicKey: input.publicKey });
+      if (!ok) throw new TRPCError({ code: "CONFLICT", message: "Key signal already published" });
+      return { ok: true };
+    }),
+    receiveKeySignal: deviceQuery.input(z.object({
+      transferId: z.string().uuid(), fromDeviceId: z.number().int().positive(),
+    })).mutation(async ({ ctx, input }) => {
+      limit(`media-key-receive:${ctx.user.id}:${ctx.linkDeviceId}`, 60, 60_000);
+      await ownedDevice(ctx.user.id, input.fromDeviceId);
+      await requireVerifiedPair(ctx.user.id, ctx.linkDeviceId, input.fromDeviceId);
+      const signal = consumeMediaTransferSignal(ctx.user.id, input.transferId, input.fromDeviceId, ctx.linkDeviceId);
+      if (!signal) throw new TRPCError({ code: "NOT_FOUND", message: "Signal expired or unavailable" });
+      // Server-authenticated routing is NOT an authenticated ECDH transcript.
+      // Pin/sign peer keys before using them for encrypted file transfers.
+      return { fromDeviceId: signal.fromDeviceId, publicKey: signal.publicKey };
     }),
     negotiateTransfer: deviceQuery.input(z.object({ requestId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
       limit(`media-transfer-negotiate:${ctx.user.id}:${ctx.linkDeviceId}`, 30, 60_000);
