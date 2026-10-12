@@ -2,6 +2,7 @@
 // This is where chat history and identity keys actually live — the server
 // only relays. Clearing site data wipes the local archive (by design).
 import { openDB, type IDBPDatabase } from "idb";
+import { localAccountDatabaseName, nativeLocalStorageOrigin } from "./localStorageScope";
 import type { ConversationSummary, MessagePayload } from "@contracts/types";
 import { projectPin } from "./messagePins";
 import type { PinState } from "@contracts/messagePayload";
@@ -27,9 +28,12 @@ export type LocalMessage = {
 
 type KvValue = string | number | Record<string, unknown>;
 
-const databases = new Map<number, Promise<IDBPDatabase>>();
+const databases = new Map<string, Promise<IDBPDatabase>>();
 
 async function legacyDb(): Promise<IDBPDatabase | undefined> {
+  // Unscoped native archives have no trustworthy server ownership metadata.
+  // Preserve them untouched; never infer ownership from colliding numeric IDs.
+  if (nativeLocalStorageOrigin() !== null) return undefined;
   try {
     return await openDB("relaychat", undefined, {
       upgrade(_db, oldVersion, _newVersion, tx) {
@@ -45,9 +49,10 @@ async function legacyDb(): Promise<IDBPDatabase | undefined> {
 
 function db(userId: number): Promise<IDBPDatabase> {
   if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("Invalid account");
-  let promise = databases.get(userId);
+  const name = localAccountDatabaseName(userId);
+  let promise = databases.get(name);
   if (!promise) {
-    promise = openDB(`locat-account-${userId}`, 2, {
+    promise = openDB(name, 2, {
       upgrade(d, oldVersion) {
         if (oldVersion < 2) d.createObjectStore("outbox", { keyPath: "clientMessageId" });
         if (oldVersion >= 1) return;
@@ -58,7 +63,7 @@ function db(userId: number): Promise<IDBPDatabase> {
         msgs.createIndex("byMid", "mid", { unique: true });
       },
     });
-    databases.set(userId, promise);
+    databases.set(name, promise);
   }
   return promise;
 }

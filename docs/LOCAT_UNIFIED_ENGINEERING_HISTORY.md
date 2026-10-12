@@ -332,3 +332,36 @@ Group rekeying fails closed. See SCHEDULED_MESSAGES.md and the feature matrix;
 the full 49-feature ecosystem remains incomplete. Prior networking revision
 c1c768f passed both core checks and signed Android/Windows/Linux/macOS package
 workflows (38199692626, 38199689307, 38199689218, 38199689280).
+
+### 2026-10-12 — Native chat server/account storage isolation
+
+The native audit found account-only IndexedDB names and an unscoped offline
+account pointer shared across server hosts. Different servers can reuse the
+same numeric IDs. Added canonical HTTPS origin/account native database names
+for the complete chat store (identity, Link device keys, messages, controls,
+privacy, metadata, cached conversations, drafts/recovery copies and outbox).
+The runtime binds its first origin and rejects hot changes pending reload,
+preventing delayed work from crossing into another host's store. Offline
+bootstrap also checks public identity agreement. Native backup account origin
+now names the actual server instead of the common shell origin.
+
+Browser names and browser legacy migration stay unchanged. Old native
+account/relaychat archives remain untouched and quarantined from automatic
+identity/history migration because their server ownership is unknown. Old
+unscoped offline pointers are ignored. This may require password-backed key
+restore and leaves legacy native history migration/export unresolved; no
+app-data deletion, destructive uninstall or inferred ownership is performed.
+Device-wide theme/app-lock/some notification preferences remain device-wide.
+
+Final local verification: 382/382 tests across 65 files, including 35 real
+MariaDB integration cases, twice including fresh migrations (26 tables);
+eight LAN/Tailscale CLI cases passed each time. Four new IndexedDB regression
+cases cover cross-server overlapping IDs, identity/device/history/privacy/
+outbox isolation, canonical restart recovery, hot-change rejection,
+quarantined archives and unchanged browser names. TypeScript and production
+build passed; lint has zero errors and the same 12 existing warnings.
+Physical native upgrade/offline/user-archive recovery remains unverified.
+See NATIVE_SERVER_STORAGE.md. The previous scheduled-text source 85c4d20
+passed push core run 38213817491 and signed Android run 38213817326,
+artifact 11731150284; remaining desktop/PR checks were still running when
+this source increment was prepared.

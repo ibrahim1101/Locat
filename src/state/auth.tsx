@@ -19,6 +19,7 @@ import {
 import { stopDeviceNotifications } from "@/lib/notifications";
 import { clearAllDrafts, purgeLegacyDrafts } from "@/lib/draft";
 import { loadIdentity, saveIdentity } from "@/lib/localdb";
+import { offlineAccountStorageKey } from "@/lib/localStorageScope";
 import { setNativeSessionToken } from "@/lib/native";
 
 export type SessionUser = {
@@ -87,13 +88,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (state.status !== "loading" || me.isLoading) return;
     if (!me.data) {
       if (!navigator.onLine) {
-        const cached = localStorage.getItem("locat-offline-account");
+        const cached = localStorage.getItem(offlineAccountStorageKey());
         if (cached) {
           void (async () => {
             try {
               const user = JSON.parse(cached) as SessionUser;
               const keys = await loadIdentity(user.id);
-              if (keys) setState({ status: "ready", user, keys: { ...keys, publicKeyB64: user.publicKey } });
+              if (keys && b64encode(await crypto.subtle.exportKey("spki", keys.publicKey)) === user.publicKey) setState({ status: "ready", user, keys: { ...keys, publicKeyB64: user.publicKey } });
               else setState({ status: "signedOut" });
             } catch { setState({ status: "signedOut" }); }
           })();
@@ -111,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const id = await loadIdentity(user.id);
       if (cancelled) return;
       if (id && b64encode(await crypto.subtle.exportKey("spki", id.publicKey)) === user.publicKey) {
-        localStorage.setItem("locat-offline-account", JSON.stringify(user));
+        localStorage.setItem(offlineAccountStorageKey(), JSON.stringify(user));
         setState({ status: "ready", user, keys: { ...id, publicKeyB64: user.publicKey } });
       } else {
         setState({ status: "needsKeyRestore", user });
@@ -127,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await queryClient.cancelQueries();
     queryClient.clear();
     await saveIdentity(user.id, { privateKey: keys.privateKey, publicKey: keys.publicKey });
-    localStorage.setItem("locat-offline-account", JSON.stringify(user));
+    localStorage.setItem(offlineAccountStorageKey(), JSON.stringify(user));
     setState({ status: "ready", user, keys });
     notifyOtherTabs();
   }, [notifyOtherTabs]);
@@ -216,7 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAllDrafts();
     purgeLegacyDrafts();
     await stopDeviceNotifications().catch(() => {});
-    localStorage.removeItem("locat-offline-account");
+    localStorage.removeItem(offlineAccountStorageKey());
     setState({ status: "signedOut" });
     await queryClient.cancelQueries();
     queryClient.clear();

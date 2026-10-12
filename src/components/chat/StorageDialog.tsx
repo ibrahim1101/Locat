@@ -3,7 +3,7 @@ import { Notifications } from "./Notifications";
 import { NotificationPreferences } from "./NotificationPreferences";
 import { downloadBlob } from "@/lib/download";
 import { chooseUserStorageFolder, selectInternalStorage, storagePreference, type StoragePreference } from "@/lib/storagePreference";
-import { isNativeShell } from "@/lib/native";
+import { isNativeShell, nativeServerUrl } from "@/lib/native";
 import { Preferences } from "./Preferences";
 import { PrivacyCommandCenter } from "./PrivacyCommandCenter";
 import { AppLockSection } from "./AppLockSection";
@@ -26,7 +26,7 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
   const [storage, setStorage] = useState("Checking device storage…");
   const [destination, setDestination] = useState<StoragePreference>(() => storagePreference());
   const fileInput = useRef<HTMLInputElement>(null);
-  const account = { userId: user.id, username: user.username, origin: location.origin };
+  const account = { userId: user.id, username: user.username, origin: nativeServerUrl() };
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -85,6 +85,7 @@ export function StorageDialog({ user, open, onOpenChange, onImported }: {
       <p className="text-xs text-secondary">One active login per account. Signing in on another device ends this session; saved history stays here.</p>
       <p className="text-sm text-secondary">{storage}</p>
       <div className="space-y-2">
+        {isNativeShell() && <p className="text-xs text-secondary">History and keys are kept separately for each server. Older app history is preserved separately and is not imported automatically.</p>}
         <Label htmlFor="backup-password">Backup password</Label>
         <Input id="backup-password" type="password" autoComplete="new-password" minLength={8}
           value={password} onChange={(e) => setPassword(e.target.value)} disabled={busy} placeholder="At least 8 characters" />
