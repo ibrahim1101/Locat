@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { registrationPasswordError, PASSWORD_MAX_CODE_UNITS } from "@contracts/password";
 import { Button } from "@/components/ui/button";
@@ -14,13 +15,14 @@ function errorText(e: unknown): string {
 }
 
 export default function Login() {
+  const navigate = useNavigate();
   const connected = useServerConnection();
   const { state, login, register, restoreKeys, resetIdentity } = useAuth();
 
   if (state.status === "needsKeyRestore") {
-    return <KeyRestore user={state.user.displayName} onRestore={restoreKeys} onReset={resetIdentity} />;
+    return <KeyRestore user={state.user.displayName} onRestore={async password => { await restoreKeys(password); navigate("/"); }} onReset={async password => { await resetIdentity(password); navigate("/"); }} />;
   }
-  return <AuthForm onLogin={login} onRegister={register} disabled={state.status === "loading" || !connected} />;
+  return <AuthForm onLogin={async (username, password) => { await login(username, password); navigate("/"); }} onRegister={async (username, name, password) => { await register(username, name, password); navigate("/"); }} disabled={state.status === "loading" || !connected} />;
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
