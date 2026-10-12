@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/providers/trpc";
 import { isNativeShell, nativeServerUrl } from "@/lib/native";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -10,6 +10,8 @@ export function ServerMediaPicker({ open, onClose, onSelect }: {
   open: boolean; onClose: () => void; onSelect: (file: File) => void;
 }) {
   const utils = trpc.useUtils();
+  const controller = useRef<AbortController | null>(null);
+  useEffect(() => () => controller.current?.abort(), []);
   const items = trpc.media.items.useQuery(undefined, { enabled: open, retry: false });
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("all");
@@ -26,6 +28,9 @@ export function ServerMediaPicker({ open, onClose, onSelect }: {
       return;
     }
     setBusy(item.id); setError("");
+    controller.current?.abort();
+    const request = new AbortController();
+    controller.current = request;
     try {
       const ticket = isNativeShell()
         ? (await utils.media.playbackTicket.fetch({ libraryId: item.libraryId, id: item.id })).ticket
@@ -33,7 +38,7 @@ export function ServerMediaPicker({ open, onClose, onSelect }: {
       const base = nativeServerUrl();
       const url = new URL(`${base}/api/media/stream?library=${encodeURIComponent(String(item.libraryId))}&id=${encodeURIComponent(item.id)}`, window.location.href);
       if (ticket) url.searchParams.set("ticket", ticket);
-      const response = await fetch(url.toString(), { credentials: "include"});
+      const response = await fetch(url.toString(), { credentials: "include", signal: request.signal });
       if (!response.ok || !response.body) throw new Error("Media download was denied or the device is offline.");
       const lengthHeader = response.headers.get("content-length");
       const declared = lengthHeader === null ? NaN : Number(lengthHeader);
@@ -53,10 +58,11 @@ export function ServerMediaPicker({ open, onClose, onSelect }: {
         chunks.push(value);
       }
       const blob = new Blob(chunks as BlobPart[], { type: response.headers.get("content-type") ?? "application/octet-stream" });
+      if (request.signal.aborted) return;
       onSelect(new File([blob], item.name, { type: blob.type }));
       onClose();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not attach media."); }
-    finally { setBusy(""); }
+    } catch (cause) { if (!request.signal.aborted) setError(cause instanceof Error ? cause.message : "Could not attach media."); }
+    finally { if (controller.current === request) { controller.current = null; setBusy(""); } }
   }
   return <Dialog open={open} onOpenChange={value => { if (!value && !busy) onClose(); }}>
     <DialogContent className="max-h-[85dvh] overflow-y-auto">
