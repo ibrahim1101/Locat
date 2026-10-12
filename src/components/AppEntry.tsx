@@ -11,12 +11,13 @@ import { AppLockGate } from "./AppLockGate";
 import { ServerConnectionControl } from "./ServerConnectionControl";
 import { DownloadStatusHost } from "./DownloadStatusHost";
 import App from "@/App";
+import { NativeBackNavigation } from "./shell/NativeBackNavigation";
 const ClientRouter = isNativeShell() ? HashRouter : BrowserRouter;
 export function AppEntry() {
   const [local, setLocal] = useState(false);
   const enterLocal = () => { if (isNativeShell()) window.location.hash = "/local"; else window.history.replaceState(null, "", "/local"); setLocal(true); };
   return <NonServerModeContext.Provider value={enterLocal}><ConnectionProvider enabled={!local}><AppLockGate>
-    {local ? <ClientRouter><NativeOfflineHome onExit={() => setLocal(false)} /><ServerConnectionControl /></ClientRouter> : isNativeShell() && !nativeServerUrl() ? <><AuthForm disabled onLogin={async () => {}} onRegister={async () => {}} onUseLocalMode={enterLocal} /><ServerConnectionControl /></> : <ClientRouter><TRPCProvider><AuthProvider><App /></AuthProvider></TRPCProvider></ClientRouter>}
+    {local ? <ClientRouter><NativeBackNavigation /><NativeOfflineHome onExit={() => setLocal(false)} /><ServerConnectionControl /></ClientRouter> : isNativeShell() && !nativeServerUrl() ? <><AuthForm disabled onLogin={async () => {}} onRegister={async () => {}} onUseLocalMode={enterLocal} /><ServerConnectionControl /></> : <ClientRouter><NativeBackNavigation /><TRPCProvider><AuthProvider><App /></AuthProvider></TRPCProvider></ClientRouter>}
     <DownloadStatusHost />
   </AppLockGate></ConnectionProvider></NonServerModeContext.Provider>;
 }
