@@ -41,3 +41,13 @@ export function revokeMediaLibraryRequests(userId: number, sourceDeviceId: numbe
     if (item.userId === userId && item.sourceDeviceId === sourceDeviceId && (libraryId === undefined || item.libraryId === libraryId)) requests.delete(id);
   }
 }
+
+/** An approval is a short-lived, single-use authorization for a later
+ * source-controlled transfer negotiation, never a file-download capability. */
+export function consumeMediaAccessApproval(userId: number, requesterDeviceId: number, id: string, now = Date.now()) {
+  prune(now);
+  const item = requests.get(id);
+  if (!item || item.userId !== userId || item.requesterDeviceId !== requesterDeviceId || item.status !== "approved") return null;
+  requests.delete(id);
+  return { ...item };
+}
