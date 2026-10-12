@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { MODULES } from "../src/modules/registry";
+import { MODULES } from "./registry";
 
-const source = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+const source = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 
 describe("original Locat chat-first navigation", () => {
   it("opens messaging by default and retains an explicit optional dashboard", () => {
