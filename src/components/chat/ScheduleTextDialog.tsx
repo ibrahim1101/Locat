@@ -29,7 +29,7 @@ export function ScheduleTextDialog({ text, onClose, onManager, onSchedule }: {
         <input type="datetime-local" value={time} disabled={busy || uncertain} onChange={e => setTime(e.target.value)} className="min-h-11 min-w-0 rounded-xl border bg-background px-3" />
       </label>
       <p className="text-xs text-muted-foreground">One minute to 30 days ahead. The host must be online to release the message. Delivery may be late after downtime or a full queue.</p>
-      <p className="text-xs text-muted-foreground">Group key changes stop release. Direct identity key changes can make prepared messages unreadable; cancel and create a new schedule after changing keys.</p>
+      <p className="text-xs text-muted-foreground">Group key changes and direct identity changes after acceptance stop release. Refresh the chat before scheduling after a key change.</p>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {uncertain ? <button className="min-h-11 rounded-xl border px-4" onClick={() => { onClose(); onManager(); }}>Review saved requests</button>
         : <button className="min-h-11 rounded-xl bg-primary px-4 text-primary-foreground disabled:opacity-50" disabled={busy} onClick={() => void submit()}>{busy ? "Scheduling…" : "Schedule"}</button>}

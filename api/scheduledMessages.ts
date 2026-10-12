@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, asc, eq, lt, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, lt, lte, ne, or, sql } from "drizzle-orm";
 import { getDb } from "./queries/connection";
 import { contactRelationships, conversationMembers, conversations, messageDeliveries,
   messages, scheduledMessages, sendReceipts, userBlocks, users } from "@db/schema";
@@ -7,10 +7,17 @@ import { emitToUsers, onlineUserIds } from "./hub";
 import { notifyUsers } from "./push";
 import type { RelayEvent } from "@contracts/types";
 
-export type ScheduledFailureCode = "account_disabled" | "membership_changed" | "destination_unavailable" | "key_epoch_changed" | "retry_conflict";
+export type ScheduledFailureCode = "account_disabled" | "membership_changed" | "destination_unavailable" | "key_epoch_changed" | "retry_conflict" | "direct_key_changed";
 
 type SelectDatabase = Pick<ReturnType<typeof getDb>, "select">;
-type ScheduledDestination = Pick<typeof scheduledMessages.$inferSelect, "senderId" | "conversationId" | "groupEpoch">;
+type ScheduledDestination = Pick<typeof scheduledMessages.$inferSelect, "senderId" | "conversationId" | "groupEpoch"> & { directKeyContext?: string | null };
+export async function scheduledDirectKeyContext(tx: SelectDatabase, conversationId: number): Promise<string> {
+  const members = await tx.select({ id: conversationMembers.userId }).from(conversationMembers).where(eq(conversationMembers.conversationId, conversationId));
+  const ids = members.map(m => m.id).sort((a, b) => a - b);
+  if (!ids.length) return "";
+  const keys = await tx.select({ id: users.id, publicKey: users.publicKey }).from(users).where(inArray(users.id, ids)).orderBy(asc(users.id)).for("update");
+  return createHash("sha256").update(JSON.stringify([conversationId, keys])).digest("hex");
+}
 export async function scheduledDestinationFailure(tx: SelectDatabase, row: ScheduledDestination): Promise<ScheduledFailureCode | null> {
   const [sender] = await tx.select({ disabled: users.disabled }).from(users).where(eq(users.id, row.senderId)).limit(1);
   if (!sender || sender.disabled) return "account_disabled";
@@ -25,6 +32,7 @@ export async function scheduledDestinationFailure(tx: SelectDatabase, row: Sched
   const [peer] = await tx.select({ id: conversationMembers.userId }).from(conversationMembers).where(and(
     eq(conversationMembers.conversationId, row.conversationId), sql`${conversationMembers.userId} <> ${row.senderId}`)).limit(1);
   if (!peer) return "destination_unavailable";
+  if (row.directKeyContext !== undefined && (!row.directKeyContext || row.directKeyContext !== await scheduledDirectKeyContext(tx, row.conversationId))) return "direct_key_changed";
   const [blocked] = await tx.select({ id: userBlocks.id }).from(userBlocks).where(or(
     and(eq(userBlocks.blockerId, row.senderId), eq(userBlocks.blockedId, peer.id)),
     and(eq(userBlocks.blockerId, peer.id), eq(userBlocks.blockedId, row.senderId)))).limit(1).for("update");
@@ -51,7 +59,7 @@ export async function releaseScheduledMessages(now = new Date(), limit = 25): Pr
   for (const candidate of candidates) {
     const result = await db.transaction(async tx => {
       await tx.select({ id: conversations.id }).from(conversations).where(eq(conversations.id, candidate.conversationId)).for("update");
-      await tx.select({ id: users.id }).from(users).where(eq(users.id, candidate.senderId)).for("update");
+      await scheduledDirectKeyContext(tx, candidate.conversationId);
       const [row] = await tx.select().from(scheduledMessages).where(eq(scheduledMessages.id, candidate.id)).for("update");
       if (!row || row.state !== "pending" || row.deliverAt > now) return null;
       const envelope = row.envelope;

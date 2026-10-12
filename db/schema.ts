@@ -193,6 +193,7 @@ export const adminAudit = mysqlTable("admin_audit", {
 // Delivery re-checks membership and the group key epoch; a scheduled message
 // never bypasses the same destination authorization used by immediate sends.
 export const scheduledMessages = mysqlTable("scheduled_messages", {
+  directKeyContext: varchar("direct_key_context", { length: 64 }),
   id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
   senderId: bigint("sender_id", { mode: "number", unsigned: true }).notNull()
     .references(() => users.id, { onDelete: "cascade" }),

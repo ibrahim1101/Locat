@@ -49,7 +49,7 @@ if (process.env.DATABASE_URL) {
       ["Account/admin schema", "SELECT id, disabled, is_admin, bio, avatar, lc_code, username_visibility, profile_visibility, presence_visibility, allow_avatar_download FROM users LIMIT 0"],
       ["Delivery schema", "SELECT client_message_id FROM messages LIMIT 0"],
       ["Retry receipts", "SELECT id FROM send_receipts LIMIT 0"],
-      ["Scheduled delivery schema", "SELECT id,deliver_at,state FROM scheduled_messages LIMIT 0"],
+      ["Scheduled delivery schema", "SELECT id,deliver_at,state,direct_key_context FROM scheduled_messages LIMIT 0"],
       ["Group version schema", "SELECT group_epoch, rotation_required FROM conversations LIMIT 0"],
       ["Group keys", "SELECT id FROM group_keys LIMIT 0"],
       ["Blocked contacts", "SELECT id FROM user_blocks LIMIT 0"],

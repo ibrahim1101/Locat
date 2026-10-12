@@ -383,3 +383,29 @@ No physical upgrade/host restart/notifications/network switch or complete
 direct scheduled-message key-change detection, calls, MFA/passkeys, expiry/
 view limits and incomplete ecosystem modules remain explicit open work.
 This evidence/download documentation follow-up changes no runtime source.
+
+### 2026-10-12 — Scheduled direct identity-change protection
+
+Added nullable scheduled-message direct key-context metadata and canonical
+migration 0016_scheduled_key_context, additive/idempotent bootstrap support,
+and readiness/doctor column checks. Acceptance records a SHA-256 context over
+the conversation and ordered current member public keys; delivery revalidates
+it under ordered participant row locks. Sender or recipient identity changes
+after acceptance fail that job with direct_key_changed and clear terminal
+ciphertext. Legacy direct jobs without context fail closed instead of guessing
+which keys sealed the envelope; group epoch behavior remains unchanged.
+Exact retries retain the original job/context rather than recapturing keys.
+
+Local verification: 383 tests across 65 files, including 36 real MariaDB cases,
+passed twice including after fresh migrations; eight route CLI cases passed
+per run. The new regression rotates each direct identity independently and
+checks unbound legacy jobs. TypeScript/build passed; lint has zero errors and
+12 existing warnings. New schema readiness must be applied through the normal
+isolated deployment workflow; no live database migration was performed.
+
+This snapshot protects changes AFTER server acceptance. A client that was
+already encrypting with stale keys before acceptance is not yet detected;
+refresh before scheduling after a key change. Recovery copies remain encrypted
+under their original identity; replacing that identity can prevent unlocking
+them. Installed-device/clock/notification acceptance remains pending. This is
+an incremental scheduling protection, not completion of the ecosystem.

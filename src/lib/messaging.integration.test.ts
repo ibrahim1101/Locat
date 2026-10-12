@@ -547,6 +547,23 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     } finally { for (const id of ids) await db.delete(schema.scheduledMessages).where(eq(schema.scheduledMessages.id, id)); }
   });
 
+  it("fails scheduled direct jobs when either identity changes and rejects unbound legacy jobs", async () => {
+    const { releaseScheduledMessages } = await import("../../api/scheduledMessages");
+    for (const changedId of [aliceId, bobId]) {
+      const job = await alice.messages.schedule({ conversationId, envelope, clientMessageId: crypto.randomUUID(), deliverAt: new Date(Date.now() + 60000) });
+      const original = (await db.query.users.findFirst({ where: eq(schema.users.id, changedId) }))!.publicKey;
+      try {
+        await db.update(schema.users).set({ publicKey: (await generateIdentity()).publicKeyB64 }).where(eq(schema.users.id, changedId));
+        expect(await releaseScheduledMessages(new Date(Date.now() + 61000))).toBe(0);
+        expect(await db.query.scheduledMessages.findFirst({ where: eq(schema.scheduledMessages.id, job.id) })).toMatchObject({ state: "failed", failureCode: "direct_key_changed", envelope: null });
+      } finally { await db.update(schema.users).set({ publicKey: original }).where(eq(schema.users.id, changedId)); }
+    }
+    const legacy = await alice.messages.schedule({ conversationId, envelope, clientMessageId: crypto.randomUUID(), deliverAt: new Date(Date.now() + 60000) });
+    await db.update(schema.scheduledMessages).set({ directKeyContext: null }).where(eq(schema.scheduledMessages.id, legacy.id));
+    expect(await releaseScheduledMessages(new Date(Date.now() + 61000))).toBe(0);
+    expect(await db.query.scheduledMessages.findFirst({ where: eq(schema.scheduledMessages.id, legacy.id) })).toMatchObject({ state: "failed", failureCode: "direct_key_changed" });
+  });
+
   it("rolls back the envelope and receipts when delivery creation fails", async () => {
     const receiptsBefore = await count("send_receipts");
     await connection.query("CREATE TRIGGER locat_test_fail_delivery BEFORE INSERT ON message_deliveries FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'test failure'");

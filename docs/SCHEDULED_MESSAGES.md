@@ -44,8 +44,9 @@ prevents a cancelled future request from being recreated by a delayed retry
 following early tombstone cleanup. Local recovery copies remain until forgotten.
 
 Limitations: text-only scheduling UI; no reschedule-in-place or scheduled
-attachment composer. Direct identity key changes are not yet detected by the
-scheduler and can make a prepared envelope unreadable; cancel/recreate schedules
-after changing keys. Group key changes fail closed. Native UI, clock changes,
+attachment composer. Direct identity changes after host acceptance now fail closed. New jobs bind
+the accepted server key snapshot; legacy direct jobs without a snapshot fail
+closed. A client already using stale keys before acceptance is not detected
+yet; refresh before scheduling after a key change. Group key changes fail closed. Native UI, clock changes,
 notifications, physical host restart and device network-switch acceptance remain
 pending. Use one canonical HTTPS origin on LAN and invited Tailscale routes.

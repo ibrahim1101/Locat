@@ -1,0 +1,1 @@
+ALTER TABLE `scheduled_messages` ADD `direct_key_context` varchar(64);

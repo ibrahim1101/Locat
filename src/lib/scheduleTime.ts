@@ -12,5 +12,5 @@ export function parseScheduleTime(value: string, now = Date.now()): Date {
 export function scheduleFailureLabel(code: string | null) {
   return ({ account_disabled: "Your account was disabled.", membership_changed: "You no longer belong to this chat.",
     destination_unavailable: "The contact or chat is no longer available.", key_epoch_changed: "Group encryption changed. Create a new schedule.",
-    retry_conflict: "A message retry conflict prevented delivery." } as Record<string, string>)[code ?? ""] ?? "The scheduled message could not be delivered.";
+    direct_key_changed: "Direct encryption keys changed or the legacy key context is unavailable. Create a new schedule.", retry_conflict: "A message retry conflict prevented delivery." } as Record<string, string>)[code ?? ""] ?? "The scheduled message could not be delivered.";
 }

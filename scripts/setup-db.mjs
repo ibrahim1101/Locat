@@ -77,7 +77,7 @@ try {
   await connection.query(`CREATE TABLE IF NOT EXISTS scheduled_messages (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, sender_id BIGINT UNSIGNED NOT NULL,
     conversation_id BIGINT UNSIGNED NOT NULL, client_message_id VARCHAR(36) NOT NULL,
-    envelope MEDIUMTEXT NULL, envelope_hash VARCHAR(64) NOT NULL, group_epoch INT NULL,
+    direct_key_context VARCHAR(64) NULL, envelope MEDIUMTEXT NULL, envelope_hash VARCHAR(64) NOT NULL, group_epoch INT NULL,
     deliver_at TIMESTAMP NOT NULL, state ENUM('pending','delivered','cancelled','failed') NOT NULL DEFAULT 'pending',
     message_id BIGINT UNSIGNED NULL, failure_code VARCHAR(64) NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -86,6 +86,8 @@ try {
     CONSTRAINT scheduled_sender_fk FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT scheduled_conversation_fk FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
   )`);
+  const [[scheduleContextColumn]] = await connection.query("SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'scheduled_messages' AND COLUMN_NAME = 'direct_key_context'");
+  if (Number(scheduleContextColumn.n) === 0) await connection.query("ALTER TABLE scheduled_messages ADD COLUMN direct_key_context VARCHAR(64) NULL");
   const [[contactTable]] = await connection.query("SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'contact_relationships'");
   for (const [name, definition] of [["group_epoch", "INT NOT NULL DEFAULT 1"], ["rotation_required", "BOOLEAN NOT NULL DEFAULT FALSE"]]) {
     const [[column]] = await connection.query("SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'conversations' AND COLUMN_NAME = ?", [name]);

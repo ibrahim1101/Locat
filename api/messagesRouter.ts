@@ -21,7 +21,7 @@ import {
 } from "@db/schema";
 import { subscribe as hubSubscribe, emitToUsers, onlineUserIds, visibleOnlineUserIds, heartbeat } from "./hub";
 import type { RelayEvent } from "@contracts/types";
-import { releaseScheduledMessages, scheduledDestinationFailure, scheduledEnvelopeHash } from "./scheduledMessages";
+import { releaseScheduledMessages, scheduledDestinationFailure, scheduledEnvelopeHash, scheduledDirectKeyContext } from "./scheduledMessages";
 
 /** Envelopes are opaque ciphertext; cap at ~6MB of base64 (≈4MB media). */
 const envelopeSchema = z.string().min(2).max(6_000_000);
@@ -76,7 +76,7 @@ export const messagesRouter = createRouter({
     limit(`schedule:${me}`, 120, 60000);
     const id = await db.transaction(async tx => {
       await tx.select({ id: conversations.id }).from(conversations).where(eq(conversations.id, input.conversationId)).for("update");
-      await tx.select({ id: users.id }).from(users).where(eq(users.id, me)).for("update");
+      const keyContext = await scheduledDirectKeyContext(tx, input.conversationId);
       if (await scheduledDestinationFailure(tx, { senderId: me, conversationId: input.conversationId, groupEpoch }))
         throw new TRPCError({ code: "FORBIDDEN", message: "Conversation is no longer available" });
       const [receipt] = await tx.select({ id: sendReceipts.id }).from(sendReceipts).where(and(
@@ -89,7 +89,7 @@ export const messagesRouter = createRouter({
         throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Scheduled message storage limit reached" });
       const [created] = await tx.insert(scheduledMessages).values({ senderId: me, conversationId: input.conversationId,
         clientMessageId: input.clientMessageId, envelope: input.envelope, envelopeHash: hash,
-        groupEpoch, deliverAt }).$returningId();
+        groupEpoch, directKeyContext: conversation.type === "direct" ? keyContext : null, deliverAt }).$returningId();
       return created.id;
     }).catch(async error => {
       const [concurrent] = await db.select().from(scheduledMessages).where(and(
