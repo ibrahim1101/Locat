@@ -23,6 +23,14 @@ export function ServerMediaPicker({ open, onClose, onSelect }: {
   const [busy, setBusy] = useState("");
   const busyRef = useRef(false);
   const [error, setError] = useState("");
+  const dismiss = () => {
+    controller.current?.abort();
+    controller.current = null;
+    busyRef.current = false;
+    setBusy("");
+    setError("");
+    onClose();
+  };
   const visible = useMemo(() => (items.data ?? []).filter(item =>
     (kind === "all" || item.kind === kind) &&
     (library === "all" || String(item.libraryId) === library) &&
@@ -70,11 +78,11 @@ export function ServerMediaPicker({ open, onClose, onSelect }: {
       const blob = new Blob(chunks as BlobPart[], { type: mime });
       if (request.signal.aborted) return;
       onSelect(new File([blob], item.name, { type: blob.type }));
-      onClose();
+      dismiss();
     } catch (cause) { if (!request.signal.aborted) setError(cause instanceof Error ? cause.message : "Could not attach media."); }
     finally { if (controller.current === request) { controller.current = null; busyRef.current = false; setBusy(""); } }
   }
-  return <Dialog open={open} onOpenChange={value => { if (!value && !busy) onClose(); }}>
+  return <Dialog open={open} onOpenChange={value => { if (!value) dismiss(); }}>
     <DialogContent className="max-h-[85dvh] overflow-y-auto">
       <DialogTitle>Search & select video, photo or file</DialogTitle>
       <p className="text-xs text-secondary">Browse media explicitly shared with this Locat server. Other devices must first publish an authorized library. Files are sent as encrypted chat attachments, not permanent remote links.</p>
