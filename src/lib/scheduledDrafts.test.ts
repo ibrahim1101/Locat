@@ -6,7 +6,7 @@ import { kvGet, kvSet, kvKeys, putBoundedKv, wipeAll } from "./localdb";
 import { forgetScheduledCopy, listScheduledCopies, loadScheduledCopy, saveScheduledCopy, type ScheduledCopy } from "./scheduledDrafts";
 const server = "https://locat.example";
 const slot = (id: string) => `scheduled-copy:v1:${draftScope(server, 1)}:${id}`;
-const make = (): ScheduledCopy => ({ clientMessageId: crypto.randomUUID(), conversationId: 9,
+const make = (): ScheduledCopy => ({ directKeyContext: "a".repeat(64), clientMessageId: crypto.randomUUID(), conversationId: 9,
   deliverAt: "2026-10-13T10:00:00.000Z", envelope: '{"ciphertext":"original exact request"}',
   payload: { type: "text", text: "private recovery text 🐈" } });
 beforeEach(async () => { await wipeAll(1); await wipeAll(2); });

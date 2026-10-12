@@ -1,3 +1,4 @@
+import { scheduledKeyContext } from "@contracts/scheduledKeyContext";
 import { forwardPayload, forwardDestinations } from "@/lib/messageForwarding";
 import { ScheduledMessagesDialog } from "@/components/chat/ScheduledMessagesDialog";
 import { saveScheduledCopy, type ScheduledCopy } from "@/lib/scheduledDrafts";
@@ -754,17 +755,18 @@ function ChatApp({ user, keys }: { user: SessionUser; keys: IdentityKeys }) {
   async function scheduleText(conv: ConversationSummary, text: string, date: Date, replyTo?: MessageReply) {
     if (conv.archived || conv.rotationRequired || (conv.type === "direct" && conv.members.some(m => m.id !== user.id && blockedIds.has(m.id))))
       throw new Error("This conversation is unavailable for scheduling.");
-    const signature = JSON.stringify([nativeServerUrl(), user.id, conv.id, text, date.toISOString(), replyTo]);
+    const context = conv.type === "direct" ? await scheduledKeyContext(conv.id, conv.members) : undefined;
+    const signature = JSON.stringify([nativeServerUrl(), user.id, conv.id, context, conv.groupEpoch, text, date.toISOString(), replyTo]);
     let copy = scheduleAttempts.current.get(signature);
     if (!copy) {
       const id = crypto.randomUUID();
       const payload: MessagePayload = { type: "text", text, messageRef: id, ...(replyTo ? { replyTo } : {}) };
-      copy = { clientMessageId: id, conversationId: conv.id, deliverAt: date.toISOString(), payload, envelope: await encryptedFor(conv, payload) };
-      await saveScheduledCopy(keys, nativeServerUrl(), user.id, copy);
+      copy = { ...(conv.type === "direct" ? { directKeyContext: context } : {}), clientMessageId: id, conversationId: conv.id, deliverAt: date.toISOString(), payload, envelope: await encryptedFor(conv, payload) };
       scheduleAttempts.current.set(signature, copy);
     }
+    await saveScheduledCopy(keys, nativeServerUrl(), user.id, copy);
     try {
-      const result = await scheduleMut.mutateAsync({ conversationId: copy.conversationId, clientMessageId: copy.clientMessageId, envelope: copy.envelope, deliverAt: new Date(copy.deliverAt) });
+      const result = await scheduleMut.mutateAsync({ directKeyContext: copy.directKeyContext, conversationId: copy.conversationId, clientMessageId: copy.clientMessageId, envelope: copy.envelope, deliverAt: new Date(copy.deliverAt) });
       if (result.state !== "pending" && result.state !== "delivered") throw new Error(`The saved request is ${result.state}. Review scheduled messages.`);
       scheduleAttempts.current.delete(signature);
     } catch (error) {

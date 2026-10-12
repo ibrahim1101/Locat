@@ -1,3 +1,4 @@
+import { scheduledKeyContext } from "@contracts/scheduledKeyContext";
 import { generateDeviceIdentity, solveDeviceChallenge } from "./link";
 import "fake-indexeddb/auto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -23,6 +24,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
   let bobId: number;
   let outsiderId: number;
   let conversationId: number;
+  let directKeyContext: string;
   let envelope: string;
   let receivingKey: CryptoKey;
   let identities: Awaited<ReturnType<typeof generateIdentity>>[];
@@ -77,6 +79,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     ]);
     expect(simultaneous[0].conversationId).toBe(simultaneous[1].conversationId);
     conversationId = simultaneous[0].conversationId;
+    directKeyContext = await scheduledKeyContext(conversationId, [{ id: aliceId, publicKey: identities[0].publicKeyB64 }, { id: bobId, publicKey: identities[1].publicKeyB64 }]);
     const sendingKey = await deriveDirectKey(identities[0].privateKey, identities[1].publicKeyB64, aliceId, bobId);
     receivingKey = await deriveDirectKey(identities[1].privateKey, identities[0].publicKeyB64, bobId, aliceId);
     envelope = await encryptPayload(sendingKey, { type: "text", text: "end-to-end integration" });
@@ -420,14 +423,14 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     const clientMessageId = crypto.randomUUID();
     const deliverAt = new Date(Date.now() + 60_000);
     const [scheduled, concurrent] = await Promise.all([
-      alice.messages.schedule({ conversationId, envelope, clientMessageId, deliverAt }),
-      alice.messages.schedule({ conversationId, envelope, clientMessageId, deliverAt }),
+      alice.messages.schedule({ directKeyContext, conversationId, envelope, clientMessageId, deliverAt }),
+      alice.messages.schedule({ directKeyContext, conversationId, envelope, clientMessageId, deliverAt }),
     ]);
     expect(concurrent).toEqual(scheduled);
     expect(scheduled.state).toBe("pending");
     expect(await count("messages")).toBe(0);
-    expect((await alice.messages.schedule({ conversationId, envelope, clientMessageId, deliverAt })).id).toBe(scheduled.id);
-    await expect(alice.messages.schedule({ conversationId, envelope: `${envelope}x`, clientMessageId, deliverAt })).rejects.toThrow("does not match");
+    expect((await alice.messages.schedule({ directKeyContext, conversationId, envelope, clientMessageId, deliverAt })).id).toBe(scheduled.id);
+    await expect(alice.messages.schedule({ directKeyContext, conversationId, envelope: `${envelope}x`, clientMessageId, deliverAt })).rejects.toThrow("does not match");
     const now = new Date(deliverAt.getTime() + 1000);
     expect((await Promise.all([releaseScheduledMessages(now), releaseScheduledMessages(now)])).reduce((a, b) => a + b)).toBe(1);
     expect(await count("messages")).toBe(1);
@@ -441,11 +444,11 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
 
   it("cancels pending schedules and fails closed when direct authorization changes", async () => {
     const { releaseScheduledMessages } = await import("../../api/scheduledMessages");
-    const first = await alice.messages.schedule({ conversationId, envelope, clientMessageId: crypto.randomUUID(),
+    const first = await alice.messages.schedule({ directKeyContext, conversationId, envelope, clientMessageId: crypto.randomUUID(),
       deliverAt: new Date(Date.now() + 60_000) });
     expect(await alice.messages.cancelScheduled({ id: first.id })).toEqual({ cancelled: true });
     await expect(alice.messages.cancelScheduled({ id: first.id })).rejects.toThrow("no longer cancellable");
-    const second = await alice.messages.schedule({ conversationId, envelope, clientMessageId: crypto.randomUUID(),
+    const second = await alice.messages.schedule({ directKeyContext, conversationId, envelope, clientMessageId: crypto.randomUUID(),
       deliverAt: new Date(Date.now() + 60_000) });
     await bob.users.removeContact({ userId: aliceId });
     expect(await releaseScheduledMessages(new Date(Date.now() + 61_000))).toBe(0);
@@ -459,25 +462,25 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
 
   it("accepts exact scheduled retries after the due time and reserves IDs against immediate sends", async () => {
     const clientMessageId = crypto.randomUUID(), deliverAt = new Date(Date.now() + 60_000);
-    const scheduled = await alice.messages.schedule({ conversationId, envelope, clientMessageId, deliverAt });
+    const scheduled = await alice.messages.schedule({ directKeyContext, conversationId, envelope, clientMessageId, deliverAt });
     await expect(bob.messages.cancelScheduled({ id: scheduled.id })).rejects.toThrow("no longer cancellable");
     await expect(alice.messages.send({ conversationId, envelope, clientMessageId })).rejects.toThrow("scheduled message");
     const past = new Date(Math.floor((Date.now() - 60_000) / 1000) * 1000);
     await db.update(schema.scheduledMessages).set({ deliverAt: past }).where(eq(schema.scheduledMessages.id, scheduled.id));
-    expect((await alice.messages.schedule({ conversationId, envelope, clientMessageId, deliverAt: past })).id).toBe(scheduled.id);
+    expect((await alice.messages.schedule({ directKeyContext, conversationId, envelope, clientMessageId, deliverAt: past })).id).toBe(scheduled.id);
     await alice.messages.cancelScheduled({ id: scheduled.id });
-    expect((await alice.messages.schedule({ conversationId, envelope, clientMessageId, deliverAt: past })).state).toBe("cancelled");
+    expect((await alice.messages.schedule({ directKeyContext, conversationId, envelope, clientMessageId, deliverAt: past })).state).toBe("cancelled");
     // A cancelled future request must not be resurrected by cleanup plus retry.
     const futureId = crypto.randomUUID();
-    const future = await alice.messages.schedule({ conversationId, envelope, clientMessageId: futureId, deliverAt });
+    const future = await alice.messages.schedule({ directKeyContext, conversationId, envelope, clientMessageId: futureId, deliverAt });
     await alice.messages.cancelScheduled({ id: future.id });
     await db.update(schema.scheduledMessages).set({ updatedAt: new Date(Date.now() - 8 * 86400000) }).where(eq(schema.scheduledMessages.id, future.id));
     const { releaseScheduledMessages } = await import("../../api/scheduledMessages");
     await releaseScheduledMessages();
-    expect((await alice.messages.schedule({ conversationId, envelope, clientMessageId: futureId, deliverAt })).state).toBe("cancelled");
+    expect((await alice.messages.schedule({ directKeyContext, conversationId, envelope, clientMessageId: futureId, deliverAt })).state).toBe("cancelled");
     const immediateId = crypto.randomUUID();
     const sent = await alice.messages.send({ conversationId, envelope, clientMessageId: immediateId });
-    await expect(alice.messages.schedule({ conversationId, envelope, clientMessageId: immediateId, deliverAt })).rejects.toThrow("sent message");
+    await expect(alice.messages.schedule({ directKeyContext, conversationId, envelope, clientMessageId: immediateId, deliverAt })).rejects.toThrow("sent message");
     await alice.messages.ack({ messageIds: [sent.messageId] });
     await bob.messages.ack({ messageIds: [sent.messageId] });
   });
@@ -485,9 +488,9 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
   it("contains a conflicting legacy schedule receipt and continues releasing healthy jobs", async () => {
     const { releaseScheduledMessages } = await import("../../api/scheduledMessages");
     const clientMessageId = crypto.randomUUID(), deliverAt = new Date(Date.now() + 60_000);
-    const bad = await alice.messages.schedule({ conversationId, envelope, clientMessageId, deliverAt });
+    const bad = await alice.messages.schedule({ directKeyContext, conversationId, envelope, clientMessageId, deliverAt });
     const goodId = crypto.randomUUID();
-    await alice.messages.schedule({ conversationId, envelope, clientMessageId: goodId, deliverAt });
+    await alice.messages.schedule({ directKeyContext, conversationId, envelope, clientMessageId: goodId, deliverAt });
     await db.insert(schema.sendReceipts).values({ senderId: aliceId, conversationId, clientMessageId,
       messageId: 999999, envelopeHash: "0".repeat(64), createdAt: new Date() });
     try {
@@ -503,7 +506,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
   it("applies normal relay backpressure to due schedules without discarding them", async () => {
     const { releaseScheduledMessages } = await import("../../api/scheduledMessages");
     const deliverAt = new Date(Date.now() + 60_000);
-    const job = await alice.messages.schedule({ conversationId, envelope, clientMessageId: crypto.randomUUID(), deliverAt });
+    const job = await alice.messages.schedule({ directKeyContext, conversationId, envelope, clientMessageId: crypto.randomUUID(), deliverAt });
     const ids: number[] = [];
     try {
       // Real MEDIUMTEXT rows: the SQL aggregate exceeds the 100 MB relay bound.
@@ -513,7 +516,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
         ids.push(id);
       }
       const healthyId = crypto.randomUUID();
-      await bob.messages.schedule({ conversationId, envelope, clientMessageId: healthyId, deliverAt: new Date(deliverAt.getTime() + 2000) });
+      await bob.messages.schedule({ directKeyContext, conversationId, envelope, clientMessageId: healthyId, deliverAt: new Date(deliverAt.getTime() + 2000) });
       const due = new Date(deliverAt.getTime() + 5000);
       expect(await releaseScheduledMessages(due, 1)).toBe(0);
       expect(await db.query.scheduledMessages.findFirst({ where: eq(schema.scheduledMessages.id, job.id) })).toMatchObject({ state: "pending", envelope });
@@ -539,7 +542,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
           deliverAt: new Date(Date.now() - 60000), state: "cancelled" }).$returningId();
         ids.push(id);
       }
-      const pending = await alice.messages.schedule({ conversationId, envelope, clientMessageId: crypto.randomUUID(), deliverAt });
+      const pending = await alice.messages.schedule({ directKeyContext, conversationId, envelope, clientMessageId: crypto.randomUUID(), deliverAt });
       ids.push(pending.id);
       const list = await alice.messages.scheduled();
       expect(list[0]).toMatchObject({ id: pending.id, state: "pending" });
@@ -549,8 +552,9 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
 
   it("fails scheduled direct jobs when either identity changes and rejects unbound legacy jobs", async () => {
     const { releaseScheduledMessages } = await import("../../api/scheduledMessages");
+    await expect(alice.messages.schedule({ directKeyContext: "0".repeat(64), conversationId, envelope, clientMessageId: crypto.randomUUID(), deliverAt: new Date(Date.now() + 60000) })).rejects.toThrow("Direct encryption changed");
     for (const changedId of [aliceId, bobId]) {
-      const job = await alice.messages.schedule({ conversationId, envelope, clientMessageId: crypto.randomUUID(), deliverAt: new Date(Date.now() + 60000) });
+      const job = await alice.messages.schedule({ directKeyContext, conversationId, envelope, clientMessageId: crypto.randomUUID(), deliverAt: new Date(Date.now() + 60000) });
       const original = (await db.query.users.findFirst({ where: eq(schema.users.id, changedId) }))!.publicKey;
       try {
         await db.update(schema.users).set({ publicKey: (await generateIdentity()).publicKeyB64 }).where(eq(schema.users.id, changedId));
@@ -558,7 +562,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
         expect(await db.query.scheduledMessages.findFirst({ where: eq(schema.scheduledMessages.id, job.id) })).toMatchObject({ state: "failed", failureCode: "direct_key_changed", envelope: null });
       } finally { await db.update(schema.users).set({ publicKey: original }).where(eq(schema.users.id, changedId)); }
     }
-    const legacy = await alice.messages.schedule({ conversationId, envelope, clientMessageId: crypto.randomUUID(), deliverAt: new Date(Date.now() + 60000) });
+    const legacy = await alice.messages.schedule({ directKeyContext, conversationId, envelope, clientMessageId: crypto.randomUUID(), deliverAt: new Date(Date.now() + 60000) });
     await db.update(schema.scheduledMessages).set({ directKeyContext: null }).where(eq(schema.scheduledMessages.id, legacy.id));
     expect(await releaseScheduledMessages(new Date(Date.now() + 61000))).toBe(0);
     expect(await db.query.scheduledMessages.findFirst({ where: eq(schema.scheduledMessages.id, legacy.id) })).toMatchObject({ state: "failed", failureCode: "direct_key_changed" });

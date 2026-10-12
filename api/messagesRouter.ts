@@ -47,6 +47,7 @@ export const messagesRouter = createRouter({
   schedule: authedQuery.input(z.object({
     conversationId: z.number().int().positive(), envelope: envelopeSchema,
     clientMessageId: z.string().uuid(), deliverAt: z.coerce.date(),
+    directKeyContext: z.string().regex(/^[0-9a-f]{64}$/).optional(),
   })).mutation(async ({ ctx, input }) => {
     const db = getDb(), me = ctx.user!.id, now = Date.now();
     const deliverAt = new Date(Math.floor(input.deliverAt.getTime() / 1000) * 1000);
@@ -55,7 +56,8 @@ export const messagesRouter = createRouter({
       eq(scheduledMessages.senderId, me), eq(scheduledMessages.clientMessageId, input.clientMessageId))).limit(1);
     if (existing) {
       if (existing.conversationId !== input.conversationId || existing.envelopeHash !== hash ||
-          existing.deliverAt.getTime() !== deliverAt.getTime())
+          existing.deliverAt.getTime() !== deliverAt.getTime() ||
+          (input.directKeyContext !== undefined && input.directKeyContext !== existing.directKeyContext))
         throw new TRPCError({ code: "CONFLICT", message: "Scheduled retry does not match the original" });
       return { id: existing.id, state: existing.state, deliverAt: existing.deliverAt };
     }
@@ -77,6 +79,8 @@ export const messagesRouter = createRouter({
     const id = await db.transaction(async tx => {
       await tx.select({ id: conversations.id }).from(conversations).where(eq(conversations.id, input.conversationId)).for("update");
       const keyContext = await scheduledDirectKeyContext(tx, input.conversationId);
+      if (conversation.type === "direct" && input.directKeyContext !== keyContext)
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Direct encryption changed. Refresh the chat and create a new schedule." });
       if (await scheduledDestinationFailure(tx, { senderId: me, conversationId: input.conversationId, groupEpoch }))
         throw new TRPCError({ code: "FORBIDDEN", message: "Conversation is no longer available" });
       const [receipt] = await tx.select({ id: sendReceipts.id }).from(sendReceipts).where(and(
@@ -96,7 +100,8 @@ export const messagesRouter = createRouter({
         eq(scheduledMessages.senderId, me), eq(scheduledMessages.clientMessageId, input.clientMessageId))).limit(1);
       if (!concurrent) throw error;
       if (concurrent.conversationId !== input.conversationId || concurrent.envelopeHash !== hash ||
-          concurrent.deliverAt.getTime() !== deliverAt.getTime())
+          concurrent.deliverAt.getTime() !== deliverAt.getTime() ||
+          (input.directKeyContext !== undefined && input.directKeyContext !== concurrent.directKeyContext))
         throw new TRPCError({ code: "CONFLICT", message: "Scheduled retry does not match the original" });
       return { id: concurrent.id, state: concurrent.state, deliverAt: concurrent.deliverAt };
     });

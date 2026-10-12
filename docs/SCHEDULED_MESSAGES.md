@@ -45,8 +45,10 @@ following early tombstone cleanup. Local recovery copies remain until forgotten.
 
 Limitations: text-only scheduling UI; no reschedule-in-place or scheduled
 attachment composer. Direct identity changes after host acceptance now fail closed. New jobs bind
-the accepted server key snapshot; legacy direct jobs without a snapshot fail
-closed. A client already using stale keys before acceptance is not detected
-yet; refresh before scheduling after a key change. Group key changes fail closed. Native UI, clock changes,
+the client-provided key snapshot against the locked current identities; stale
+client keys are rejected before acceptance. Legacy direct jobs without a snapshot fail
+closed. Update the server and clients together; old clients without the new
+context field cannot create new direct schedules. Refresh before creating a
+new schedule after a key change. Group key changes fail closed. Native UI, clock changes,
 notifications, physical host restart and device network-switch acceptance remain
 pending. Use one canonical HTTPS origin on LAN and invited Tailscale routes.

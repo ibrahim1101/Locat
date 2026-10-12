@@ -4,7 +4,7 @@ import { draftScope, MAX_ENCRYPTED_DRAFT } from "./encryptedDraft";
 import { kvDel, kvGet, kvKeys, putBoundedKv } from "./localdb";
 import { messagePayloadSchema } from "@contracts/messagePayload";
 const encoder = new TextEncoder();
-const schema = z.object({ clientMessageId: z.string().uuid(), conversationId: z.number().int().positive(),
+const schema = z.object({ directKeyContext: z.string().regex(/^[0-9a-f]{64}$/).optional(), clientMessageId: z.string().uuid(), conversationId: z.number().int().positive(),
   deliverAt: z.iso.datetime(), envelope: z.string().min(2).max(60_000),
   payload: messagePayloadSchema.refine(p => p.type === "text" && p.text.length <= MAX_ENCRYPTED_DRAFT),
 }).strict();

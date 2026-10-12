@@ -409,3 +409,23 @@ refresh before scheduling after a key change. Recovery copies remain encrypted
 under their original identity; replacing that identity can prevent unlocking
 them. Installed-device/clock/notification acceptance remains pending. This is
 an incremental scheduling protection, not completion of the ecosystem.
+
+### 2026-10-12 — Client-bound scheduled key context
+
+Closed the pre-acceptance stale-key window left by the prior relay-only
+snapshot. Shared key-context serialization now agrees between WebCrypto
+clients and server SHA-256. Direct schedule creation requires the client's
+context to match current locked identities. Encrypted recovery copies persist
+that context and exact retries reuse it; changed context is rejected for an
+existing request. Refreshed identities produce a new scheduling attempt, and
+its copy is durably saved before every RPC. Legacy clients missing context
+cannot create new direct schedules; update client and server together.
+
+Final verification: 385/385 tests across 66 files, including 36 real MariaDB
+cases, passed twice including fresh canonical migrations; eight LAN/Tailscale
+CLI cases passed per run. Tests include stale-context rejection, either member
+rotating, legacy unbound jobs, client/server digest agreement, member ordering,
+conversation/identity binding and encrypted context persistence. TypeScript
+and production build passed; lint has zero errors and 12 existing warnings.
+This supersedes the prior pre-acceptance limitation; physical native/clock/
+notification acceptance and the other ecosystem work remain open.

@@ -1,3 +1,4 @@
+import { scheduledKeyMaterial } from "@contracts/scheduledKeyContext";
 import { createHash } from "node:crypto";
 import { and, asc, eq, inArray, lt, lte, ne, or, sql } from "drizzle-orm";
 import { getDb } from "./queries/connection";
@@ -16,7 +17,7 @@ export async function scheduledDirectKeyContext(tx: SelectDatabase, conversation
   const ids = members.map(m => m.id).sort((a, b) => a - b);
   if (!ids.length) return "";
   const keys = await tx.select({ id: users.id, publicKey: users.publicKey }).from(users).where(inArray(users.id, ids)).orderBy(asc(users.id)).for("update");
-  return createHash("sha256").update(JSON.stringify([conversationId, keys])).digest("hex");
+  return createHash("sha256").update(scheduledKeyMaterial(conversationId, keys)).digest("hex");
 }
 export async function scheduledDestinationFailure(tx: SelectDatabase, row: ScheduledDestination): Promise<ScheduledFailureCode | null> {
   const [sender] = await tx.select({ disabled: users.disabled }).from(users).where(eq(users.id, row.senderId)).limit(1);
