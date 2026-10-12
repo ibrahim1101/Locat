@@ -1,6 +1,6 @@
 import { issueLinkChallenge, answerLinkChallenge, verifyLinkProof, validateLinkPublicKey, canonicalLinkPublicKey, revokeLinkProofs } from "./linkProof";
 import { z } from "zod";
-import { createMediaAccessRequest, listMediaAccessRequests, getMediaAccessRequest, decideMediaAccessRequest, revokeMediaAccessRequests } from "./deviceMediaAccess";
+import { createMediaAccessRequest, listMediaAccessRequests, getMediaAccessRequest, decideMediaAccessRequest, revokeMediaAccessRequests, revokeMediaLibraryRequests } from "./deviceMediaAccess";
 import { publishDeviceLibraries, discoverDeviceLibraries, unpublishDeviceLibraries, hasPublishedLibrary } from "./deviceMediaDiscovery";
 import { TRPCError } from "@trpc/server";
 import { getTableColumns, and, eq, desc, inArray, isNull, ne, lt, sql } from "drizzle-orm";
@@ -145,11 +145,15 @@ export const linkRouter = createRouter({
       })).max(30),
     })).mutation(({ ctx, input }) => {
       limit(`media-publish:${ctx.user.id}:${ctx.linkDeviceId}`, 60, 60_000);
+      // Re-publication invalidates prior approvals, even for unchanged library IDs.
+      // A source must explicitly approve each new sharing session.
+      revokeMediaLibraryRequests(ctx.user.id, ctx.linkDeviceId);
       publishDeviceLibraries(ctx.user.id, ctx.linkDeviceId, input.libraries);
       return { ok: true };
     }),
     unpublish: deviceQuery.mutation(({ ctx }) => {
       unpublishDeviceLibraries(ctx.user.id, ctx.linkDeviceId);
+      revokeMediaLibraryRequests(ctx.user.id, ctx.linkDeviceId);
       return { ok: true };
     }),
     requestAccess: deviceQuery.input(z.object({
