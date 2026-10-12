@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createMediaAccessRequest, decideMediaAccessRequest, getMediaAccessRequest,
-  listMediaAccessRequests, revokeMediaAccessRequests, revokeMediaLibraryRequests,
+  listMediaAccessRequests, revokeMediaAccessRequests, revokeMediaLibraryRequests, consumeMediaAccessApproval,
 } from "./deviceMediaAccess";
 
 describe("paired device media access request lifecycle", () => {
@@ -38,6 +38,15 @@ describe("paired device media access request lifecycle", () => {
     expect(getMediaAccessRequest(981, 502, music.id, 3503)?.status).toBe("pending");
     revokeMediaLibraryRequests(981, 501);
     expect(getMediaAccessRequest(981, 502, music.id, 3504)).toBeNull();
+  });
+  it("consumes an approval exactly once and never allows the source or another user to consume it", () => {
+    const request = createMediaAccessRequest(base, 3600);
+    expect(consumeMediaAccessApproval(981, 502, request.id, 3601)).toBeNull();
+    expect(decideMediaAccessRequest(981, 501, request.id, true, 3602)?.status).toBe("approved");
+    expect(consumeMediaAccessApproval(981, 501, request.id, 3603)).toBeNull();
+    expect(consumeMediaAccessApproval(982, 502, request.id, 3603)).toBeNull();
+    expect(consumeMediaAccessApproval(981, 502, request.id, 3603)?.id).toBe(request.id);
+    expect(consumeMediaAccessApproval(981, 502, request.id, 3604)).toBeNull();
   });
   it("revocation removes requests for either participating device", () => {
     const request = createMediaAccessRequest(base, 4000);
