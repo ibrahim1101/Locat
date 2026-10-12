@@ -4,13 +4,18 @@ Development branch: `feat/locat-complete-ecosystem`. Review:
 [draft PR #7](https://github.com/ibrahim1101/Locat/pull/7), stacked on the unified
 preview. This is an incomplete test preview, not a production release.
 
-Current packaged source **7294f3c** gives local Cinema, Music, Photos,
+Current packaged source **f7dd480** gives local Cinema, Music, Photos,
 diagnostics and device protection their own pages. Local media adds bounded
 queues, Music advancement/repeat and Cinema resume, speed, fit/fill,
 fullscreen/PiP and WebVTT subtitles. Photos opens raster images and provides
 crop/rotation/flips, color adjustments, brush/text annotations, undo/redo,
 reset and export of a separate JPEG (1600 pixels/2.9 MB maximum).
-Original files remain untouched. See [login and sections](LOGIN_AND_SECTIONS.md).
+Original files remain untouched. Device libraries now discover indexed Android
+media after per-section permission, with original folder grouping, Music
+album/artist groups, on-demand thumbnails, search and name/date/size/duration
+sorting. Selected-photo/video grants are labeled accurately. Browser/desktop
+use explicit directory selection. See [device libraries](DEVICE_MEDIA_LIBRARY.md)
+and [login and sections](LOGIN_AND_SECTIONS.md).
 
 Login-first entry, the post-login section dashboard, visible disabled
 server/permission/planned options and bottom-left HTTPS server connection
@@ -27,14 +32,16 @@ and recheck it before release; changed identities, unbound legacy jobs and
 disabled accounts fail closed. Update server/clients together and apply
 migration 0016 through the normal isolated deployment workflow.
 
-Both [PR core](https://github.com/ibrahim1101/Locat/actions/runs/38245137384)
-and [push core](https://github.com/ibrahim1101/Locat/actions/runs/38245130705)
-passed 399 tests across 70 files, real MariaDB/migrations/bootstrap,
+[Push core](https://github.com/ibrahim1101/Locat/actions/runs/38250585758) and
+[PR core](https://github.com/ibrahim1101/Locat/actions/runs/38250592253) both
+passed 404 tests across 71 files, real MariaDB/migrations/bootstrap,
 Docker/media readiness and Chromium registration, offline section gates, local WAV/WebM decoding,
 wrong/correct device passphrase and zero-account-RPC checks, separate pages,
 queue advance, movie seek/resume, photo filter/flip/undo/drawing pixels,
 rejected-image clearing and real JPEG download,
-image pixels/JPEG export and audio checks. Signed Android and all three
+image pixels/JPEG export and audio checks, plus paged device-library bridge contracts,
+permission states, original folders, Music albums, search/sorting and playback.
+The Android workflow passed 14 JVM byte-range cases, including >4GB offsets. Signed Android and all three
 desktop packaging jobs passed for the same source. Native
 packaging results do not establish physical device acceptance.
 
@@ -46,13 +53,13 @@ installer inside the ZIP, rather than the repository source ZIP.
 
 | Platform | Workflow | Artifact | File inside |
 |---|---|---|---|
-| Windows | [Desktop run](https://github.com/ibrahim1101/Locat/actions/runs/38245130639) | [locat-windows-preview](https://github.com/ibrahim1101/Locat/actions/runs/38245130639/artifacts/11745656605) | NSIS `.exe` |
-| Android | [Signed APK run](https://github.com/ibrahim1101/Locat/actions/runs/38245130630) | [locat-2-preview-apk](https://github.com/ibrahim1101/Locat/actions/runs/38245130630/artifacts/11745195624) | `locat-2-preview.apk`, checksum, build info and signing certificate |
-| Linux | Desktop run | [locat-linux-preview](https://github.com/ibrahim1101/Locat/actions/runs/38245130639/artifacts/11746537077) | `.deb` / `.AppImage` |
-| macOS | Desktop run | [locat-macos-preview](https://github.com/ibrahim1101/Locat/actions/runs/38245130639/artifacts/11745471578) | `.app` / `.dmg` |
+| Windows | [Desktop run](https://github.com/ibrahim1101/Locat/actions/runs/38250585704) | [locat-windows-preview](https://github.com/ibrahim1101/Locat/actions/runs/38250585704/artifacts/11747104199) | NSIS `.exe` |
+| Android | [Signed APK run](https://github.com/ibrahim1101/Locat/actions/runs/38250585769) | [locat-2-preview-apk](https://github.com/ibrahim1101/Locat/actions/runs/38250585769/artifacts/11747098707) | `locat-2-preview.apk`, checksum, build info and signing certificate |
+| Linux | Desktop run | [locat-linux-preview](https://github.com/ibrahim1101/Locat/actions/runs/38250585704/artifacts/11746819332) | `.deb` / `.AppImage` |
+| macOS | Desktop run | [locat-macos-preview](https://github.com/ibrahim1101/Locat/actions/runs/38250585704/artifacts/11747769414) | `.app` / `.dmg` |
 
 Verified 2026-10-12: all four artifact records are unexpired and identify the
-exact source SHA `7294f3cb5a9ad557cd89a4a7db325888594c19a3`.
+exact source SHA `f7dd4806b6c1fc71a0af10fc59a493447f859aef`.
 The previews also include clipboard/lifecycle protection, bounded file buffering,
 login-first section navigation, reactions, shared pins, reply references and explicit
 forwarding. See [scheduled text](SCHEDULED_MESSAGES.md),
