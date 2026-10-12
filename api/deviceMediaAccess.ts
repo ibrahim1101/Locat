@@ -34,3 +34,10 @@ export function decideMediaAccessRequest(userId: number, sourceDeviceId: number,
 export function revokeMediaAccessRequests(userId: number, deviceId: number) {
   for (const [id, item] of requests) if (item.userId === userId && (item.sourceDeviceId === deviceId || item.requesterDeviceId === deviceId)) requests.delete(id);
 }
+
+/** Revoke requests and approvals tied to a withdrawn source library. */
+export function revokeMediaLibraryRequests(userId: number, sourceDeviceId: number, libraryId?: string) {
+  for (const [id, item] of requests) {
+    if (item.userId === userId && item.sourceDeviceId === sourceDeviceId && (libraryId === undefined || item.libraryId === libraryId)) requests.delete(id);
+  }
+}
