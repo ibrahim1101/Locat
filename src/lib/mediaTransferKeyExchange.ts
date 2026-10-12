@@ -42,3 +42,22 @@ export async function verifyMediaPeerFingerprint(publicKeyRaw: ArrayBuffer, expe
   for (let i = 0; i < 64; i++) difference |= actual.charCodeAt(i) ^ expectedFingerprint.charCodeAt(i);
   return difference === 0;
 }
+
+/**
+ * Fail-closed transfer key derivation. The expected fingerprint MUST come from
+ * an independently authenticated device identity (e.g. a previously pinned
+ * identity key or an out-of-band comparison), never from the signal itself.
+ */
+export async function deriveVerifiedMediaSessionKey(
+  privateKey: CryptoKey,
+  peerPublicKeyRaw: ArrayBuffer,
+  expectedPeerFingerprint: string,
+  transferId: string,
+  initiatorDeviceId: number,
+  receiverDeviceId: number,
+): Promise<CryptoKey> {
+  if (!(await verifyMediaPeerFingerprint(peerPublicKeyRaw, expectedPeerFingerprint))) {
+    throw new Error("Untrusted media transfer peer key");
+  }
+  return deriveMediaSessionKey(privateKey, peerPublicKeyRaw, transferId, initiatorDeviceId, receiverDeviceId);
+}
