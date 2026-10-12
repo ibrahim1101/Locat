@@ -447,3 +447,18 @@ The previous client-context runtime 9d9b29e passed both core workflows
 38217577398 / 38217571750, signed APK 38217571748 and all three desktop jobs
 38217571780. This follow-up tightens authorization while preserving the same
 client key-context protocol. No live database or production change occurred.
+
+### 2026-10-12 — Verified direct-scheduling protection installers
+
+Runtime 438f2d26ca35b0657b3afca6d88520f4404c0110 passed both core workflows
+38218538591 / 38218532957, including the real authorization lock-wait case,
+386 tests across 66 files, fresh migrations/bootstrap, Docker/media readiness
+and Chromium audio checks. Signed APK workflow 38218532975 passed, artifact
+11733232808. Desktop workflow 38218532953 passed all jobs: Windows artifact
+11733011893, Linux 11733631984, macOS 11733208112. All artifact records are
+unexpired and identify this exact source SHA. The download guide is updated.
+
+Client and server must be updated together for new direct scheduling context;
+0016 adds the server metadata column and readiness rejects missing schema.
+Legacy unbound jobs fail closed. No physical acceptance or production release
+is inferred. This documentation update changes no runtime source.

@@ -4,12 +4,16 @@ Development branch: `feat/locat-complete-ecosystem`. Review:
 [draft PR #7](https://github.com/ibrahim1101/Locat/pull/7), stacked on the unified
 preview. This is an incomplete test preview, not a production release.
 
-Current packaged source **8382a59** includes scheduled encrypted text/reply
+Current packaged source **438f2d2** includes scheduled encrypted text/reply
 composition, a schedule manager with exact encrypted recovery requests, LAN
 plus optional invited Tailscale access, and native chat server/account storage
-isolation. Both [PR core](https://github.com/ibrahim1101/Locat/actions/runs/38214438381)
-and [push core](https://github.com/ibrahim1101/Locat/actions/runs/38214432772)
-passed, including 382 tests across 65 files, real MariaDB/migration/bootstrap,
+isolation. Direct schedules bind the client encryption-key context at
+acceptance and recheck it before release; changed identities, unbound legacy
+jobs and current disabled accounts fail closed. Update server and clients
+together and apply migration 0016 through the normal isolated deployment
+workflow; old clients cannot create new direct schedules. Both [PR core](https://github.com/ibrahim1101/Locat/actions/runs/38218538591)
+and [push core](https://github.com/ibrahim1101/Locat/actions/runs/38218532957)
+passed, including 386 tests across 66 files, real MariaDB/migration/bootstrap,
 Docker/media readiness and real Chromium audio checks. Signed Android and
 all three desktop packaging jobs passed for the same source. These are build
 results, not physical device acceptance.
@@ -22,13 +26,13 @@ installer inside the ZIP, rather than the repository source ZIP.
 
 | Platform | Workflow | Artifact | File inside |
 |---|---|---|---|
-| Windows | [Desktop run](https://github.com/ibrahim1101/Locat/actions/runs/38214432675) | [locat-windows-preview](https://github.com/ibrahim1101/Locat/actions/runs/38214432675/artifacts/11732175682) | NSIS `.exe` |
-| Android | [Signed APK run](https://github.com/ibrahim1101/Locat/actions/runs/38214432639) | [locat-2-preview-apk](https://github.com/ibrahim1101/Locat/actions/runs/38214432639/artifacts/11732115081) | `locat-2-preview.apk`, checksum, build info and signing certificate |
-| Linux | Desktop run | [locat-linux-preview](https://github.com/ibrahim1101/Locat/actions/runs/38214432675/artifacts/11731401517) | `.deb` / `.AppImage` |
-| macOS | Desktop run | [locat-macos-preview](https://github.com/ibrahim1101/Locat/actions/runs/38214432675/artifacts/11731296335) | `.app` / `.dmg` |
+| Windows | [Desktop run](https://github.com/ibrahim1101/Locat/actions/runs/38218532953) | [locat-windows-preview](https://github.com/ibrahim1101/Locat/actions/runs/38218532953/artifacts/11733011893) | NSIS `.exe` |
+| Android | [Signed APK run](https://github.com/ibrahim1101/Locat/actions/runs/38218532975) | [locat-2-preview-apk](https://github.com/ibrahim1101/Locat/actions/runs/38218532975/artifacts/11733232808) | `locat-2-preview.apk`, checksum, build info and signing certificate |
+| Linux | Desktop run | [locat-linux-preview](https://github.com/ibrahim1101/Locat/actions/runs/38218532953/artifacts/11733631984) | `.deb` / `.AppImage` |
+| macOS | Desktop run | [locat-macos-preview](https://github.com/ibrahim1101/Locat/actions/runs/38218532953/artifacts/11733208112) | `.app` / `.dmg` |
 
 Verified 2026-10-12: all four artifact records are unexpired and identify the
-exact source SHA `8382a59bf3296bd97e1da08cf1304014abaf6aba`.
+exact source SHA `438f2d26ca35b0657b3afca6d88520f4404c0110`.
 The previews also include clipboard/lifecycle protection, bounded file buffering,
 chat-first navigation, reactions, shared pins, reply references and explicit
 forwarding. See [scheduled text](SCHEDULED_MESSAGES.md),
