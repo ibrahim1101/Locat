@@ -49,7 +49,8 @@ export const messagesRouter = createRouter({
     clientMessageId: z.string().uuid(), deliverAt: z.coerce.date(),
   })).mutation(async ({ ctx, input }) => {
     const db = getDb(), me = ctx.user!.id, now = Date.now();
-    if (input.deliverAt.getTime() < now + 30_000 || input.deliverAt.getTime() > now + 30 * 86400000)
+    const deliverAt = new Date(Math.floor(input.deliverAt.getTime() / 1000) * 1000);
+    if (deliverAt.getTime() < now + 30_000 || deliverAt.getTime() > now + 30 * 86400000)
       throw new TRPCError({ code: "BAD_REQUEST", message: "Schedule messages from 30 seconds to 30 days ahead" });
     await requireMembership(input.conversationId, me);
     const [conversation] = await db.select().from(conversations).where(eq(conversations.id, input.conversationId)).limit(1);
@@ -68,7 +69,7 @@ export const messagesRouter = createRouter({
       eq(scheduledMessages.senderId, me), eq(scheduledMessages.clientMessageId, input.clientMessageId))).limit(1);
     if (existing) {
       if (existing.conversationId !== input.conversationId || existing.envelopeHash !== hash ||
-          existing.deliverAt.getTime() !== input.deliverAt.getTime())
+          existing.deliverAt.getTime() !== deliverAt.getTime())
         throw new TRPCError({ code: "CONFLICT", message: "Scheduled retry does not match the original" });
       return { id: existing.id, state: existing.state, deliverAt: existing.deliverAt };
     }
@@ -82,18 +83,18 @@ export const messagesRouter = createRouter({
         throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Scheduled message storage limit reached" });
       const [created] = await tx.insert(scheduledMessages).values({ senderId: me, conversationId: input.conversationId,
         clientMessageId: input.clientMessageId, envelope: input.envelope, envelopeHash: hash,
-        groupEpoch, deliverAt: input.deliverAt }).$returningId();
+        groupEpoch, deliverAt }).$returningId();
       return created.id;
     }).catch(async error => {
       const [concurrent] = await db.select().from(scheduledMessages).where(and(
         eq(scheduledMessages.senderId, me), eq(scheduledMessages.clientMessageId, input.clientMessageId))).limit(1);
       if (!concurrent) throw error;
       if (concurrent.conversationId !== input.conversationId || concurrent.envelopeHash !== hash ||
-          concurrent.deliverAt.getTime() !== input.deliverAt.getTime())
+          concurrent.deliverAt.getTime() !== deliverAt.getTime())
         throw new TRPCError({ code: "CONFLICT", message: "Scheduled retry does not match the original" });
       return concurrent.id;
     });
-    return { id, state: "pending" as const, deliverAt: input.deliverAt };
+    return { id, state: "pending" as const, deliverAt };
   }),
 
   scheduled: authedQuery.query(async ({ ctx }) => {
