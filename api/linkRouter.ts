@@ -179,15 +179,17 @@ export const linkRouter = createRouter({
     }),
     decideRequest: deviceQuery.input(z.object({ requestId: z.string().uuid(), approve: z.boolean() })).mutation(async ({ ctx, input }) => {
       limit(`media-access-decision:${ctx.user.id}:${ctx.linkDeviceId}`, 60, 60_000);
-      const request = decideMediaAccessRequest(ctx.user.id, ctx.linkDeviceId, input.requestId, input.approve);
-      if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "Request expired, unavailable, or already decided" });
-      if (request.status === "approved") {
-        await ownedDevice(ctx.user.id, request.requesterDeviceId);
-        await requireVerifiedPair(ctx.user.id, ctx.linkDeviceId, request.requesterDeviceId);
-        if (!hasPublishedLibrary(ctx.user.id, ctx.linkDeviceId, request.libraryId)) {
+      const pending = listMediaAccessRequests(ctx.user.id, ctx.linkDeviceId).find(item => item.id === input.requestId && item.status === "pending");
+      if (!pending) throw new TRPCError({ code: "NOT_FOUND", message: "Request expired, unavailable, or already decided" });
+      if (input.approve) {
+        await ownedDevice(ctx.user.id, pending.requesterDeviceId);
+        await requireVerifiedPair(ctx.user.id, ctx.linkDeviceId, pending.requesterDeviceId);
+        if (!hasPublishedLibrary(ctx.user.id, ctx.linkDeviceId, pending.libraryId)) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Library is no longer published" });
         }
       }
+      const request = decideMediaAccessRequest(ctx.user.id, ctx.linkDeviceId, input.requestId, input.approve);
+      if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "Request already decided" });
       return { requestId: request.id, status: request.status };
     }),
     discover: deviceQuery.input(z.object({ deviceId: z.number().int().positive() })).query(async ({ ctx, input }) => {
