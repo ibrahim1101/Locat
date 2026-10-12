@@ -96,7 +96,7 @@ unimplemented features complete or physical network acceptance verified.
 
 ## Login and section navigation requirement added 2026-10-12
 
-The latest user instruction supersedes earlier chat-first entry: unauthenticated app entry must show login, and successful authentication opens the section dashboard. Every registered section remains visible. Planned sections and options requiring unavailable server connectivity or missing authorization are disabled with reasons; reconnection enables implemented authorized server features. Keep a bottom-left server-address control with strict HTTPS/schema readiness and existing server/account identity isolation. Existing valid sessions may restore; no new offline password authentication is claimed. New native installations must not open local tool features before authentication. See `LOGIN_AND_SECTIONS.md` for the implemented flow and limits.
+The latest user instruction supersedes earlier chat-first entry: unauthenticated app entry must show login, and successful authentication opens the section dashboard. Every registered section remains visible. Planned sections and options requiring unavailable server connectivity or missing authorization are disabled with reasons; reconnection enables implemented authorized server features. Keep a bottom-left server-address control with strict HTTPS/schema readiness and existing server/account identity isolation. Existing valid sessions may restore; no new offline password authentication is claimed. New native installations show login first, with the explicit non-server entry described below for device-only tools. See `LOGIN_AND_SECTIONS.md` for the implemented flow and limits.
 
 ### Explicit non-server mode added 2026-10-12
 
