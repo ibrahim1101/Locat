@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { importMediaTransferKey, encryptMediaChunk } from "./mediaTransferCrypto";
 import { MediaTransferChunkReceiver } from "./mediaTransferChunkReceiver";
+import { sha256MediaPayload } from "./mediaTransferIntegrity";
 
 describe("media chunk receiver", () => {
   const makeKey = () => importMediaTransferKey(crypto.getRandomValues(new Uint8Array(32)).buffer);
@@ -11,6 +12,16 @@ describe("media chunk receiver", () => {
     await receiver.accept(await encryptMediaChunk(key, "transfer-1", 1, new Uint8Array([3]).buffer));
     expect(receiver.finish(2, 3)).toEqual(new Uint8Array([1, 2, 3]));
     expect(() => receiver.finish(2, 3)).toThrow();
+  });
+  it("requires a matching whole-file digest before finalization", async () => {
+    const key = await makeKey();
+    const receiver = new MediaTransferChunkReceiver(key, "transfer-digest", 10);
+    const payload = new Uint8Array([4, 5, 6]);
+    await receiver.accept(await encryptMediaChunk(key, "transfer-digest", 0, payload.buffer));
+    await expect(receiver.finishVerified(1, 3, "0".repeat(64))).rejects.toThrow("digest mismatch");
+    const digest = await sha256MediaPayload(payload);
+    expect(await receiver.finishVerified(1, 3, digest)).toEqual(payload);
+    await expect(receiver.finishVerified(1, 3, digest)).rejects.toThrow("finalized");
   });
   it("rejects replay and out-of-order chunks", async () => {
     const key = await makeKey();
