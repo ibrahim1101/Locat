@@ -13,6 +13,11 @@ const kinds: Record<string, MediaKind> = {
 export function DeviceLibrarySharing({ proof, peers }: { proof: string; peers: Peer[] }) {
   const publish = trpc.link.mediaDiscovery.publish.useMutation();
   const unpublish = trpc.link.mediaDiscovery.unpublish.useMutation();
+  const requestAccess = trpc.link.mediaDiscovery.requestAccess.useMutation();
+  const decideRequest = trpc.link.mediaDiscovery.decideRequest.useMutation();
+  const pending = trpc.link.mediaDiscovery.pendingRequests.useQuery({ proof }, { refetchInterval: 6000, retry: false });
+  const [requestId, setRequestId] = useState("");
+  const requestStatus = trpc.link.mediaDiscovery.requestStatus.useQuery({ proof, requestId }, { enabled: !!requestId, refetchInterval: 6000, retry: false });
   const [libraryName, setLibraryName] = useState("");
   const [counts, setCounts] = useState<Record<MediaKind, number>>({ cinema: 0, music: 0, photos: 0 });
   const [enabled, setEnabled] = useState(false);
@@ -74,7 +79,11 @@ export function DeviceLibrarySharing({ proof, peers }: { proof: string; peers: P
     </select>
     {discovery.isFetching && <p role="status" className="text-xs">Loading shared libraries…</p>}
     {discovery.isError && <p role="alert" className="text-xs text-destructive">Unable to discover this device's libraries.</p>}
-    {discovery.data && <ul className="space-y-1 text-sm">{discovery.data.libraries.map(item => <li key={item.id} className="rounded-lg border p-2">{item.name} · {item.kind} · {item.count} files</li>)}{!discovery.data.libraries.length && <li className="text-secondary">No active shared libraries.</li>}</ul>}
+    {discovery.data && <ul className="space-y-1 text-sm">{discovery.data.libraries.map(item => <li key={item.id} className="flex items-center justify-between gap-2 rounded-lg border p-2"><span>{item.name} · {item.kind} · {item.count} files</span><button type="button" disabled={requestAccess.isPending} className="rounded-lg border px-2 py-1 text-xs" onClick={() => void requestAccess.mutateAsync({ proof, deviceId: discovery.data.deviceId, libraryId: item.id }).then(result => { setRequestId(result.requestId); setNotice("Access requested. The source device must approve."); }).catch(error => setNotice(error instanceof Error ? error.message : "Request failed."))}>Request access</button></li>)}{!discovery.data.libraries.length && <li className="text-secondary">No active shared libraries.</li>}</ul>}
+    {requestId && <p role="status" className="text-xs text-secondary">My latest access request: {requestStatus.data?.status ?? (requestStatus.isError ? "Expired or unavailable" : "Checking…")}. Approval does not yet enable file transfer.</p>}
+    <h3 className="text-sm font-semibold">Incoming access requests</h3>
+    {pending.isError && <p role="alert" className="text-xs text-destructive">Could not load incoming requests.</p>}
+    <ul className="space-y-2 text-sm">{(pending.data ?? []).filter(item => item.status === "pending").map(item => <li key={item.id} className="rounded-lg border p-3"><p>Device #{item.requesterDeviceId} requests access to {item.libraryId}</p><div className="mt-2 flex gap-2">{([true, false] as const).map(approve => <button key={String(approve)} type="button" disabled={decideRequest.isPending} className="rounded-lg border px-3 py-1.5 text-xs" onClick={() => void decideRequest.mutateAsync({ proof, requestId: item.id, approve }).then(() => void pending.refetch()).catch(error => setNotice(error instanceof Error ? error.message : "Decision failed."))}>{approve ? "Approve" : "Deny"}</button>)}</div></li>)}</ul>
     {activePeerId && <button type="button" onClick={() => void discovery.refetch()} className="rounded-lg border px-3 py-2 text-sm">Refresh discovery</button>}
   </section>;
 }
