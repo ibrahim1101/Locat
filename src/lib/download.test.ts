@@ -9,6 +9,7 @@ function testDependencies(saveSelected: DownloadDependencies["saveSelected"]) {
   let scheduled: (() => void) | undefined;
   const dependencies: DownloadDependencies = {
     saveSelected,
+    useSelectedFolder: () => true,
     isNativeShell: () => false,
     createObjectURL: vi.fn(() => "blob:test"),
     revokeObjectURL,
@@ -33,6 +34,17 @@ describe("downloadBlob", () => {
     )).resolves.toBe("selected-folder");
     expect(saveSelected).toHaveBeenCalledWith("backup.locat", "application/json", "c2VjcmV0");
     expect(fixture.click).not.toHaveBeenCalled();
+  });
+
+  it("does not read or base64 encode browser files without a selected folder", async () => {
+    const fixture = testDependencies(vi.fn(async () => false));
+    fixture.dependencies.useSelectedFolder = () => false;
+    const blob = new Blob(["large file"]);
+    const read = vi.spyOn(blob, "arrayBuffer").mockRejectedValue(new Error("Must not buffer"));
+    await expect(downloadBlob(blob, "file.bin", fixture.dependencies)).resolves.toBe("browser");
+    expect(read).not.toHaveBeenCalled();
+    expect(fixture.dependencies.saveSelected).not.toHaveBeenCalled();
+    expect(fixture.click).toHaveBeenCalledOnce();
   });
 
   it("uses browser downloads when no Android folder is selected", async () => {

@@ -1,4 +1,4 @@
-import { saveToSelectedFolder } from "./storagePreference";
+import { saveToSelectedFolder, storagePreference } from "./storagePreference";
 
 async function blobBase64(blob: Blob): Promise<string> {
   const bytes = new Uint8Array(await blob.arrayBuffer());
@@ -19,6 +19,7 @@ type DownloadLink = {
 
 export type DownloadDependencies = {
   saveSelected: typeof saveToSelectedFolder;
+  useSelectedFolder(): boolean;
   createObjectURL(blob: Blob): string;
   revokeObjectURL(url: string): void;
   createLink(): DownloadLink;
@@ -54,6 +55,7 @@ function notifyDownload(filename: string, status: "saving" | "saved" | "failed",
 function browserDependencies(): DownloadDependencies {
   return {
     saveSelected: saveToSelectedFolder,
+    useSelectedFolder: () => storagePreference().mode === "user-folder",
     isNativeShell: () => typeof window !== "undefined" && Boolean((window.Capacitor as { isNativePlatform?: () => boolean } | undefined)?.isNativePlatform?.()),
     createObjectURL: (blob) => URL.createObjectURL(blob),
     revokeObjectURL: (url) => URL.revokeObjectURL(url),
@@ -91,7 +93,7 @@ export function downloadBlob(
           const { tauriAdapter } = await import("./platform/tauri");
           await tauriAdapter.saveBlob(blob, filename);
           destination = "desktop";
-        } else if (await dependencies.saveSelected(filename, blob.type, await blobBase64(blob))) {
+        } else if (dependencies.useSelectedFolder() && await dependencies.saveSelected(filename, blob.type, await blobBase64(blob))) {
           destination = "selected-folder";
         } else if (dependencies.isNativeShell()) {
           throw new Error("Android native downloads are not available in this build. Select an Android folder in Settings & backups. No file was saved.");

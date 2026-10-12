@@ -221,3 +221,8 @@ Validation: 311 non-database tests passed; 28 DB cases skipped in this client-on
 ### Raspberry Pi installer media runtime
 
 The Linux/Pi installer now installs Debian's FFmpeg package and checks both FFmpeg and FFprobe before setup, addressing the missing media dependency outside Docker. `bash -n` and `--help` passed. No privileged installation or physical Pi testing was run in this workspace; ARM64 availability, native decoding and transcoding performance remain acceptance items.
+
+
+### Verified overnight builds and browser download memory
+
+Revision be44d4d passed both core/database/Docker checks and Android/Windows/Linux/macOS packaging. Download guide now links those verified artifacts. Browser download no longer reads/encodes the entire Blob before discovering that no Android folder is selected. Selected-folder writes still require base64 for the native bridge. Regression verifies Blob.arrayBuffer and folder write are never called on the browser path; targeted tests 12/12, TypeScript, targeted ESLint and production build passed. New revision packaging is pending.

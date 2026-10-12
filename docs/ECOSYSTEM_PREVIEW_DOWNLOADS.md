@@ -19,17 +19,16 @@ installer inside the ZIP, rather than the repository source ZIP.
 
 | Platform | Workflow | Artifact | File inside |
 |---|---|---|---|
-| Windows | [Desktop run](https://github.com/ibrahim1101/Locat/actions/runs/38176013993) | [locat-windows-preview](https://github.com/ibrahim1101/Locat/actions/runs/38176013993/artifacts/11715354209) | NSIS `.exe` |
-| Android | [Signed APK run](https://github.com/ibrahim1101/Locat/actions/runs/38176013946) | [locat-2-preview-apk](https://github.com/ibrahim1101/Locat/actions/runs/38176013946/artifacts/11715443716) | `locat-2-preview.apk`, checksum, build info and signing certificate |
-| Linux | Desktop run | [locat-linux-preview](https://github.com/ibrahim1101/Locat/actions/runs/38176013993/artifacts/11715748119) | `.deb` / `.AppImage` |
-| macOS | Desktop run | [locat-macos-preview](https://github.com/ibrahim1101/Locat/actions/runs/38176013993/artifacts/11716245083) | `.app` / `.dmg` |
+| Windows | [Desktop run](https://github.com/ibrahim1101/Locat/actions/runs/38176698051) | [locat-windows-preview](https://github.com/ibrahim1101/Locat/actions/runs/38176698051/artifacts/11715609784) | NSIS `.exe` |
+| Android | [Signed APK run](https://github.com/ibrahim1101/Locat/actions/runs/38176698038) | [locat-2-preview-apk](https://github.com/ibrahim1101/Locat/actions/runs/38176698038/artifacts/11715948554) | `locat-2-preview.apk`, checksum, build info and signing certificate |
+| Linux | Desktop run | [locat-linux-preview](https://github.com/ibrahim1101/Locat/actions/runs/38176698051/artifacts/11716410465) | `.deb` / `.AppImage` |
+| macOS | Desktop run | [locat-macos-preview](https://github.com/ibrahim1101/Locat/actions/runs/38176698051/artifacts/11716320702) | `.app` / `.dmg` |
 
 Verified 2026-10-12: all four packages passed at file-context revision
-`fd8a91a`; core/database/Docker checks passed in
-[38176017124](https://github.com/ibrahim1101/Locat/actions/runs/38176017124) and
-[38176013874](https://github.com/ibrahim1101/Locat/actions/runs/38176013874).
-A later clipboard/lifecycle batch is being published; the table above remains
-the verified file-context revision until its new packages pass. Read build info
+`be44d4d`; core/database/Docker checks passed in
+[38176701509](https://github.com/ibrahim1101/Locat/actions/runs/38176701509) and
+[38176698043](https://github.com/ibrahim1101/Locat/actions/runs/38176698043).
+These verified packages include the clipboard/lifecycle and bounded Link file-buffer changes. A later browser download-memory fix requires fresh packaging. Read build info
 for the packaged revision and Android version code.
 Artifacts expire after 14 days. Sign in to GitHub if a direct artifact link
 requires authentication. No device behavior or release signing is inferred
