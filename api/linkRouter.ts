@@ -1,5 +1,6 @@
 import { issueLinkChallenge, answerLinkChallenge, verifyLinkProof, validateLinkPublicKey, canonicalLinkPublicKey, revokeLinkProofs } from "./linkProof";
 import { z } from "zod";
+import { publishDeviceLibraries, discoverDeviceLibraries, unpublishDeviceLibraries } from "./deviceMediaDiscovery";
 import { TRPCError } from "@trpc/server";
 import { getTableColumns, and, eq, desc, inArray, isNull, ne, lt, sql } from "drizzle-orm";
 import { createRouter, authedQuery } from "./middleware";
@@ -128,6 +129,32 @@ export const linkRouter = createRouter({
         .where(and(eq(linkTransfers.userId, ctx.user.id), sql`(${linkTransfers.fromDevice} = ${input.id} OR ${linkTransfers.toDevice} = ${input.id})`));
       });
       return { ok: true };
+    }),
+  }),
+
+  mediaDiscovery: createRouter({
+    publish: deviceQuery.input(z.object({
+      libraries: z.array(z.object({
+        id: z.string().trim().min(1).max(80),
+        name: z.string().trim().min(1).max(120),
+        kind: z.enum(["cinema", "music", "photos"]),
+        count: z.number().int().min(0).max(1_000_000),
+      })).max(30),
+    })).mutation(({ ctx, input }) => {
+      limit(`media-publish:${ctx.user.id}:${ctx.linkDeviceId}`, 60, 60_000);
+      publishDeviceLibraries(ctx.user.id, ctx.linkDeviceId, input.libraries);
+      return { ok: true };
+    }),
+    unpublish: deviceQuery.mutation(({ ctx }) => {
+      unpublishDeviceLibraries(ctx.user.id, ctx.linkDeviceId);
+      return { ok: true };
+    }),
+    discover: deviceQuery.input(z.object({ deviceId: z.number().int().positive() })).query(async ({ ctx, input }) => {
+      await ownedDevice(ctx.user.id, input.deviceId);
+      if (ctx.linkDeviceId !== input.deviceId) {
+        await requireVerifiedPair(ctx.user.id, ctx.linkDeviceId, input.deviceId);
+      }
+      return { deviceId: input.deviceId, libraries: discoverDeviceLibraries(ctx.user.id, input.deviceId) };
     }),
   }),
 
