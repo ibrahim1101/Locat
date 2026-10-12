@@ -1,5 +1,6 @@
 import { visiblePins } from "@/lib/messagePins";
 import { ImageEditDialog } from "./ImageEditDialog";
+import { ServerMediaPicker } from "./ServerMediaPicker";
 import { ScheduleTextDialog } from "./ScheduleTextDialog";
 import { REACTION_EMOJIS, type ReactionEmoji, type MessageReply } from "@contracts/messagePayload";
 import { replyPreview } from "@/lib/messageReplies";
@@ -132,6 +133,7 @@ export function ChatWindow({
   onToggleMessageHidden: (message: LocalMessage) => void;
 }) {
   const [locationOpen, setLocationOpen] = useState(false);
+  const [serverPickerOpen, setServerPickerOpen] = useState(false);
   const [imageEditFile, setImageEditFile] = useState<File | null>(null);
   const [scheduleDraft, setScheduleDraft] = useState<{ text: string; reply?: MessageReply; revision: number } | null>(null);
   const [draft, setDraft] = useState(() => loadDraft(conversation.id, myId, draftServer));
@@ -505,6 +507,7 @@ export function ChatWindow({
           // Keep edits made while the request was in flight.
           if (draftRevision.current === scheduleDraft.revision) { setDraft(""); persistDraft(""); setReply(null); }
         }} />}
+      <ServerMediaPicker open={serverPickerOpen} onClose={() => setServerPickerOpen(false)} onSelect={onSendFile} />
       {!composer.composerVisible ? (
         <p role="status" className="border-t px-4 py-4 text-sm text-secondary">
           {composer.unavailableReason}
@@ -538,6 +541,9 @@ export function ChatWindow({
                 aria-describedby={composer.unavailableReason ? "composer-unavailable-reason" : undefined}>
                 <Paperclip className="h-5 w-5" />
               </button>
+              <button type="button" onClick={() => setServerPickerOpen(true)} disabled={!composer.canAttach || recording}
+                className="emergent-locat-control flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-secondary hover:bg-accent hover:text-foreground"
+                aria-label="Search and select server video photo or file" title="Browse authorized Locat server media">☁</button>
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
