@@ -18,13 +18,16 @@ export function ServerMediaPicker({ open, onClose, onSelect }: {
   const items = trpc.media.items.useQuery(undefined, { enabled: open, retry: false });
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("all");
+  const [library, setLibrary] = useState("all");
+  const libraries = useMemo(() => [...new Set((items.data ?? []).map(item => String(item.libraryId)))].sort(), [items.data]);
   const [busy, setBusy] = useState("");
   const busyRef = useRef(false);
   const [error, setError] = useState("");
   const visible = useMemo(() => (items.data ?? []).filter(item =>
     (kind === "all" || item.kind === kind) &&
+    (library === "all" || String(item.libraryId) === library) &&
     (item.name + " " + item.library).toLocaleLowerCase().includes(query.toLocaleLowerCase())
-  ), [items.data, query, kind]);
+  ), [items.data, query, kind, library]);
   async function attach(item: NonNullable<typeof items.data>[number]) {
     if (busyRef.current) return;
     if (item.sizeBytes > MAX_ATTACHMENT_BYTES) {
@@ -77,6 +80,8 @@ export function ServerMediaPicker({ open, onClose, onSelect }: {
       <p className="text-xs text-secondary">Browse media explicitly shared with this Locat server. Other devices must first publish an authorized library. Files are sent as encrypted chat attachments, not permanent remote links.</p>
       <input aria-label="Search server media" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search name or library…" className="w-full rounded-lg border bg-background px-3 py-2" />
       <select aria-label="Media type" value={kind} onChange={e => setKind(e.target.value)} className="rounded-lg border bg-background px-3 py-2"><option value="all">All media</option><option value="cinema">Videos</option><option value="photos">Photos</option><option value="music">Music</option></select>
+      <select aria-label="Source library" value={library} onChange={e => setLibrary(e.target.value)} className="rounded-lg border bg-background px-3 py-2"><option value="all">All authorized libraries</option>{libraries.map(id => <option key={id} value={id}>{items.data?.find(item => String(item.libraryId) === id)?.library ?? id}</option>)}</select>
+      <p className="text-xs text-secondary">{visible.length} matching files across {libraries.length} authorized libraries</p>
       {items.isPending && <p role="status">Loading authorized server libraries…</p>}
       {items.isError && <p role="alert">Cannot access the server media index. Check your connection and permissions.</p>}
       {error && <p role="alert" className="text-destructive">{error}</p>}
