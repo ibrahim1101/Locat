@@ -27,3 +27,18 @@ export async function deriveMediaSessionKey(
     info: enc.encode(JSON.stringify([transferId, initiatorDeviceId, receiverDeviceId])),
   }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
 }
+
+/** SHA-256 digest to display/compare over an independent authenticated channel.
+ * A fingerprint alone does not authenticate a peer: the trusted value must
+ * be obtained out-of-band or signed by a previously pinned device identity. */
+export async function mediaKeyFingerprint(publicKeyRaw: ArrayBuffer): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", publicKeyRaw));
+  return Array.from(digest, byte => byte.toString(16).padStart(2, "0")).join("");
+}
+export async function verifyMediaPeerFingerprint(publicKeyRaw: ArrayBuffer, expectedFingerprint: string): Promise<boolean> {
+  if (!/^[a-f0-9]{64}$/.test(expectedFingerprint)) return false;
+  const actual = await mediaKeyFingerprint(publicKeyRaw);
+  let difference = 0;
+  for (let i = 0; i < 64; i++) difference |= actual.charCodeAt(i) ^ expectedFingerprint.charCodeAt(i);
+  return difference === 0;
+}
