@@ -20,6 +20,7 @@ export function DeviceLibrarySharing({ proof, peers }: { proof: string; peers: P
   const [requestId, setRequestId] = useState("");
   const requestStatus = trpc.link.mediaDiscovery.requestStatus.useQuery({ proof, requestId }, { enabled: !!requestId, refetchInterval: 6000, retry: false });
   const [libraryName, setLibraryName] = useState("");
+  // Keep file bytes out of React state and off the server until explicit transfer.
   const outgoingFileRefs = useRef<File[]>([]);
   const [outgoingFiles, setOutgoingFiles] = useState<{ name: string; size: number; type: string }[]>([]);
   const [counts, setCounts] = useState<Record<MediaKind, number>>({ cinema: 0, music: 0, photos: 0 });
@@ -88,9 +89,9 @@ export function DeviceLibrarySharing({ proof, peers }: { proof: string; peers: P
     <p className="text-xs text-secondary">Source-device selection only. Files stay on this device; no upload starts until encrypted transfer support is implemented.</p>
     <input aria-label="Select source files for a future approved transfer" type="file" multiple onChange={event => {
       const files = Array.from(event.target.files ?? []);
-      outgoingFileRefs.current = files.slice(0, 50);
+      outgoingFileRefs.current = files.slice(0, 50).filter(file => file.size > 0);
       setOutgoingFiles(outgoingFileRefs.current.map(file => ({ name: file.name, size: file.size, type: file.type })));
-      setNotice(files.length > 50 ? "Only the first 50 files are listed. No files were sent." : "Files selected locally. No files were sent.");
+      setNotice(files.length > 50 ? "Only the first 50 files were considered. Empty files are excluded. No files were sent." : "Non-empty files selected locally. No files were sent.");
       event.target.value = "";
     }} />
     {outgoingFiles.length > 0 && <div className="space-y-2"><p className="text-xs text-secondary">{outgoingFiles.length} files selected locally (not shared)</p><ul className="max-h-36 space-y-1 overflow-y-auto text-xs">{outgoingFiles.map((file, index) => <li key={index} className="rounded border p-2">{file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB</li>)}</ul><button type="button" className="rounded-lg border px-3 py-1.5 text-xs" onClick={() => { outgoingFileRefs.current = []; setOutgoingFiles([]); }}>Clear selection</button></div>}
