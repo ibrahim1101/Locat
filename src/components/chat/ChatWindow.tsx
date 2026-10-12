@@ -543,7 +543,7 @@ export function ChatWindow({
               </button>
               <button type="button" onClick={() => setServerPickerOpen(true)} disabled={!composer.canAttach || recording}
                 className="emergent-locat-control flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-secondary hover:bg-accent hover:text-foreground"
-                aria-label="Search and select server video photo or file" title="Browse authorized Locat server media">☁</button>
+                aria-label="Search and select server video photo or file" title="Browse authorized Locat server media"><Search className="h-5 w-5" /></button>
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
