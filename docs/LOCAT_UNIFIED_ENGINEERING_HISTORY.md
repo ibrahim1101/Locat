@@ -269,3 +269,29 @@ This increment exposes schedule/list/cancel APIs but does not yet add composer o
 The first published CI run exposed a genuine retry mismatch: MariaDB `TIMESTAMP` stores whole seconds while the API compared the caller's millisecond timestamp. The initial schedule was correct, but an exact client retry could conflict after database round-trip. Delivery times are now canonicalized to whole seconds before validation, storage, comparison and response. This preserves idempotency and accurately reflects the database/worker scheduling precision. The failed push run was 38196775062; its Docker job and fresh migration step had already passed before the integration regression stopped verification.
 
 Corrected revision fa27df4 passed push core run 38196943842 and PR core run 38196947506. Both completed all 367 tests, including 31 real MariaDB integration cases and the two new schedule cases, plus fresh canonical migration, repeated additive bootstrap, Docker/media readiness, real Chromium audio, TypeScript, lint (zero errors/12 existing warnings), production build and Pi installer syntax/help. Signed Android run 38196943742 passed and produced artifact 11723349489 with commit/version/checksum metadata. The final server/docs-only fix did not trigger desktop packaging; existing desktop cb1785d packages remain the current preview artifacts because their application paths were unchanged. No physical runtime, exact offline delivery, Pi deployment or production readiness is inferred.
+
+### 2026-10-12 — LAN first with optional outside Tailscale invitations
+
+The user explicitly requires all features on the same network without
+Tailscale, with optional Tailscale invitations for outside devices. Current
+application source has no Tailscale feature gate. Added a configurable
+`LOCAT_LAN_BIND_IP` Docker HTTPS binding to permit LAN proxy/Tailscale Serve
+coexistence, preserving the existing LAN-only default, loopback backend and
+single persistent database. Documented one canonical trusted HTTPS hostname,
+LAN DNS override, certificate renewal, private Serve and independent Locat
+permissions. The architecture is a deployment recipe, not automatic LAN
+DNS/discovery or verified physical coexistence.
+
+Extended the read-only readiness CLI with an explicit `--tailscale` IPv4
+route check. LAN mode remains default and rejects tailnet/mixed addresses;
+both validate normal TLS and the same backend without redirects. Route
+address validation is not Tailscale identity or invitation verification.
+Eight CLI tests and three LAN proxy contract tests passed; `git diff --check`
+passed. Docker is unavailable in this workspace, so actual Compose runtime,
+LAN DNS, trusted certificates and outside invitations are not claimed tested.
+The existing hourly continuation prompt now carries the same networking
+requirement without changing its cadence or creating another task.
+
+Scheduling retry/quota/worker hardening and encrypted local schedule-copy
+helpers remain separate uncommitted work; this networking publication does
+not claim a finished scheduling composer or the full ecosystem.

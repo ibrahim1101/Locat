@@ -26,6 +26,12 @@ export function isLanAddress(address) {
     (octets[0] === 192 && octets[1] === 168);
 }
 
+export function isTailscaleAddress(address) {
+  const octets = address.split('.').map(Number);
+  return octets.length === 4 && octets.every(n => Number.isInteger(n) && n >= 0 && n <= 255) &&
+    octets[0] === 100 && octets[1] >= 64 && octets[1] <= 127;
+}
+
 export function validateReadyResponse(status, body) {
   if (status !== 200) throw new Error(`Server readiness returned HTTP ${status}; expected 200`);
   if (!body || body.app !== 'Locat' || body.status !== 'ready') {
@@ -33,13 +39,16 @@ export function validateReadyResponse(status, body) {
   }
 }
 
-export async function checkLan(origin, { fetchImpl = fetch, lookupImpl = lookup, output = console.log } = {}) {
+export async function checkLan(origin, { fetchImpl = fetch, lookupImpl = lookup, output = console.log, network = 'lan' } = {}) {
+  if (network !== 'lan' && network !== 'tailscale') throw new Error('Unknown network mode');
   const url = parseLanOrigin(origin);
   const addresses = await lookupImpl(url.hostname, { all: true });
   if (!addresses.length) throw new Error('DNS did not return any server address');
   output(`DNS: ${addresses.map(item => item.address).join(', ')}`);
-  if (!addresses.every(item => isLanAddress(item.address))) {
-    throw new Error('DNS includes a public, loopback, or link-local address; fix LAN DNS before testing');
+  if (!addresses.every(item => network === 'lan' ? isLanAddress(item.address) : isTailscaleAddress(item.address))) {
+    throw new Error(network === 'lan'
+      ? 'DNS includes a public, loopback, link-local or Tailscale address; fix LAN DNS before testing'
+      : 'DNS must resolve only to Tailscale IPv4 addresses (100.64.0.0/10) for this check');
   }
   const ready = new URL('/api/ready', url);
   const response = await fetchImpl(ready, {
@@ -54,16 +63,17 @@ export async function checkLan(origin, { fetchImpl = fetch, lookupImpl = lookup,
   try { body = await response.json(); }
   catch { throw new Error('Readiness endpoint did not return JSON'); }
   validateReadyResponse(response.status, body);
-  output('PASS: trusted HTTPS and Locat database/schema readiness');
+  output(`PASS: ${network} route, trusted HTTPS and Locat database/schema readiness`);
+  if (network === 'tailscale') output('NOTE: Address range alone does not prove Tailscale identity, invitation or access policy.');
   output('NOTE: This does not verify Android WebView trust, app login, messaging or physical Pi compatibility.');
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  if (process.argv.length !== 3) {
-    console.error('Usage: node scripts/check-lan.mjs https://locat.example.com');
+  if (process.argv.length !== 3 && !(process.argv.length === 4 && process.argv[3] === '--tailscale')) {
+    console.error('Usage: node scripts/check-lan.mjs https://locat.example.com [--tailscale]');
     process.exitCode = 2;
   } else {
-    checkLan(process.argv[2]).catch(error => {
+    checkLan(process.argv[2], { network: process.argv[3] ? 'tailscale' : 'lan' }).catch(error => {
       console.error(`FAIL: ${error.message}`);
       process.exitCode = 1;
     });

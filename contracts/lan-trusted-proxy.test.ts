@@ -13,6 +13,7 @@ describe("optional trusted LAN HTTPS overlay", () => {
     expect(base).toContain("locat-db:/var/lib/mysql");
     expect(base).toContain("127.0.0.1:3000:3000");
     expect(lan).toContain("443:443/tcp");
+    expect(lan).toContain("${LOCAT_LAN_BIND_IP:-0.0.0.0}:443:443/tcp");
     expect(trusted).not.toMatch(/\bdb:\s*\n/);
     expect(trusted).not.toMatch(/\bapp:\s*\n/);
   });

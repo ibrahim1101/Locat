@@ -38,3 +38,7 @@ Restrict inbound TCP 443 to the trusted LAN. Android, Windows and Raspberry Pi 5
 runtime acceptance remain NOT TESTED. For Pi 5, verify 64-bit `aarch64`,
 Docker Compose availability and actual application/image ARM64 compatibility;
 a multi-arch Node base alone is not proof.
+
+For LAN plus invited outside devices, see [LAN and Tailscale](LAN_AND_TAILSCALE.md).
+Use one canonical hostname and set `LOCAT_LAN_BIND_IP` to the reserved LAN IP
+so the LAN proxy can coexist with Tailscale Serve on HTTPS port 443.

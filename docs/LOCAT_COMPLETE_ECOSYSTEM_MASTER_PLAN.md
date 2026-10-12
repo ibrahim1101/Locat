@@ -84,3 +84,12 @@ Keep `docs/LOCAT_UNIFIED_ENGINEERING_HISTORY.md`, `docs/LOCAT_CROSS_PLATFORM_TES
 ## Current publication and build limits
 
 Root reports automatic approval review rejected push publication twice. No new remote branch/PR or current native CI artifacts have been produced; the blocked publication must not be bypassed. Source work and local verification continue within the isolated checkout. Cargo, Java and Docker are absent, and a Chromium download was corrupt, so fresh native builds, container execution and browser runtime acceptance have not been completed here. Updated workflow branch filters and Docker media packaging are source changes awaiting verification.
+
+## Networking requirement added 2026-10-12
+
+Every implemented and future feature must work between authorized devices on
+the same network without Tailscale. Tailscale is the optional private route for
+invited outside devices to the same Locat host/accounts/data. Preserve one
+canonical HTTPS origin across both paths and existing feature authorization;
+see [LAN and Tailscale](LAN_AND_TAILSCALE.md). This requirement does not mark
+unimplemented features complete or physical network acceptance verified.

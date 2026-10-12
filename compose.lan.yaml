@@ -10,7 +10,8 @@ services:
     environment:
       LOCAT_LAN_HOST: ${LOCAT_LAN_HOST:?Set LOCAT_LAN_HOST to a stable LAN hostname or IP}
     ports:
-      - "443:443/tcp"
+      # Bind to the reserved LAN IP when Tailscale Serve also uses port 443.
+      - "${LOCAT_LAN_BIND_IP:-0.0.0.0}:443:443/tcp"
     volumes:
       - ./deploy/lan/Caddyfile:/etc/caddy/Caddyfile:ro
       - locat-lan-caddy-data:/data
