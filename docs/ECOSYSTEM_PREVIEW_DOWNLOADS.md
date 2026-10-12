@@ -4,14 +4,21 @@ Development branch: `feat/locat-complete-ecosystem`. Review:
 [draft PR #7](https://github.com/ibrahim1101/Locat/pull/7), stacked on the unified
 preview. This is an incomplete test preview, not a production release.
 
-Current packaged source **5bb2eca** adds login-first unauthenticated entry,
-the section dashboard after authentication, visible disabled server/permission/
-planned options, and a bottom-left HTTPS server-address control. It also adds
-picture attachment crop, zoom, position, rotation, preview and original/edited
-send. Login now also offers **Use non-server mode** for local Cinema,
-Music/EQ and diagnostics without a server account, plus optional device-local
-passphrase protection. Account/server features stay disabled in this mode.
-See [login and sections](LOGIN_AND_SECTIONS.md).
+Current packaged source **7294f3c** gives local Cinema, Music, Photos,
+diagnostics and device protection their own pages. Local media adds bounded
+queues, Music advancement/repeat and Cinema resume, speed, fit/fill,
+fullscreen/PiP and WebVTT subtitles. Photos opens raster images and provides
+crop/rotation/flips, color adjustments, brush/text annotations, undo/redo,
+reset and export of a separate JPEG (1600 pixels/2.9 MB maximum).
+Original files remain untouched. See [login and sections](LOGIN_AND_SECTIONS.md).
+
+Login-first entry, the post-login section dashboard, visible disabled
+server/permission/planned options and bottom-left HTTPS server connection
+remain included. **Use non-server mode** opens local tools without an
+account; optional device passphrase protection is independent of the server.
+Account/server features remain disabled in that mode. The user confirmed
+the prior non-server Android preview opens and works; the new media/photo
+controls still need physical acceptance.
 
 Scheduled encrypted text/reply composition, exact recovery requests, LAN plus
 optional private Tailscale access and native server/account storage isolation
@@ -20,11 +27,13 @@ and recheck it before release; changed identities, unbound legacy jobs and
 disabled accounts fail closed. Update server/clients together and apply
 migration 0016 through the normal isolated deployment workflow.
 
-Both [PR core](https://github.com/ibrahim1101/Locat/actions/runs/38225758881)
-and [push core](https://github.com/ibrahim1101/Locat/actions/runs/38225753217)
-passed 392 tests across 68 files, real MariaDB/migrations/bootstrap,
+Both [PR core](https://github.com/ibrahim1101/Locat/actions/runs/38245137384)
+and [push core](https://github.com/ibrahim1101/Locat/actions/runs/38245130705)
+passed 399 tests across 70 files, real MariaDB/migrations/bootstrap,
 Docker/media readiness and Chromium registration, offline section gates, local WAV/WebM decoding,
-wrong/correct device passphrase and zero-account-RPC checks,
+wrong/correct device passphrase and zero-account-RPC checks, separate pages,
+queue advance, movie seek/resume, photo filter/flip/undo/drawing pixels,
+rejected-image clearing and real JPEG download,
 image pixels/JPEG export and audio checks. Signed Android and all three
 desktop packaging jobs passed for the same source. Native
 packaging results do not establish physical device acceptance.
@@ -37,13 +46,13 @@ installer inside the ZIP, rather than the repository source ZIP.
 
 | Platform | Workflow | Artifact | File inside |
 |---|---|---|---|
-| Windows | [Desktop run](https://github.com/ibrahim1101/Locat/actions/runs/38225753347) | [locat-windows-preview](https://github.com/ibrahim1101/Locat/actions/runs/38225753347/artifacts/11736387768) | NSIS `.exe` |
-| Android | [Signed APK run](https://github.com/ibrahim1101/Locat/actions/runs/38225753224) | [locat-2-preview-apk](https://github.com/ibrahim1101/Locat/actions/runs/38225753224/artifacts/11737006538) | `locat-2-preview.apk`, checksum, build info and signing certificate |
-| Linux | Desktop run | [locat-linux-preview](https://github.com/ibrahim1101/Locat/actions/runs/38225753347/artifacts/11736472627) | `.deb` / `.AppImage` |
-| macOS | Desktop run | [locat-macos-preview](https://github.com/ibrahim1101/Locat/actions/runs/38225753347/artifacts/11736071989) | `.app` / `.dmg` |
+| Windows | [Desktop run](https://github.com/ibrahim1101/Locat/actions/runs/38245130639) | [locat-windows-preview](https://github.com/ibrahim1101/Locat/actions/runs/38245130639/artifacts/11745656605) | NSIS `.exe` |
+| Android | [Signed APK run](https://github.com/ibrahim1101/Locat/actions/runs/38245130630) | [locat-2-preview-apk](https://github.com/ibrahim1101/Locat/actions/runs/38245130630/artifacts/11745195624) | `locat-2-preview.apk`, checksum, build info and signing certificate |
+| Linux | Desktop run | [locat-linux-preview](https://github.com/ibrahim1101/Locat/actions/runs/38245130639/artifacts/11746537077) | `.deb` / `.AppImage` |
+| macOS | Desktop run | [locat-macos-preview](https://github.com/ibrahim1101/Locat/actions/runs/38245130639/artifacts/11745471578) | `.app` / `.dmg` |
 
 Verified 2026-10-12: all four artifact records are unexpired and identify the
-exact source SHA `5bb2ecaf31a8b47325d03de0ab8db300cdd44349`.
+exact source SHA `7294f3cb5a9ad557cd89a4a7db325888594c19a3`.
 The previews also include clipboard/lifecycle protection, bounded file buffering,
 login-first section navigation, reactions, shared pins, reply references and explicit
 forwarding. See [scheduled text](SCHEDULED_MESSAGES.md),
