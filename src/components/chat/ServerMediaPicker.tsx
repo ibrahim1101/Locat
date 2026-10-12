@@ -90,6 +90,7 @@ export function ServerMediaPicker({ open, onClose, onSelect }: {
       <select aria-label="Media type" value={kind} onChange={e => setKind(e.target.value)} className="rounded-lg border bg-background px-3 py-2"><option value="all">All media</option><option value="cinema">Videos</option><option value="photos">Photos</option><option value="music">Music</option></select>
       <select aria-label="Source library" value={library} onChange={e => setLibrary(e.target.value)} className="rounded-lg border bg-background px-3 py-2"><option value="all">All authorized libraries</option>{libraries.map(id => <option key={id} value={id}>{items.data?.find(item => String(item.libraryId) === id)?.library ?? id}</option>)}</select>
       <p className="text-xs text-secondary">{visible.length} matching files across {libraries.length} authorized libraries</p>
+      <button type="button" disabled={items.isFetching} onClick={() => void items.refetch()} className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">{items.isFetching ? "Refreshing libraries…" : "Refresh available libraries"}</button>
       {items.isPending && <p role="status">Loading authorized server libraries…</p>}
       {items.isError && <p role="alert">Cannot access the server media index. Check your connection and permissions.</p>}
       {error && <p role="alert" className="text-destructive">{error}</p>}
