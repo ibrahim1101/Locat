@@ -24,6 +24,7 @@ Earlier user reports accepted original numbered 01/03/06/07/17/41 and older Andr
 - Limited client-encrypted Vault and Secrets previews using separate passphrase-wrapped keys (PBKDF2 600k), authenticated ciphertext storage, folder labels/device search, atomic quota/revision checks, bounded files, background/five-minute lock and encrypted same-store missing-ID backup restore.
 - Read-only M5 Hub beta reuses authorized admin statistics; OS-reported RAM/uptime are shown, while CPU, media activity and alerts remain absent. M4 scoped Search/Dashboard are integrated previews.
 - New-registration 15 Unicode-character policy restored per current assignment; legacy 8-character login remains supported, with the earlier f5d37d9 decision preserved in history.
+- Scheduled-message relay preview persists only opaque ciphertext until due, bounds each account to 100 pending messages/100 MB/30 days, rechecks current membership, direct-contact/block state and group key epoch at delivery, and atomically releases once across workers. Delivered/cancelled/failed ciphertext is cleared. The composer/list UI and physical restart/native acceptance are not yet implemented.
 
 These are limited implementations, not completion of their full module requirements. Final test evidence must be read from `docs/LOCAT_UNIFIED_ENGINEERING_HISTORY.md`. Data model/migration changes require fresh-database and upgrade/restore verification, not merely a TypeScript build.
 
@@ -31,7 +32,7 @@ These are limited implementations, not completion of their full module requireme
 
 | Gate | Status | Required action |
 |---|---|---|
-| All historical requirements | Open | Account for all 49; implement missing calling/MFA/passkeys/closure/expiry/scheduling/view limits/nested refs/widgets/share integration and mission additions |
+| All historical requirements | Open | Account for all 49; complete scheduled-message UI/acceptance and implement missing calling/MFA/passkeys/closure/expiry/view limits/widgets/share integration and mission additions |
 | Missing milestone history | Unresolved | M12/M13 identities not recovered; preserve uncertainty, do not invent |
 | Messaging security/recovery | Partially tested baseline | Current payload/draft/archive/group/offline integration; cross-device regression and real restore drill |
 | Link trust/revocation/replay | Partially tested preview | Session-bound private-key proof, actor checks, legacy-pair reproof and revoked-key alias/API regressions pass. Multi-worker shared proof state, contextual transfer ciphertext replay protection and genuine LAN discovery remain open |
@@ -40,7 +41,7 @@ These are limited implementations, not completion of their full module requireme
 | Cinema performance/completeness | Unverified physical; features partial | Real 4K direct-play/decoder/transcode benchmarks; quality timeline/buffer/seek; subtitles/tracks/series/history/artwork missing |
 | Music quality/native lifecycle | Partial | Measure DSP local/server and headroom; gapless/native focus/background/headset/lock screen, album/artist metadata/playlists |
 | Remote Play | Prototype | Actual Windows approval/input/capture; audio/controller/encoding/latency/reconnect and cross-platform host scope |
-| Current source automated checks | Preview CI passed | cb1785d passed both core runs; local 365/365 tests plus five LAN CLI tests passed twice with MariaDB/fresh migrations. TypeScript/build passed; lint has zero errors and 12 warnings. Historical local fixture failure remains recorded; current checks do not establish physical acceptance |
+| Current source automated checks | New scheduling source pending CI | cb1785d remains the last fully verified packaged runtime. Scheduling source passed TypeScript, production build, 336 non-DB tests and five LAN CLI tests locally; 31 MariaDB tests (including two new scheduling cases) were skipped because no disposable database is available here. Lint has zero errors and 12 existing warnings. Current migration/DB/Docker/native verification must pass remotely |
 | Current native packaging | Preview packaging passed | Consolidated cb1785d: Android 38195258094 and desktop 38195258114; both core runs 38195261112/38195258093 passed. Native device acceptance remains open |
 | Native physical acceptance | Open on all targets | Run `docs/LOCAT_CROSS_PLATFORM_TESTING.md`; packaging is insufficient |
 | Native credential security | Open | OS-backed secure storage and verified biometric assertion/hardware authentication; UI app lock is not local data encryption |

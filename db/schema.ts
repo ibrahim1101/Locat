@@ -189,6 +189,31 @@ export const adminAudit = mysqlTable("admin_audit", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Opaque, already-encrypted envelopes waiting for their requested send time.
+// Delivery re-checks membership and the group key epoch; a scheduled message
+// never bypasses the same destination authorization used by immediate sends.
+export const scheduledMessages = mysqlTable("scheduled_messages", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+  senderId: bigint("sender_id", { mode: "number", unsigned: true }).notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  conversationId: bigint("conversation_id", { mode: "number", unsigned: true }).notNull()
+    .references(() => conversations.id, { onDelete: "cascade" }),
+  clientMessageId: varchar("client_message_id", { length: 36 }).notNull(),
+  envelope: mediumtext("envelope"),
+  envelopeHash: varchar("envelope_hash", { length: 64 }).notNull(),
+  groupEpoch: int("group_epoch"),
+  deliverAt: timestamp("deliver_at").notNull(),
+  state: mysqlEnum("state", ["pending", "delivered", "cancelled", "failed"]).notNull().default("pending"),
+  messageId: bigint("message_id", { mode: "number", unsigned: true }),
+  failureCode: varchar("failure_code", { length: 64 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, t => [
+  uniqueIndex("scheduled_sender_client_unique").on(t.senderId, t.clientMessageId),
+  index("scheduled_due_idx").on(t.state, t.deliverAt),
+  index("scheduled_sender_idx").on(t.senderId, t.state),
+]);
+
 export const pushSubscriptions = mysqlTable("push_subscriptions", {
   id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
   userId: bigint("user_id", { mode: "number", unsigned: true }).notNull().references(() => users.id, { onDelete: "cascade" }),

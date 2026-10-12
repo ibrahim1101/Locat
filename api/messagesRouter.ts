@@ -17,9 +17,11 @@ import {
   sessions,
   userBlocks,
   contactRelationships,
+  scheduledMessages,
 } from "@db/schema";
 import { subscribe as hubSubscribe, emitToUsers, onlineUserIds, visibleOnlineUserIds, heartbeat } from "./hub";
 import type { RelayEvent } from "@contracts/types";
+import { releaseScheduledMessages, scheduledDestinationFailure, scheduledEnvelopeHash } from "./scheduledMessages";
 
 /** Envelopes are opaque ciphertext; cap at ~6MB of base64 (≈4MB media). */
 const envelopeSchema = z.string().min(2).max(6_000_000);
@@ -42,6 +44,74 @@ async function requireMembership(conversationId: number, userId: number) {
 }
 
 export const messagesRouter = createRouter({
+  schedule: authedQuery.input(z.object({
+    conversationId: z.number().int().positive(), envelope: envelopeSchema,
+    clientMessageId: z.string().uuid(), deliverAt: z.coerce.date(),
+  })).mutation(async ({ ctx, input }) => {
+    const db = getDb(), me = ctx.user!.id, now = Date.now();
+    if (input.deliverAt.getTime() < now + 30_000 || input.deliverAt.getTime() > now + 30 * 86400000)
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Schedule messages from 30 seconds to 30 days ahead" });
+    await requireMembership(input.conversationId, me);
+    const [conversation] = await db.select().from(conversations).where(eq(conversations.id, input.conversationId)).limit(1);
+    if (!conversation) throw new TRPCError({ code: "NOT_FOUND" });
+    let groupEpoch: number | null = null;
+    if (conversation.type === "group") {
+      try { groupEpoch = JSON.parse(input.envelope).groupEpoch; } catch { /* rejected below */ }
+      if (!Number.isInteger(groupEpoch) || groupEpoch !== conversation.groupEpoch || conversation.rotationRequired)
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Group encryption changed. Refresh before scheduling." });
+    }
+    const destinationFailure = await scheduledDestinationFailure(db, { senderId: me,
+      conversationId: input.conversationId, groupEpoch });
+    if (destinationFailure) throw new TRPCError({ code: "FORBIDDEN", message: "Conversation is no longer available" });
+    const hash = scheduledEnvelopeHash(input.envelope);
+    const [existing] = await db.select().from(scheduledMessages).where(and(
+      eq(scheduledMessages.senderId, me), eq(scheduledMessages.clientMessageId, input.clientMessageId))).limit(1);
+    if (existing) {
+      if (existing.conversationId !== input.conversationId || existing.envelopeHash !== hash ||
+          existing.deliverAt.getTime() !== input.deliverAt.getTime())
+        throw new TRPCError({ code: "CONFLICT", message: "Scheduled retry does not match the original" });
+      return { id: existing.id, state: existing.state, deliverAt: existing.deliverAt };
+    }
+    limit(`schedule:${me}`, 120, 60000);
+    const id = await db.transaction(async tx => {
+      await tx.select({ id: users.id }).from(users).where(eq(users.id, me)).for("update");
+      const [{ count, bytes }] = await tx.select({ count: sql<number>`COUNT(*)`,
+        bytes: sql<number>`COALESCE(SUM(OCTET_LENGTH(${scheduledMessages.envelope})), 0)` }).from(scheduledMessages)
+        .where(and(eq(scheduledMessages.senderId, me), eq(scheduledMessages.state, "pending")));
+      if (Number(count) >= 100 || Number(bytes) + Buffer.byteLength(input.envelope) > 100_000_000)
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Scheduled message storage limit reached" });
+      const [created] = await tx.insert(scheduledMessages).values({ senderId: me, conversationId: input.conversationId,
+        clientMessageId: input.clientMessageId, envelope: input.envelope, envelopeHash: hash,
+        groupEpoch, deliverAt: input.deliverAt }).$returningId();
+      return created.id;
+    }).catch(async error => {
+      const [concurrent] = await db.select().from(scheduledMessages).where(and(
+        eq(scheduledMessages.senderId, me), eq(scheduledMessages.clientMessageId, input.clientMessageId))).limit(1);
+      if (!concurrent) throw error;
+      if (concurrent.conversationId !== input.conversationId || concurrent.envelopeHash !== hash ||
+          concurrent.deliverAt.getTime() !== input.deliverAt.getTime())
+        throw new TRPCError({ code: "CONFLICT", message: "Scheduled retry does not match the original" });
+      return concurrent.id;
+    });
+    return { id, state: "pending" as const, deliverAt: input.deliverAt };
+  }),
+
+  scheduled: authedQuery.query(async ({ ctx }) => {
+    await releaseScheduledMessages();
+    return getDb().select({ id: scheduledMessages.id, conversationId: scheduledMessages.conversationId,
+      clientMessageId: scheduledMessages.clientMessageId, deliverAt: scheduledMessages.deliverAt,
+      state: scheduledMessages.state, messageId: scheduledMessages.messageId, failureCode: scheduledMessages.failureCode })
+      .from(scheduledMessages).where(eq(scheduledMessages.senderId, ctx.user!.id))
+      .orderBy(asc(scheduledMessages.deliverAt)).limit(100);
+  }),
+
+  cancelScheduled: authedQuery.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    const result = await getDb().update(scheduledMessages).set({ state: "cancelled", envelope: null, updatedAt: new Date() }).where(and(
+      eq(scheduledMessages.id, input.id), eq(scheduledMessages.senderId, ctx.user!.id), eq(scheduledMessages.state, "pending")));
+    if (result[0].affectedRows !== 1) throw new TRPCError({ code: "CONFLICT", message: "Scheduled message is no longer cancellable" });
+    return { cancelled: true };
+  }),
+
   /** Presence heartbeat works over normal authenticated HTTP on Android and web. */
   presence: authedQuery.query(async ({ ctx }) => {
     heartbeat(ctx.user!.id);

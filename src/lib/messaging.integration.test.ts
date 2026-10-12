@@ -44,7 +44,7 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     process.env.DATABASE_URL = databaseUrl;
     connection = await mysql.createConnection(databaseUrl!);
     await connection.query("SET FOREIGN_KEY_CHECKS=0");
-    for (const table of ["link_transfer_chunks", "link_transfers", "link_pairings", "link_messages", "link_devices", "private_objects", "private_stores", "contact_relationships", "user_blocks", "group_keys", "push_subscriptions", "admin_audit", "send_receipts", "message_deliveries", "messages", "conversation_members", "conversations", "sessions", "users"]) {
+    for (const table of ["link_transfer_chunks", "link_transfers", "link_pairings", "link_messages", "link_devices", "private_objects", "private_stores", "scheduled_messages", "contact_relationships", "user_blocks", "group_keys", "push_subscriptions", "admin_audit", "send_receipts", "message_deliveries", "messages", "conversation_members", "conversations", "sessions", "users"]) {
       await connection.query(`DROP TABLE IF EXISTS ${table}`);
     }
     await connection.query("SET FOREIGN_KEY_CHECKS=1");
@@ -413,6 +413,44 @@ describe.skipIf(!databaseUrl)("MariaDB messaging integration", () => {
     expect((await alice.messages.send(input)).messageId).toBe(first.messageId);
     expect(await count("messages")).toBe(0);
     await expect(alice.messages.send({ ...input, envelope: "different" })).rejects.toThrow("does not match");
+  });
+
+  it("releases scheduled ciphertext once after restart-safe authorization checks", async () => {
+    const { releaseScheduledMessages } = await import("../../api/scheduledMessages");
+    const clientMessageId = crypto.randomUUID();
+    const deliverAt = new Date(Date.now() + 60_000);
+    const scheduled = await alice.messages.schedule({ conversationId, envelope, clientMessageId, deliverAt });
+    expect(scheduled.state).toBe("pending");
+    expect(await count("messages")).toBe(0);
+    expect((await alice.messages.schedule({ conversationId, envelope, clientMessageId, deliverAt })).id).toBe(scheduled.id);
+    await expect(alice.messages.schedule({ conversationId, envelope: `${envelope}x`, clientMessageId, deliverAt })).rejects.toThrow("does not match");
+    const now = new Date(deliverAt.getTime() + 1000);
+    expect((await Promise.all([releaseScheduledMessages(now), releaseScheduledMessages(now)])).reduce((a, b) => a + b)).toBe(1);
+    expect(await count("messages")).toBe(1);
+    expect(await releaseScheduledMessages(now)).toBe(0);
+    const item = (await bob.messages.sync({ after: 0 })).items[0];
+    expect(await decryptPayload(receivingKey, item.envelope)).toEqual({ type: "text", text: "end-to-end integration" });
+    expect((await alice.messages.scheduled()).find(row => row.id === scheduled.id)).toMatchObject({ state: "delivered", messageId: item.messageId });
+    await bob.messages.ack({ messageIds: [item.messageId] });
+    await alice.messages.ack({ messageIds: [item.messageId] });
+  });
+
+  it("cancels pending schedules and fails closed when direct authorization changes", async () => {
+    const { releaseScheduledMessages } = await import("../../api/scheduledMessages");
+    const first = await alice.messages.schedule({ conversationId, envelope, clientMessageId: crypto.randomUUID(),
+      deliverAt: new Date(Date.now() + 60_000) });
+    expect(await alice.messages.cancelScheduled({ id: first.id })).toEqual({ cancelled: true });
+    await expect(alice.messages.cancelScheduled({ id: first.id })).rejects.toThrow("no longer cancellable");
+    const second = await alice.messages.schedule({ conversationId, envelope, clientMessageId: crypto.randomUUID(),
+      deliverAt: new Date(Date.now() + 60_000) });
+    await bob.users.removeContact({ userId: aliceId });
+    expect(await releaseScheduledMessages(new Date(Date.now() + 61_000))).toBe(0);
+    expect((await alice.messages.scheduled()).find(row => row.id === second.id)).toMatchObject({
+      state: "failed", failureCode: "destination_unavailable",
+    });
+    expect(await count("messages")).toBe(0);
+    await alice.users.requestContact({ userId: bobId });
+    await bob.users.respondContact({ requestId: (await bob.users.contactRequests())[0].id, accept: true });
   });
 
   it("rolls back the envelope and receipts when delivery creation fails", async () => {

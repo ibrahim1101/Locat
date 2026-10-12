@@ -12,6 +12,7 @@ import { sql } from "drizzle-orm";
 import { handleSentinelWebhook } from "./sentinel/webhook";
 import { handleMediaStream } from "./mediaStream";
 import { handleMediaHls } from "./mediaHls";
+import { releaseScheduledMessages } from "./scheduledMessages";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 app.use("/api/*", cors({
@@ -42,6 +43,7 @@ app.get("/api/ready", async (c) => {
     await getDb().execute(sql`SELECT user_id,module FROM private_stores LIMIT 0`);
     await getDb().execute(sql`SELECT id,revision FROM private_objects LIMIT 0`);
     await getDb().execute(sql`SELECT id,proof_version FROM link_pairings LIMIT 0`);
+    await getDb().execute(sql`SELECT id,deliver_at,state FROM scheduled_messages LIMIT 0`);
     return c.json({ app: "Locat", status: "ready" });
   } catch { return c.json({ app: "Locat", status: "database unavailable or schema missing" }, 503); }
 });
@@ -75,4 +77,7 @@ if (env.isProduction) {
   serve({ fetch: app.fetch, port, hostname }, () => {
     console.log(`Locat running on http://${hostname}:${port}/`);
   });
+  const scheduleTimer = setInterval(() => { void releaseScheduledMessages().catch(error =>
+    console.error("Scheduled message release failed", error instanceof Error ? error.message : "unknown error")); }, 5000);
+  scheduleTimer.unref();
 }
