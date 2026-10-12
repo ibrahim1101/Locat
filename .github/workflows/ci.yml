@@ -57,6 +57,12 @@ jobs:
           "$RUNNER_TEMP/locat-browser-tests/node_modules/.bin/playwright" install --with-deps chromium
       - name: Verify actual rendered Music DSP signal
         run: node scripts/test-music-signal.mjs
+      - name: Ensure local media fixture encoder
+        run: |
+          if ! command -v ffmpeg; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
       - name: Verify login-first browser and native entry
         run: node scripts/test-login-entry.mjs
       - name: Verify actual rendered image crop and rotation

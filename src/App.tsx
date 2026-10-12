@@ -9,6 +9,7 @@ import { ServerConnectionControl } from "./components/ServerConnectionControl";
 import { useLocation } from "react-router";
 import { MODULES, moduleDisabledReason } from "./modules/registry";
 
+const Photos = lazy(() => import("./pages/Photos"));
 const Remote = lazy(() => import("./pages/Remote"));
 const Performance = lazy(() => import("./pages/Performance"));
 const MediaLocal = lazy(() => import("./pages/MediaLocal"));
@@ -28,6 +29,7 @@ export default function App() {
   const blocked = (current && moduleDisabledReason(current, connected, !!state.user.isAdmin)) || (location.pathname === "/admin" && (!connected || !state.user.isAdmin));
   return (
     <><ServerConnectionControl authenticated />{blocked ? <Dashboard /> : <Routes>
+      <Route path="/photos" element={<Suspense fallback={<p role="status">Opening Photos…</p>}><Photos /></Suspense>} />
       <Route path="/search" element={<Suspense fallback={<p role="status" className="p-6">Opening Search…</p>}><SearchPage /></Suspense>} />
       <Route path="/hub" element={<Suspense fallback={<p role="status" className="p-6">Opening Hub…</p>}><Hub /></Suspense>} />
       <Route path="/vault" element={<Suspense fallback={<p role="status" className="p-6">Opening Vault…</p>}><PrivateStore module="vault" /></Suspense>} />

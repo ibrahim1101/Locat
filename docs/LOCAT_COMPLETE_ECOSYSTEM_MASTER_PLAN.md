@@ -101,3 +101,7 @@ The latest user instruction supersedes earlier chat-first entry: unauthenticated
 ### Explicit non-server mode added 2026-10-12
 
 The user confirmed the Android preview works and requested access to device-only tools without server authentication. Keep **Use non-server mode** on login, opening local Cinema, Music/EQ and diagnostics with account/server features visibly disabled. Optional device-local passphrase protection uses the existing app lock and never grants server-account authentication. This supersedes the earlier assumption that all local tools require an authenticated account. Preserve device lock and account/server archive isolation; never fabricate a server identity to unlock local tools.
+
+### Dedicated tool pages and local Photos added 2026-10-12
+
+The user confirmed non-server mode works on Android and requested a separate page for each option, plus opening photos and more advanced image editing. Local Cinema, Music, Photos, diagnostics and device protection now use distinct local routes; implemented server-account modules keep their existing distinct routes. Photos is a registered local tool with viewer, crop/rotation/flips, color filters, drawing/text annotations, bounded undo/redo and separate JPEG export. Preserve original files and local-only operation. Continue broader professional photo tools and hosted Cinema features only as real tested implementations; never label unimplemented layers/RAW/full-resolution editing as available.

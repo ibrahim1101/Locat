@@ -5,6 +5,7 @@ import { Link } from "react-router";
 import { Film, Music2, ArrowLeft, FolderOpen, Server } from "lucide-react";
 import { AppShell } from "@/components/shell/AppShell";
 import { MusicEqualizer } from "@/components/media/MusicEqualizer";
+import { LocalCinemaPlayer } from "@/components/media/LocalCinemaPlayer";
 import { CinemaHlsPlayer } from "@/components/media/CinemaHlsPlayer";
 import { trpc } from "@/providers/trpc";
 import { useServerConnection } from "@/state/connection";
@@ -76,7 +77,7 @@ export default function MediaLocal({ kind }: { kind: "cinema" | "music" }) {
           <input type="file" multiple accept={music ? "audio/*,.flac,.alac,.wav" : "video/*,.mkv,.mov,.mp4"} onChange={e => { choose(Array.from(e.target.files ?? [])); e.target.value = ""; }} aria-label="Select local media" className="w-full text-sm" />
           {url && file && <div className="mt-5 space-y-3">
             <p className="truncate text-sm">{file.name}</p>
-            {music ? <MusicEqualizer src={url} repeatOne={repeat === "one" || (repeat === "all" && files.length === 1)} autoplay={musicAutoplay} onEnded={() => { const next = nextMusicIndex(selected, files.length, repeat, shuffle); if (next !== null) { setMusicAutoplay(true); setSelected(next); } }} /> : <video key={url} src={url} controls playsInline className="max-h-[65vh] w-full rounded-xl bg-black" />}
+            {music ? <MusicEqualizer src={url} repeatOne={repeat === "one" || (repeat === "all" && files.length === 1)} autoplay={musicAutoplay} onEnded={() => { const next = nextMusicIndex(selected, files.length, repeat, shuffle); if (next !== null) { setMusicAutoplay(true); setSelected(next); } }} /> : <LocalCinemaPlayer key={url} file={file} src={url} onEnded={() => {}} />}
             {music && <div className="flex flex-wrap gap-3 items-center text-sm">
               <button type="button" aria-pressed={shuffle} onClick={() => setShuffle(!shuffle)} className="rounded-lg border px-3 py-2">Shuffle {shuffle ? "on" : "off"}</button>
               <label>Repeat <select aria-label="Music repeat mode" value={repeat} onChange={event => setRepeat(event.target.value as RepeatMode)} className="ml-2 rounded border bg-background p-2"><option value="off">Off</option><option value="one">One track</option><option value="all">Queue</option></select></label>

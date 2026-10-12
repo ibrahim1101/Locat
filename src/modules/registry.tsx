@@ -1,7 +1,7 @@
 import {
   MessageCircle, ShieldAlert, Radio, Lock, Users, Server, WifiOff,
   KeyRound, Workflow, Search, Calendar, Share2, Puzzle, LayoutDashboard, Film, Music2, Activity,
-  type LucideIcon,
+  Image, type LucideIcon,
 } from "lucide-react";
 
 export type ModuleStatus = "available" | "beta" | "planned";
@@ -58,6 +58,7 @@ export const MODULES: LocatModule[] = [
     description: "Local audio playback now; lossless library, EQ and DSP integration is underway.",
     icon: Music2, route: "/music", status: "beta", milestone: "Media Hub",
   },
+  { id: "photos", name: "Photos", tagline: "Local photo viewer and editor", description: "Open pictures, crop, rotate, adjust colors and annotate on this device.", icon: Image, route: "/photos", status: "beta", milestone: "Media Hub" },
   {
     id: "performance", name: "Performance", tagline: "Playback diagnostics",
     description: "Inspect actual runtime and media API availability; Remote includes negotiated stream statistics.",
@@ -127,6 +128,6 @@ export const availableModules = MODULES.filter((m) => m.status !== "planned");
 export function moduleDisabledReason(module: LocatModule, connected: boolean, isAdmin: boolean): string | null {
   if (module.status === "planned") return "Not implemented yet";
   if (module.adminOnly && !isAdmin) return "Administrator access required";
-  if (!["dashboard", "cinema", "music", "performance", "remote", "search"].includes(module.id) && !connected) return "Connect to server";
+  if (!["dashboard", "cinema", "music", "performance", "remote", "search", "photos"].includes(module.id) && !connected) return "Connect to server";
   return null;
 }
