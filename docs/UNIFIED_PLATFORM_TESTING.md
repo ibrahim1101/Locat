@@ -97,3 +97,8 @@ on macOS/Linux, controller XInput, Remote audio/NVENC, secure OS credential
 storage, tray/deep links/updater and roadmap-only modules are not complete.
 Browser/Android/native codec support differs: source sharing is not proof of
 identical format support or 4K playback performance.
+
+
+## Newer UI source (2026-10-12)
+
+The af63b2c Windows and Android artifacts above predate the chat-first UI restoration. They are historical comparison builds, not current acceptance builds. Obtain a new successful native artifact whose workflow head SHA includes commit ac49ee7 or later. New native packaging and physical installation remain unverified; do not uninstall Android to bypass a signature or version error.

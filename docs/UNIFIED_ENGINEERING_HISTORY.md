@@ -101,3 +101,8 @@ unverified. No production deployment or main merge occurred.
 After verifying that the unified preview's dashboard-first startup diverged from the original chat-first Locat, changed the root and fallback routes to Chat. The old /messages route remains valid, while the module dashboard now lives at /dashboard. Reordered primary navigation, made the optional launcher explicitly “Modules” on mobile, and corrected media back navigation and shell labeling. Added contracts/chat-first-navigation.test.ts to guard routes, module order, and mobile labeling. No authentication, encryption, server, database, or native package logic was changed in this increment.
 
 Prior CI for 6973fcc passed Locat and Remote workflows (38184647061 and 38184647019). New source and regression tests require CI verification; native builds and physical Windows/Android acceptance are not yet verified. No claim of full feature parity or release readiness.
+
+
+### 2026-10-12 — chat-first CI fixes
+
+Commit 9f787c1 restored messaging as the default screen. CI run 38188780570 failed TypeScript TS6142 because a test under contracts imported TSX without JSX support; commit 728d1d7 moved it under src/modules. Run 38188914206 then failed an older navigation test expecting the obsolete Home label; commit ac49ee7 updated the assertion to Modules. Runs 38189030205 (Locat verification and Docker smoke) and 38189030259 (Remote) passed. Commit 70fd382 now runs the five mocked LAN readiness tests through npm test; its CI is pending verification. No physical Windows, Android or Pi 5 acceptance is claimed.
