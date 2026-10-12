@@ -8,6 +8,7 @@ import { createRouter, authedQuery } from "./middleware";
 
 const VIDEO_EXTENSIONS = new Set([".mp4", ".m4v", ".mov", ".mkv", ".webm", ".avi"]);
 const AUDIO_EXTENSIONS = new Set([".mp3", ".m4a", ".aac", ".flac", ".wav", ".ogg", ".opus"]);
+const PHOTO_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif", ".heic", ".heif"]);
 const MAX_FILES = 3000;
 const MAX_DEPTH = 6;
 
@@ -21,14 +22,14 @@ function configuredRoots() {
 export type IndexedMediaItem = {
   id: string;
   name: string;
-  kind: "cinema" | "music";
+  kind: "cinema" | "music" | "photos";
   sizeBytes: number;
   relativePath: string;
   library: string;
   libraryId: number;
 };
 
-async function scanRoot(root: string, kind: "cinema" | "music"): Promise<IndexedMediaItem[]> {
+async function scanRoot(root: string, kind: "cinema" | "music" | "photos"): Promise<IndexedMediaItem[]> {
   const items: IndexedMediaItem[] = [];
   const visited = new Set<string>();
   async function walk(directory: string, depth: number): Promise<void> {
@@ -46,7 +47,7 @@ async function scanRoot(root: string, kind: "cinema" | "music"): Promise<Indexed
         await walk(full, depth + 1);
       } else if (entry.isFile()) {
         const ext = path.extname(entry.name).toLowerCase();
-        if (!(kind === "cinema" ? VIDEO_EXTENSIONS : AUDIO_EXTENSIONS).has(ext)) continue;
+        if (!(kind === "cinema" ? VIDEO_EXTENSIONS : kind === "music" ? AUDIO_EXTENSIONS : PHOTO_EXTENSIONS).has(ext)) continue;
         const metadata = await stat(full).catch(() => null);
         if (!metadata?.isFile()) continue;
         const relativePath = path.relative(root, full);
@@ -89,7 +90,7 @@ export const mediaRouter = createRouter({
       const { realpath } = await import("node:fs/promises");
       const actual = await realpath(root).catch(() => "");
       if (!actual) continue;
-      for (const kind of ["cinema", "music"] as const) {
+      for (const kind of ["cinema", "music", "photos"] as const) {
         const items = await scanRoot(actual, kind);
         output.push(...items.map(item => ({ ...item, libraryId: roots.indexOf(root) })));
       }
