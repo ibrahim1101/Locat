@@ -12,10 +12,10 @@ export function NativeServerSetup() {
     setError("");
     try {
       const origin = parseNativeServerOrigin(server);
-      const response = await fetch(`${origin}/api/health`, { signal: AbortSignal.timeout(8000) });
-      if (!response.ok) throw new Error("That server did not pass the Locat health check.");
+      const response = await fetch(`${origin}/api/ready`, { signal: AbortSignal.timeout(8000), redirect: "manual", cache: "no-store" });
+      if (response.status !== 200) throw new Error(`Server is not ready (HTTP ${response.status}). Check HTTPS and database setup.`);
       const health = await response.json() as { app?: string; status?: string };
-      if (health.app !== "Locat" || health.status !== "ok") throw new Error("That address is not a compatible Locat server.");
+      if (health.app !== "Locat" || health.status !== "ready") throw new Error("That address is not a schema-ready Locat server.");
       setNativeServerUrl(origin);
       window.location.reload();
     } catch (e) {
