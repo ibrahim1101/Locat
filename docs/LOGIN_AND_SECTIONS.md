@@ -1,6 +1,6 @@
 # Login and sections
 
-Unauthenticated launches and deep links show login. A native installation without a configured server also shows login, with sign-in disabled until a server is connected. Existing valid sessions can restore without entering credentials again; this does not introduce an offline password verifier. New logins and registrations require the account server.
+Unauthenticated launches and deep links show login. A native installation without a configured server also shows login, with sign-in disabled until a server is connected. Non-server mode is an explicit choice on each launch. Existing valid sessions can restore without entering credentials again; this does not introduce an offline password verifier. New server-account logins and registrations require the account server. The login page also offers **Use non-server mode**, which opens local Cinema, Music/EQ and device diagnostics without an account or server. This mode unmounts the authentication/RPC providers and pauses server readiness polling; it does not read or unlock chat archives, account identities, Vault/Secrets or synced libraries. Returning to login resumes normal account authentication.
 
 After authentication, `/` opens the section dashboard; `/messages` still opens conversations. All registered sections remain visible. Planned sections stay disabled, administrator sections require authorization, and Messages, Link, Sentinel, Vault and Secrets require a schema-ready server. Cinema, Music, Search, Performance and the separate-host Remote prototype remain available in an existing authenticated offline session. Remote still needs its own approved host.
 
@@ -9,3 +9,9 @@ The bottom-left server control opens the HTTPS address form. Native apps validat
 LAN and optional private Tailscale access use the same canonical trusted HTTPS server origin. No automatic LAN discovery is claimed. Physical Android layout/keyboard and device lifecycle acceptance remain pending.
 
 Attachment pictures now offer crop presets, crop position, zoom, quarter-turn rotation, preview, reset and original/edited send. Edits produce a new still JPEG up to 1600 pixels; animation and transparency are not preserved. Original files remain unchanged. Browser pixel tests verify crop, rotation and JPEG export, while device codec/memory acceptance remains open.
+
+## Optional device passphrase
+
+In non-server mode, open **Set or manage device passphrase**. The existing device app lock can enroll, change/remove a passphrase, lock immediately and configure inactivity/background locking without a server account. Enrollment stores a random salt and PBKDF2 verifier locally, never the plaintext passphrase; unlocking runs on the device. It gates both account UI and non-server mode, preserving any existing device lock. It does not authenticate a server account or encrypt original media files. Biometric unlocking remains disabled pending verified assertions. There is no server recovery for this device passphrase.
+
+Automated Chromium coverage enters non-server mode on a fresh native-shell installation, decodes local WAV and generated WebM files, checks disabled account features, enrolls a passphrase, rejects a wrong passphrase, unlocks with the correct one and returns to login with zero account RPC requests. Physical Android codec/background/keyboard acceptance remains separate.

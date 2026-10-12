@@ -33,7 +33,7 @@ type Mode = "idle" | "set" | "change" | "remove" | "biometric";
  * derived from {@link currentState}, biometric availability from the
  * browser, and persistent-storage status from `navigator.storage.persisted`).
  */
-export function AppLockSection({ user }: { user: SessionUser }) {
+export function AppLockSection({ user }: { user?: SessionUser }) {
   const [tick, setTick] = useState(0);
   const bump = useCallback(() => {
     setTick((n) => n + 1);
@@ -127,9 +127,9 @@ export function AppLockSection({ user }: { user: SessionUser }) {
         <div className="min-w-0">
           <p className="font-medium">Device app lock</p>
           <p className="text-xs text-secondary">
-            Require a passcode or biometric to open Locat on this device. Your
+            Require a device passphrase to open Locat, including non-server mode. Your
             server session, encryption keys and local history are untouched;
-            only the UI is gated.
+            only the UI is gated. The passphrase is never sent to the server.
           </p>
         </div>
         <span
@@ -250,10 +250,11 @@ export function AppLockSection({ user }: { user: SessionUser }) {
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={busy || !biometricAvailable}
+                disabled={busy || !biometricAvailable || !user}
                 data-testid="app-lock-biometric-register"
                 onClick={() =>
                   void perform(async () => {
+                    if (!user) throw new Error("A server account is required for biometric enrollment.");
                     await registerBiometric(user.id, user.username);
                     return "Biometric unlock registered. Your passcode still works as a backup.";
                   })
@@ -266,10 +267,7 @@ export function AppLockSection({ user }: { user: SessionUser }) {
           </div>
           {!biometricAvailable && !state.config?.biometricCredentialId && (
             <p className="text-xs text-secondary">
-              Biometrics require a platform authenticator (fingerprint, Face ID,
-              Windows Hello) and a trusted HTTPS origin. The Locat Android app
-              or an HTTPS browser session on a device with biometrics is
-              required.
+              Biometric unlock is currently unavailable. Use your device passphrase.
             </p>
           )}
         </div>

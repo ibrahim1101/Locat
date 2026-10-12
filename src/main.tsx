@@ -1,36 +1,16 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, HashRouter } from "react-router";
-import { TRPCProvider } from "./providers/trpc";
-import { AuthProvider } from "./state/auth";
-import App from "./App";
-import { DownloadStatusHost } from "./components/DownloadStatusHost";
 import "./index.css";
 import { startAppearance } from "./lib/appearance";
-import { isNativeShell, nativeServerUrl } from "./lib/native";
-import { AuthForm } from "./pages/Login";
-import { ServerConnectionControl } from "./components/ServerConnectionControl";
-import { ConnectionProvider } from "./state/connection";
-import { AppLockGate } from "./components/AppLockGate";
+import { isNativeShell } from "./lib/native";
+import { AppEntry } from "./components/AppEntry";
 
 if (isNativeShell()) document.documentElement.classList.add("locat-native");
-
-const ClientRouter = isNativeShell() ? HashRouter : BrowserRouter;
 
 const stopAppearance = startAppearance();
 if (import.meta.hot) import.meta.hot.dispose(stopAppearance);
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode><ConnectionProvider>
-    {isNativeShell() && !nativeServerUrl() ? (
-      <AppLockGate><><AuthForm disabled onLogin={async () => {}} onRegister={async () => {}} /><ServerConnectionControl /><DownloadStatusHost /></></AppLockGate>
-    ) : (
-      <ClientRouter>
-        <TRPCProvider><AuthProvider><AppLockGate><><App /><DownloadStatusHost /></></AppLockGate></AuthProvider></TRPCProvider>
-      </ClientRouter>
-    )}
-  </ConnectionProvider></StrictMode>,
-);
+createRoot(document.getElementById("root")!).render(<StrictMode><AppEntry /></StrictMode>);
 
 if (import.meta.env.PROD && !isNativeShell() && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {

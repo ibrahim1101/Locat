@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { nativeServerUrl } from "@/lib/native";
 const ConnectionContext = createContext(false);
-export function ConnectionProvider({ children }: { children: ReactNode }) {
+export function ConnectionProvider({ children, enabled = true }: { children: ReactNode; enabled?: boolean }) {
   const [connected, setConnected] = useState(false);
   useEffect(() => {
+    if (!enabled) return;
     let active = true;
     let running = false;
     const check = async () => {
@@ -23,7 +24,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
     window.addEventListener("online", check);
     window.addEventListener("offline", offline);
     return () => { active = false; clearInterval(interval); window.removeEventListener("online", check); window.removeEventListener("offline", offline); };
-  }, []);
-  return <ConnectionContext.Provider value={connected}>{children}</ConnectionContext.Provider>;
+  }, [enabled]);
+  return <ConnectionContext.Provider value={enabled && connected}>{children}</ConnectionContext.Provider>;
 }
 export const useServerConnection = () => useContext(ConnectionContext);

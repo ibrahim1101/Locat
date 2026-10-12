@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 const section = readFileSync(fileURLToPath(new URL("../components/chat/AppLockSection.tsx", import.meta.url)), "utf8");
 const dialog = readFileSync(fileURLToPath(new URL("../components/chat/StorageDialog.tsx", import.meta.url)), "utf8");
 const gate = readFileSync(fileURLToPath(new URL("../components/AppLockGate.tsx", import.meta.url)), "utf8");
+const entry = readFileSync(fileURLToPath(new URL("../components/AppEntry.tsx", import.meta.url)), "utf8");
 const main = readFileSync(fileURLToPath(new URL("../main.tsx", import.meta.url)), "utf8");
 
 describe("device app lock surface", () => {
@@ -52,16 +53,18 @@ describe("device app lock surface", () => {
     // Status badge toggles On/Off based on currentState().
     expect(section).toContain("configured ? \"On\" : \"Off\"");
     // Biometric row admits when the platform authenticator is unavailable.
-    expect(section).toContain("Biometrics require a platform authenticator");
+    expect(section).toContain("Biometric unlock is currently unavailable");
     // Persistent storage shows the real browser answer, not a claim.
     expect(section).toContain('persistent === "granted" ? "Persistent storage enabled" : persistent === "not-granted" ? "May be cleared by the browser"');
   });
 });
 
 describe("app lock gate", () => {
-  it("mounts between AuthProvider and App to block signed-in UI when locked", () => {
-    expect(main).toContain('import { AppLockGate } from "./components/AppLockGate"');
-    expect(main).toContain("<AuthProvider><AppLockGate><><App /><DownloadStatusHost /></></AppLockGate></AuthProvider>");
+  it("gates both server-account and non-server entry when locked", () => {
+    expect(main).toContain("<StrictMode><AppEntry /></StrictMode>");
+    expect(entry.indexOf("<AppLockGate>")).toBeLessThan(entry.indexOf("<NativeOfflineHome"));
+    expect(entry.indexOf("<AppLockGate>")).toBeLessThan(entry.indexOf("<AuthProvider>"));
+    expect(entry.indexOf("</AppLockGate>")).toBeGreaterThan(entry.indexOf("</AuthProvider>"));
   });
 
   it("renders a modal dialog with passcode input and optional biometric button", () => {

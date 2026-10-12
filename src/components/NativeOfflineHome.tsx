@@ -1,47 +1,41 @@
+import { useEffect, useRef, useState } from "react";
 import { MusicEqualizer } from "./media/MusicEqualizer";
-import { useState } from "react";
-import { NativeServerSetup } from "./NativeServerSetup";
 import { LocatMark, LocatWordmark } from "./LocatBrand";
+import { AppLockSection } from "./chat/AppLockSection";
+import { MODULES } from "@/modules/registry";
+import { detectPlatform } from "@/lib/platform";
 
-export function NativeOfflineHome() {
-  const [remote, setRemote] = useState(false);
-  const [connecting, setConnecting] = useState(false);
+type LocalSection = "cinema" | "music" | "performance" | "protection";
+const localSections = new Set(["cinema", "music", "performance"]);
+/** Deliberately independent of server accounts, local chat archives and RPC providers. */
+export function NativeOfflineHome({ onExit }: { onExit: () => void }) {
+  const [section, setSection] = useState<LocalSection | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState("");
-  function choose(next: File | undefined) {
-    if (!next) return;
-    if (url) URL.revokeObjectURL(url);
-    setFile(next);
-    setUrl(URL.createObjectURL(next));
-  }
-  if (remote) return <main className="h-dvh p-4"><button type="button" onClick={() => setRemote(false)} className="mb-3 underline">Back to Local Mode</button><iframe title="Locat Remote client" src={`${import.meta.env.BASE_URL}remote-client/index.html`} sandbox="allow-scripts allow-same-origin" allow="display-capture; autoplay" className="h-[85vh] w-full rounded-xl border" /></main>;
-  if (connecting) return <main className="min-h-dvh bg-background p-5 text-foreground">
-    <button type="button" onClick={() => setConnecting(false)} className="mb-4 text-sm underline">Back to Local Mode</button>
-    <NativeServerSetup />
-  </main>;
-  return <main className="locat-mesh min-h-dvh p-6 text-foreground" data-testid="native-offline-home">
-    <div className="mx-auto max-w-lg space-y-5">
-      <header className="flex items-center gap-3"><LocatMark className="h-12 w-12" /><div><LocatWordmark /><p className="text-sm text-secondary">Local Mode — no server required</p></div></header>
-      <section className="rounded-2xl border bg-card p-5">
-        <h1 className="text-xl font-semibold">Welcome to Locat</h1>
-        <p className="mt-2 text-sm text-secondary">Play supported media from your device. Connect a server to use messaging, shared libraries, and sync.</p>
-        <button type="button" onClick={() => setConnecting(true)} className="locat-metal-button mt-4 w-full rounded-xl p-3 font-semibold">Connect to Server</button>
+  const activeUrl = useRef("");
+  useEffect(() => () => { if (activeUrl.current) URL.revokeObjectURL(activeUrl.current); }, []);
+  const choose = (next: File | null) => {
+    if (activeUrl.current) URL.revokeObjectURL(activeUrl.current);
+    activeUrl.current = next ? URL.createObjectURL(next) : "";
+    setFile(next); setUrl(activeUrl.current);
+  };
+  const select = (next: LocalSection) => { choose(null); setSection(next); };
+  return <main className="locat-mesh min-h-dvh p-4 pb-24 text-foreground sm:p-6 sm:pb-24" data-testid="native-offline-home">
+    <div className="mx-auto max-w-5xl space-y-5">
+      <header className="flex items-center justify-between gap-3"><div className="flex items-center gap-3"><LocatMark className="h-12 w-12" /><div><LocatWordmark /><h1 className="text-sm text-secondary">Non-server mode</h1></div></div><button type="button" onClick={onExit} className="min-h-11 rounded-xl border px-3 text-sm">Back to login</button></header>
+      <p className="text-sm text-secondary">Play files from this device without a server account. Server accounts, messages, encrypted stores and shared libraries stay locked.</p>
+      <section aria-label="Local tools" className="grid gap-3 sm:grid-cols-3">
+        {MODULES.filter(module => localSections.has(module.id)).map(module => <button key={module.id} type="button" onClick={() => select(module.id as LocalSection)} aria-pressed={section === module.id} className="min-h-24 rounded-2xl border bg-card p-4 text-left hover:border-primary"><module.icon className="mb-2 h-5 w-5 ember-text" /><span className="block font-semibold">{module.id === "performance" ? "Device diagnostics" : `Local ${module.name}`}</span><span className="text-xs text-secondary">No server required</span></button>)}
       </section>
-      <section className="rounded-2xl border bg-card p-5">
-        <h2 className="font-semibold">Local media player</h2>
-        <p className="my-2 text-xs text-secondary">Supported formats depend on this device’s codecs. Local Music includes the shared 5/10/15/31-band EQ.</p>
-        <input aria-label="Choose local media" type="file" accept="audio/*,video/*,.mkv,.mov,.flac" onChange={e => choose(e.target.files?.[0])} className="w-full text-sm" />
-        {file && url && <div className="mt-3">
-          <p className="mb-2 truncate text-sm">{file.name}</p>
-          {(file.type.startsWith("audio/") || /\.(mp3|flac|alac|wav|m4a|ogg|opus|aac)$/i.test(file.name)) ? <MusicEqualizer key={url} src={url} onEnded={() => {}} /> : <video controls playsInline src={url} className="w-full" />}
-          <button type="button" className="mt-2 text-sm underline" onClick={() => { URL.revokeObjectURL(url); setUrl(""); setFile(null); }}>Close</button>
-        </div>}
-      </section>
-      <section className="rounded-2xl border bg-card p-5">
-        <button type="button" className="mb-4 rounded-lg border px-4 py-2 text-sm" onClick={() => setRemote(true)}>Open Remote prototype</button><h2 className="font-semibold">Server features</h2>
-        <p className="mt-2 text-sm text-secondary">Messages · Cinema library · Music library · Device sync</p>
-        <button type="button" className="mt-3 rounded-lg border px-4 py-2 text-sm" onClick={() => setConnecting(true)}>Connect to unlock</button>
-      </section>
+      {(section === "cinema" || section === "music") && <section className="rounded-2xl border bg-card p-5" aria-label="Local media player">
+        <h2 className="font-semibold">{section === "music" ? "Local Music" : "Local Cinema"}</h2>
+        <p className="my-2 text-xs text-secondary">Choose a file from this device. Formats depend on its codecs. Music includes the shared 5/10/15/31-band EQ.</p>
+        <input key={section} aria-label={section === "music" ? "Choose local music" : "Choose local movie"} type="file" accept={section === "music" ? "audio/*,.flac,.alac,.opus" : "video/*,.mkv,.mov"} onChange={event => choose(event.target.files?.[0] ?? null)} className="w-full text-sm" />
+        {file && url && <div className="mt-3"><p className="mb-2 truncate text-sm">{file.name}</p>{section === "music" ? <MusicEqualizer key={url} src={url} onEnded={() => {}} /> : <video controls playsInline src={url} className="max-h-[60dvh] w-full rounded-xl bg-black" />}<button type="button" className="mt-2 min-h-11 text-sm underline" onClick={() => choose(null)}>Close media</button></div>}
+      </section>}
+      {section === "performance" && <section className="rounded-2xl border bg-card p-5"><h2 className="font-semibold">Device diagnostics</h2><dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2"><div><dt>Runtime</dt><dd>{detectPlatform()}</dd></div><div><dt>Reported logical processors</dt><dd>{navigator.hardwareConcurrency ?? "Unavailable"}</dd></div><div><dt>Secure context</dt><dd>{window.isSecureContext ? "Yes" : "No"}</dd></div><div><dt>Media Source Extensions</dt><dd>{typeof MediaSource !== "undefined" ? "API available" : "Unavailable"}</dd></div></dl><p className="mt-3 text-xs text-secondary">API availability is not a measured playback or GPU benchmark.</p></section>}
+      <section className="rounded-2xl border bg-card p-5"><h2 className="font-semibold">Device protection</h2><p className="my-2 text-xs text-secondary">Optional: require a passphrase stored as a salted hash on this device to open Locat, including non-server mode. It is separate from your server password and does not encrypt your original movies or music.</p><button type="button" onClick={() => select("protection")} className="min-h-11 rounded-xl border px-3 text-sm">Set or manage device passphrase</button>{section === "protection" && <div className="mt-4"><AppLockSection /></div>}</section>
+      <section aria-label="Account and server sections"><h2 className="mb-3 font-semibold">Account and server sections</h2><div className="grid gap-3 sm:grid-cols-3">{MODULES.filter(module => module.id !== "dashboard" && !localSections.has(module.id)).map(module => <div key={module.id} aria-disabled="true" data-testid={`local-disabled-${module.id}`} className="rounded-2xl border bg-card/50 p-4 opacity-60"><module.icon className="mb-2 h-5 w-5" /><h3 className="font-semibold">{module.name}</h3><p className="text-xs text-secondary">{module.status === "planned" ? "Not implemented yet" : module.id === "remote" ? "Separate approved remote host required" : "Server-account sign-in required"}</p></div>)}</div></section>
     </div>
   </main>;
 }

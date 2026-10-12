@@ -184,8 +184,8 @@ function AppLockPrompt({ onUnlocked }: { onUnlocked: () => void }) {
               <LocatWordmark className="text-lg" /> is locked
             </h1>
             <p className="text-xs text-secondary">
-              Enter your device passcode to continue. Locat keeps your session
-              signed in but hides messages until you unlock.
+              Enter your device passphrase to continue, including non-server mode.
+              Verification happens on this device without contacting a server.
             </p>
           </div>
         </div>
@@ -236,9 +236,8 @@ function AppLockPrompt({ onUnlocked }: { onUnlocked: () => void }) {
           </p>
         )}
         <p className="text-[11px] text-secondary">
-          Can't remember the passcode? Sign out from another device, then
-          reinstall and sign in to restore your encrypted history from the
-          server backup.
+          Keep this device passphrase safe. It has no server recovery and protects
+          the app interface; it does not encrypt your original media files.
         </p>
       </div>
     </div>

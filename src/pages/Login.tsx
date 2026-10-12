@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/state/auth";
+import { useNonServerMode } from "@/state/nonServerMode";
 import { useServerConnection } from "@/state/connection";
 import { LocatMark, LocatWordmark } from "@/components/LocatBrand";
 
@@ -15,14 +16,15 @@ function errorText(e: unknown): string {
 }
 
 export default function Login() {
+  const enterLocalMode = useNonServerMode();
   const navigate = useNavigate();
   const connected = useServerConnection();
   const { state, login, register, restoreKeys, resetIdentity } = useAuth();
 
   if (state.status === "needsKeyRestore") {
-    return <KeyRestore user={state.user.displayName} onRestore={async password => { await restoreKeys(password); navigate("/"); }} onReset={async password => { await resetIdentity(password); navigate("/"); }} />;
+    return <><KeyRestore user={state.user.displayName} onRestore={async password => { await restoreKeys(password); navigate("/"); }} onReset={async password => { await resetIdentity(password); navigate("/"); }} />{enterLocalMode && <button type="button" onClick={enterLocalMode} className="fixed right-3 bottom-3 z-40 min-h-11 rounded-xl border bg-background px-3 text-sm">Use non-server mode</button>}</>;
   }
-  return <AuthForm onLogin={async (username, password) => { await login(username, password); navigate("/"); }} onRegister={async (username, name, password) => { await register(username, name, password); navigate("/"); }} disabled={state.status === "loading" || !connected} />;
+  return <AuthForm onLogin={async (username, password) => { await login(username, password); navigate("/"); }} onRegister={async (username, name, password) => { await register(username, name, password); navigate("/"); }} onUseLocalMode={enterLocalMode} disabled={state.status === "loading" || !connected} />;
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -47,8 +49,10 @@ export function AuthForm({
   onLogin,
   onRegister,
   disabled = false,
+  onUseLocalMode,
 }: {
   disabled?: boolean;
+  onUseLocalMode?: () => void;
   onLogin: (u: string, p: string) => Promise<void>;
   onRegister: (u: string, d: string, p: string) => Promise<void>;
 }) {
@@ -161,6 +165,7 @@ export function AuthForm({
           </Button>
         </form>
 
+        {onUseLocalMode && <div className="mt-4"><Button type="button" variant="outline" className="min-h-11 w-full" disabled={busy} onClick={onUseLocalMode}>Use non-server mode</Button><p className="mt-2 text-xs text-secondary">Open local movies, music and device tools. No server account needed.</p></div>}
         <div className="mt-5 border-t border-border/60 pt-4 text-center"><button type="button" className="min-h-11 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }}>{mode === "login" ? "New to Locat? Create account" : "Already have an account? Sign in"}</button></div>
       </div>
     </Shell>

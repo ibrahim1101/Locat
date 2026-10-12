@@ -3,6 +3,8 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+const wave = Buffer.alloc(44 + 4800 * 2);
+wave.write('RIFF'); wave.writeUInt32LE(wave.length - 8, 4); wave.write('WAVEfmt ', 8); wave.writeUInt32LE(16, 16); wave.writeUInt16LE(1, 20); wave.writeUInt16LE(1, 22); wave.writeUInt32LE(48000, 24); wave.writeUInt32LE(96000, 28); wave.writeUInt16LE(2, 32); wave.writeUInt16LE(16, 34); wave.write('data', 36); wave.writeUInt32LE(wave.length - 44, 40);
 const root = path.resolve('dist/public');
 const server = createServer(async (request, response) => {
   try {
@@ -59,5 +61,48 @@ try {
   await native.getByRole('heading', { name: 'Welcome back' }).waitFor();
   assert.equal(await native.getByRole('button', { name: 'Sign in', exact: true }).isDisabled(), true);
   assert.equal(await native.getByText('Local mode', { exact: true }).count(), 0);
+  let accountRequests = 0;
+  await native.route('**/api/trpc/**', route => { accountRequests++; return route.abort(); });
+  await native.getByRole('button', { name: 'Use non-server mode', exact: true }).click();
+  await native.getByTestId('native-offline-home').waitFor();
+  assert.equal(await native.getByTestId('local-disabled-messages').getAttribute('aria-disabled'), 'true');
+  await native.getByRole('button', { name: 'Local Music', exact: false }).click();
+  await native.getByLabel('Choose local music').setInputFiles({ name: 'offline.wav', mimeType: 'audio/wav', buffer: wave });
+  await native.waitForFunction(() => document.querySelector('audio')?.readyState >= 1);
+  assert.ok(await native.locator('audio').evaluate(audio => audio.src.startsWith('blob:') && audio.duration > 0));
+  await native.getByRole('button', { name: 'Close media', exact: true }).click();
+  await native.getByRole('button', { name: 'Local Cinema', exact: false }).click();
+  const movieBytes = await native.evaluate(async () => {
+    const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 64;
+    const context = canvas.getContext('2d'); context.fillStyle = 'orange'; context.fillRect(0, 0, 64, 64);
+    const stream = canvas.captureStream(10), recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+    const chunks = []; recorder.ondataavailable = event => chunks.push(event.data);
+    const done = new Promise(resolve => recorder.onstop = resolve);
+    recorder.start(); const timer = setInterval(() => context.fillRect(0, 0, 64, 64), 30); await new Promise(resolve => setTimeout(resolve, 300)); clearInterval(timer); recorder.stop(); await done;
+    stream.getTracks().forEach(track => track.stop());
+    return [...new Uint8Array(await new Blob(chunks, { type: 'video/webm' }).arrayBuffer())];
+  });
+  await native.getByLabel('Choose local movie').setInputFiles({ name: 'offline.webm', mimeType: 'video/webm', buffer: Buffer.from(movieBytes) });
+  await native.waitForFunction(() => document.querySelector('video')?.readyState >= 1);
+  await native.getByRole('button', { name: 'Set or manage device passphrase' }).click();
+  await native.getByTestId('app-lock-set').click();
+  await native.getByTestId('app-lock-new').fill('local meadow 9274');
+  await native.getByTestId('app-lock-confirm').fill('local meadow 9274');
+  await native.getByRole('button', { name: 'Enable lock', exact: true }).click();
+  await native.getByTestId('app-lock-gate').waitFor();
+  const stored = await native.evaluate(() => localStorage.getItem('locat-app-lock-v1'));
+  assert.ok(stored && !stored.includes('local meadow 9274'));
+  await native.getByTestId('app-lock-passcode').fill('wrong passphrase');
+  await native.getByTestId('app-lock-submit').click();
+  await native.getByText('Passcode is incorrect.', { exact: true }).waitFor();
+  await native.getByTestId('app-lock-passcode').fill('local meadow 9274');
+  await native.getByTestId('app-lock-submit').click();
+  await native.getByTestId('native-offline-home').waitFor();
+  await native.getByRole('button', { name: 'Back to login', exact: true }).click();
+  await native.getByRole('heading', { name: 'Welcome back' }).waitFor();
+  await native.getByRole('button', { name: 'Use non-server mode', exact: true }).click();
+  await native.getByTestId('native-offline-home').waitFor();
+  assert.equal(accountRequests, 0);
+  console.log('Non-server Music/Cinema, disabled account features and local passphrase checks passed');
   console.log('Login-first browser deep link and unconfigured native entry checks passed');
 } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
