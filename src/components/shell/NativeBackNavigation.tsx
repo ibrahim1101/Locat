@@ -26,6 +26,15 @@ export function NativeBackNavigation() {
   useEffect(() => {
     if (!isNativeShell()) return;
     const back = (event: Event) => {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && (
+        active.matches("input, textarea, select, [contenteditable='true']") ||
+        active.getAttribute("role") === "textbox"
+      )) {
+        active.blur();
+        event.preventDefault();
+        return;
+      }
       const overlay = document.querySelector<HTMLElement>('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]');
       if (overlay) {
         const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
