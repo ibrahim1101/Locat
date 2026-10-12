@@ -2,7 +2,7 @@ name: Locat checks
 
 on:
   push:
-    branches: [main, feat/locat-1.0, feat/locat-2.0, feat/locat-unified-platforms, feat/locat-complete-ecosystem, 'chore/locat-2.0-*', 'fix/locat-2.0-*']
+    branches: [main, release/locat-v1.0, feat/locat-1.0, feat/locat-2.0, feat/locat-unified-platforms, feat/locat-complete-ecosystem, 'chore/locat-2.0-*', 'fix/locat-2.0-*']
   pull_request:
   workflow_dispatch:
 
