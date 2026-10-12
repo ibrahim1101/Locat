@@ -27,7 +27,7 @@ export type IndexedMediaItem = {
   libraryId: number;
 };
 
-async function scanRoot(root: string, kind: "cinema" | "music" | "photos"): Promise<IndexedMediaItem[]> {
+export async function scanRoot(root: string, kind: "cinema" | "music" | "photos"): Promise<IndexedMediaItem[]> {
   const items: IndexedMediaItem[] = [];
   const visited = new Set<string>();
   async function walk(directory: string, depth: number): Promise<void> {
