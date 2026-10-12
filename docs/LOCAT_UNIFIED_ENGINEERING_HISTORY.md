@@ -462,3 +462,11 @@ Client and server must be updated together for new direct scheduling context;
 0016 adds the server metadata column and readiness rejects missing schema.
 Legacy unbound jobs fail closed. No physical acceptance or production release
 is inferred. This documentation update changes no runtime source.
+
+## 2026-10-12 — login-first sections and attachment picture editor
+
+The latest user requirement replaces chat-first entry with login-first unauthenticated entry and a section dashboard at `/` after session restoration/login. New native installations show login rather than the unauthenticated local tool homepage. Bottom-left server connection accepts a strict HTTPS origin and checks schema readiness before persisting; browser changes navigate to that origin. A global gate protects deep links. All registered modules, including planned and administrator modules, remain visible with disabled reasons. Implemented server sections require a successful readiness check; local media/search/diagnostics and the separate approved-host Remote prototype remain available within an existing authenticated session. New offline password login is not implemented; previously established offline identity rules remain. See `LOGIN_AND_SECTIONS.md`.
+
+Picture attachments now open a local crop/zoom/position/quarter-turn editor with preview, reset, original send or edited JPEG send. Output is capped at 1600 pixels and 2.9 MB before the existing attachment pipeline. Original files remain untouched. Animation/transparency and unsupported native codecs are explicitly limited. No physical image-codec or memory acceptance is inferred.
+
+Local validation: TypeScript and production build passed; lint has zero errors and 13 warnings (12 existing plus the new context fast-refresh warning). All 392 tests across 68 files passed against disposable MariaDB both before and after fresh canonical migrations; CLI LAN checks passed in both runs. CI adds actual Chromium crop/rotation/JPEG pixel tests and browser/native login-entry checks; those newly added checks require CI execution before being marked verified. Physical Android layout/keyboard, server switching and lifecycle acceptance remain pending.

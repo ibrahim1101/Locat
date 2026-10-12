@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router";
-import { MODULES } from "@/modules/registry";
+import { MODULES, moduleDisabledReason } from "@/modules/registry";
+import { useServerConnection } from "@/state/connection";
 import { useAuth } from "@/state/auth";
 
 /**
@@ -13,6 +14,7 @@ import { useAuth } from "@/state/auth";
  * sidebar which lives at `/messages`.
  */
 export function MobileBottomNav({ active }: { active?: string }) {
+  const connected = useServerConnection();
   const location = useLocation();
   const { state } = useAuth();
   const user = state.status === "ready" ? state.user : null;
@@ -21,7 +23,7 @@ export function MobileBottomNav({ active }: { active?: string }) {
 
   function isActive(id: string, route: string): boolean {
     if (active) return active === id;
-    if (id === "messages" && location.pathname === "/") return true;
+    if (id === "dashboard" && location.pathname === "/") return true;
     return location.pathname.startsWith(route);
   }
 
@@ -33,7 +35,7 @@ export function MobileBottomNav({ active }: { active?: string }) {
     >
       {items.map((m) => {
         const activeTab = isActive(m.id, m.route);
-        const disabled = m.status === "planned";
+        const disabled = moduleDisabledReason(m, connected, !!user?.isAdmin);
         const Icon = m.icon;
         const label = m.id === "dashboard" ? "Modules" : m.name;
         const inner = (
@@ -46,7 +48,7 @@ export function MobileBottomNav({ active }: { active?: string }) {
         );
         if (disabled) {
           return (
-            <span key={m.id} className="flex flex-1" aria-disabled>
+            <span key={m.id} className="flex flex-1" aria-disabled title={disabled}>
               {inner}
             </span>
           );

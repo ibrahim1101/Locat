@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/state/auth";
+import { useServerConnection } from "@/state/connection";
 import { LocatMark, LocatWordmark } from "@/components/LocatBrand";
 
 function errorText(e: unknown): string {
@@ -13,17 +14,18 @@ function errorText(e: unknown): string {
 }
 
 export default function Login() {
+  const connected = useServerConnection();
   const { state, login, register, restoreKeys, resetIdentity } = useAuth();
 
   if (state.status === "needsKeyRestore") {
     return <KeyRestore user={state.user.displayName} onRestore={restoreKeys} onReset={resetIdentity} />;
   }
-  return <AuthForm onLogin={login} onRegister={register} />;
+  return <AuthForm onLogin={login} onRegister={register} disabled={state.status === "loading" || !connected} />;
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="locat-auth-shell locat-titanium-canvas flex min-h-dvh items-center justify-center px-4 pt-safe pb-safe">
+    <div className="locat-auth-shell locat-titanium-canvas flex min-h-dvh items-center justify-center px-4 pt-safe pb-20">
       <div className="relative z-10 w-full max-w-sm">{children}</div>
     </div>
   );
@@ -39,10 +41,12 @@ function Brand() {
   );
 }
 
-function AuthForm({
+export function AuthForm({
   onLogin,
   onRegister,
+  disabled = false,
 }: {
+  disabled?: boolean;
   onLogin: (u: string, p: string) => Promise<void>;
   onRegister: (u: string, d: string, p: string) => Promise<void>;
 }) {
@@ -57,6 +61,7 @@ function AuthForm({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (disabled) return;
     setBusy(true);
     setError(null);
     try {
@@ -79,7 +84,7 @@ function AuthForm({
     <Shell>
       <Brand />
       <div className="locat-titanium-auth-card emergent-locat-auth-card rounded-[22px] p-5 shadow-super sm:p-7">
-        <div className="mb-5"><h2 className="text-xl font-semibold tracking-tight">{mode === "login" ? "Welcome back" : "Create your private space"}</h2><p className="mt-1 text-sm text-muted-foreground">{mode === "login" ? "Sign in to continue your conversations." : "Your identity and messages stay protected."}</p></div>
+        <div className="mb-5"><h2 className="text-xl font-semibold tracking-tight">{mode === "login" ? "Welcome back" : "Create your private space"}</h2><p className="mt-1 text-sm text-muted-foreground">{mode === "login" ? "Sign in to open your Locat sections." : "Your identity and messages stay protected."}</p></div>
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="username" className="micro-label">
@@ -142,11 +147,12 @@ function AuthForm({
             </div>
           )}
 
+          {disabled && <p role="status" className="text-xs text-secondary">Connect to your Locat server to sign in.</p>}
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
           <Button
             type="submit"
-            disabled={busy}
+            disabled={busy || disabled}
             className="locat-metal-button emergent-locat-auth-submit h-12 w-full rounded-xl font-semibold active:scale-[0.98]"
           >
             {busy ? "Working…" : mode === "login" ? "Sign in" : "Create account"}

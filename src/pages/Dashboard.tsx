@@ -7,9 +7,10 @@ import { ArrowUpRight, LogOut, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/state/auth";
 import { trpc } from "@/providers/trpc";
 import { userCode } from "@contracts/userCode";
-import { MODULES, type LocatModule } from "@/modules/registry";
+import { MODULES, moduleDisabledReason, type LocatModule } from "@/modules/registry";
 import { LocatMark, LocatWordmark } from "@/components/LocatBrand";
 import { AppShell } from "@/components/shell/AppShell";
+import { useServerConnection } from "@/state/connection";
 import Login from "./Login";
 
 export default function Dashboard() {
@@ -26,16 +27,17 @@ export default function Dashboard() {
 }
 
 function DashboardHome() {
+  const connected = useServerConnection();
   const { state, logout } = useAuth();
   const user = state.status === "ready" ? state.user : null;
-  const conversationsQ = trpc.conversations.list.useQuery(undefined, { retry: false });
+  const conversationsQ = trpc.conversations.list.useQuery(undefined, { retry: false, enabled: connected });
   const [activity, setActivity] = useState<{ conversations: ConversationSummary[]; recent: { conversation: ConversationSummary; at: number }[]; messages: number; pending: number; cached: boolean } | null>(null);
   const [activityError, setActivityError] = useState("");
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       setActivity(null);
-      if (!user || conversationsQ.isPending) return;
+      if (!user || (connected && conversationsQ.isPending)) return;
       const rows = conversationsQ.data ?? await cachedConversations(user.id);
       const hidden = await hiddenConversationIds(user.id);
       const visible = visibleConversations(user.id, rows, hidden);
@@ -46,12 +48,12 @@ function DashboardHome() {
     };
     void load().catch(() => { if (!cancelled) setActivityError("Local activity unavailable; check device storage permissions."); });
     return () => { cancelled = true; };
-  }, [user, conversationsQ.data, conversationsQ.isPending]);
-  const sentinelStatsQ = trpc.sentinel.stats.useQuery(undefined, { refetchInterval: 15000 });
+  }, [user, conversationsQ.data, conversationsQ.isPending, connected]);
+  const sentinelStatsQ = trpc.sentinel.stats.useQuery(undefined, { refetchInterval: 15000, enabled: connected });
   const openCritical = sentinelStatsQ.data?.openCritical ?? 0;
 
-  const liveModules = MODULES.filter((m) => m.status !== "planned" && m.id !== "dashboard" && (!m.adminOnly || user?.isAdmin));
-  const plannedModules = MODULES.filter((m) => m.status === "planned" && (!m.adminOnly || user?.isAdmin));
+  const liveModules = MODULES.filter((m) => m.status !== "planned" && m.id !== "dashboard");
+  const plannedModules = MODULES.filter((m) => m.status === "planned");
   const conversationCount = activity?.conversations.length;
 
   return (
@@ -98,14 +100,14 @@ function DashboardHome() {
               {!activity && !activityError && <p role="status" className="mt-3 text-xs text-secondary">Loading visible local activity…</p>}
               {activity?.cached && <p className="mt-2 text-xs text-secondary">Cached membership; reconnect to verify changes.</p>}
               {activity?.recent.length === 0 && <p className="mt-3 text-xs text-secondary">No visible conversations yet.</p>}
-              <ul className="mt-3 space-y-2">{activity?.recent.map(row => <li key={row.conversation.id}><Link to={`/messages?conversation=${row.conversation.id}`} className="flex items-center justify-between gap-3 rounded-lg p-2 hover:bg-accent"><span className="truncate text-sm">{conversationTitle(row.conversation, user!.id)}</span><span className="shrink-0 text-xs text-secondary">{row.at ? new Date(row.at).toLocaleDateString() : "No local history"}</span></Link></li>)}</ul>
+              <ul className="mt-3 space-y-2">{activity?.recent.map(row => <li key={row.conversation.id}>{connected ? <Link to={`/messages?conversation=${row.conversation.id}`} className="flex items-center justify-between gap-3 rounded-lg p-2 hover:bg-accent"><span className="truncate text-sm">{conversationTitle(row.conversation, user!.id)}</span><span className="shrink-0 text-xs text-secondary">{row.at ? new Date(row.at).toLocaleDateString() : "No local history"}</span></Link> : <span aria-disabled className="block p-2 text-sm text-secondary">{conversationTitle(row.conversation, user!.id)} · Connect to server</span>}</li>)}</ul>
             </div>
             <div className="rounded-2xl border bg-card/60 p-4"><h2 className="text-sm font-semibold">Devices, transfers and security</h2><dl className="mt-3 space-y-2 text-sm">
-              <div className="flex justify-between gap-2"><dt>Devices and transfers</dt><dd><Link to="/link" className="ember-text">Verify this device in Link</Link></dd></div>
+              <div className="flex justify-between gap-2"><dt>Devices and transfers</dt><dd>{connected ? <Link to="/link" className="ember-text">Verify this device in Link</Link> : <span aria-disabled>Connect to server</span>}</dd></div>
               <div className="flex justify-between gap-2"><dt>Critical security incidents</dt><dd>{sentinelStatsQ.isError ? "Unavailable" : sentinelStatsQ.data ? openCritical : "…"}</dd></div>
               <div className="flex justify-between gap-2"><dt>Visible messages on this device</dt><dd>{activity?.messages ?? "…"}</dd></div>
               <div className="flex justify-between gap-2"><dt>Queued encrypted messages</dt><dd>{activity?.pending ?? "…"}</dd></div>
-            </dl><p className="mt-3 text-xs text-secondary">Device and transfer details require local device verification in Link. Local usage counts exclude hidden/deleted history.</p><div className="mt-3 flex gap-4 text-xs ember-text"><Link to="/link">Manage devices</Link><Link to="/sentinel">Review security</Link></div></div>
+            </dl><p className="mt-3 text-xs text-secondary">Device and transfer details require local device verification in Link. Local usage counts exclude hidden/deleted history.</p><div className="mt-3 flex gap-4 text-xs ember-text">{connected ? <><Link to="/link">Manage devices</Link><Link to="/sentinel">Review security</Link></> : <span aria-disabled>Connect to server for device and security options</span>}</div></div>
           </section>
 
           {/* Live modules */}
@@ -152,6 +154,9 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 function ModuleCard({ module, badge }: { module: LocatModule; badge?: number }) {
   const Icon = module.icon;
   const planned = module.status === "planned";
+  const connected = useServerConnection();
+  const { state } = useAuth();
+  const disabled = moduleDisabledReason(module, connected, state.status === "ready" && !!state.user.isAdmin);
   const inner = (
     <>
       <div className="flex items-start justify-between gap-2">
@@ -167,13 +172,14 @@ function ModuleCard({ module, badge }: { module: LocatModule; badge?: number }) 
           <ArrowUpRight className="h-4 w-4 text-secondary transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
         )}
       </div>
+      {disabled && <p className="mt-2 text-xs text-secondary">{disabled}</p>}
       <h3 className="mt-3 text-sm font-semibold tracking-tight">{module.name}</h3>
       <p className="text-[11px] ember-text">{module.tagline}</p>
       <p className="mt-1.5 text-xs leading-relaxed text-secondary">{module.description}</p>
     </>
   );
   const base = "group block rounded-2xl border p-4 transition-all";
-  if (planned) {
+  if (disabled) {
     return (
       <div className={`${base} border-border/60 bg-card/40 opacity-70`} data-testid={`module-card-${module.id}`} aria-disabled>
         {inner}

@@ -1,8 +1,9 @@
 import { type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
-import { MODULES, type LocatModule } from "@/modules/registry";
+import { MODULES, moduleDisabledReason, type LocatModule } from "@/modules/registry";
 import { LocatMark, LocatWordmark } from "@/components/LocatBrand";
 import { MobileBottomNav } from "./MobileBottomNav";
+import { useServerConnection } from "@/state/connection";
 import { useAuth } from "@/state/auth";
 
 /**
@@ -12,15 +13,13 @@ import { useAuth } from "@/state/auth";
  * the shell stays single-purpose.
  */
 export function AppShell({ children, active }: { children: ReactNode; active: string }) {
-  const { state } = useAuth();
-  const isAdmin = state.status === "ready" && state.user.isAdmin;
-  const navItems = MODULES.filter((m) => (m.primary || m.status !== "planned") && (!m.adminOnly || isAdmin));
+  const navItems = MODULES;
 
   return (
     <div className="locat-mesh flex app-height text-foreground">
       {/* Desktop rail */}
-      <aside className="hidden w-[76px] shrink-0 flex-col items-center gap-1 border-r border-border/70 bg-background/60 py-4 pt-safe md:flex lg:w-60 lg:items-stretch lg:px-3">
-        <Link to="/" className="mb-4 flex items-center gap-2 px-2 lg:px-1" aria-label="Locat messages">
+      <aside className="hidden w-[76px] shrink-0 flex-col items-center gap-1 border-r border-border/70 bg-background/60 py-4 pb-20 pt-safe md:flex lg:w-60 lg:items-stretch lg:px-3">
+        <Link to="/" className="mb-4 flex items-center gap-2 px-2 lg:px-1" aria-label="Locat sections">
           <LocatMark className="h-10 w-10" />
           <LocatWordmark className="hidden text-xl lg:inline" />
         </Link>
@@ -44,7 +43,9 @@ export function AppShell({ children, active }: { children: ReactNode; active: st
 
 function RailLink({ module, active }: { module: LocatModule; active: boolean }) {
   const Icon = module.icon;
-  const disabled = module.status === "planned";
+  const connected = useServerConnection();
+  const { state } = useAuth();
+  const disabled = moduleDisabledReason(module, connected, state.status === "ready" && !!state.user.isAdmin);
   const base = "group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-colors lg:justify-start justify-center";
   const cls = active
     ? `${base} bg-primary/15 ember-text border border-primary/40`
@@ -57,7 +58,7 @@ function RailLink({ module, active }: { module: LocatModule; active: boolean }) 
     </>
   );
   if (disabled) {
-    return <span className={`${cls} cursor-not-allowed opacity-45`} aria-disabled title={`${module.name} · coming in ${module.milestone}`}>{content}</span>;
+    return <span className={`${cls} cursor-not-allowed opacity-45`} aria-disabled title={`${module.name} · ${disabled}`}>{content}</span>;
   }
   return (
     <Link to={module.route} className={cls} aria-current={active ? "page" : undefined} data-testid={`rail-${module.id}`}>

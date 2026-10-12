@@ -4,13 +4,13 @@ import { MODULES } from "./registry";
 
 const source = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 
-describe("original Locat chat-first navigation", () => {
-  it("opens messaging by default and retains an explicit optional dashboard", () => {
+describe("login-first section navigation", () => {
+  it("opens sections after authentication and retains messages", () => {
     const app = source("src/App.tsx");
-    expect(app).toContain('<Route path="/" element={<Chat />} />');
+    expect(app).toContain('<Route path="/" element={<Dashboard />} />');
     expect(app).toContain('<Route path="/messages" element={<Chat />} />');
     expect(app).toContain('<Route path="/dashboard" element={<Dashboard />} />');
-    expect(app).toContain('<Route path="*" element={<Chat />} />');
+    expect(app).toContain('<Route path="*" element={<Dashboard />} />');
   });
 
   it("keeps messages first, with a separate reachable module explorer", () => {
@@ -23,7 +23,7 @@ describe("original Locat chat-first navigation", () => {
 
   it("highlights root messaging and labels the optional dashboard honestly", () => {
     const nav = source("src/components/shell/MobileBottomNav.tsx");
-    expect(nav).toContain('id === "messages" && location.pathname === "/"');
+    expect(nav).toContain('id === "dashboard" && location.pathname === "/"');
     expect(nav).toContain('m.id === "dashboard" ? "Modules" : m.name');
     expect(source("src/pages/MediaLocal.tsx")).toContain('Messages</Link>');
   });

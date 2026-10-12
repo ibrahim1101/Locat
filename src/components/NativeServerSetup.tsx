@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { setNativeServerUrl } from "@/lib/native";
+import { setNativeServerUrl, isNativeShell, nativeServerUrl } from "@/lib/native";
 import { parseNativeServerOrigin } from "@/lib/nativeServerOrigin";
 
-export function NativeServerSetup() {
-  const [server, setServer] = useState("");
+export function NativeServerSetup({ compact = false }: { compact?: boolean }) {
+  const [server, setServer] = useState(nativeServerUrl());
   const [error, setError] = useState("");
   const [checking, setChecking] = useState(false);
   async function save(event: React.FormEvent) {
@@ -12,19 +12,19 @@ export function NativeServerSetup() {
     setError("");
     try {
       const origin = parseNativeServerOrigin(server);
-      const response = await fetch(`${origin}/api/ready`, { signal: AbortSignal.timeout(8000), redirect: "manual", cache: "no-store" });
+      const response = await fetch(`${origin}/api/ready`, { credentials: "omit", signal: AbortSignal.timeout(8000), redirect: "manual", cache: "no-store" });
       if (response.status !== 200) throw new Error(`Server is not ready (HTTP ${response.status}). Check HTTPS and database setup.`);
       const health = await response.json() as { app?: string; status?: string };
       if (health.app !== "Locat" || health.status !== "ready") throw new Error("That address is not a schema-ready Locat server.");
-      setNativeServerUrl(origin);
-      window.location.reload();
+      if (isNativeShell()) { setNativeServerUrl(origin); window.location.reload(); }
+      else window.location.assign(origin);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not reach that Locat server.");
       setChecking(false);
     }
   }
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-background px-4 text-foreground">
+    <main className={compact ? "text-foreground" : "flex min-h-dvh items-center justify-center bg-background px-4 text-foreground"}>
       <form onSubmit={save} className="surface-2 w-full max-w-sm space-y-4 rounded-lg border p-6">
         <div>
           <h1 className="text-xl font-semibold">Connect Locat</h1>

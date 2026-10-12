@@ -34,7 +34,7 @@ export const MODULES: LocatModule[] = [
     icon: MessageCircle, route: "/messages", status: "available", milestone: "M0", primary: true,
   },
   {
-    id: "dashboard", name: "Dashboard", tagline: "Optional module explorer",
+    id: "dashboard", name: "Dashboard", tagline: "Your Locat sections",
     description: "Explore available Locat modules and upcoming features.",
     icon: LayoutDashboard, route: "/dashboard", status: "available", milestone: "M0", primary: true,
   },
@@ -122,3 +122,11 @@ export const MODULES: LocatModule[] = [
 
 export const moduleById = (id: string) => MODULES.find((m) => m.id === id);
 export const availableModules = MODULES.filter((m) => m.status !== "planned");
+
+/** Local tools stay usable during an authenticated offline session. */
+export function moduleDisabledReason(module: LocatModule, connected: boolean, isAdmin: boolean): string | null {
+  if (module.status === "planned") return "Not implemented yet";
+  if (module.adminOnly && !isAdmin) return "Administrator access required";
+  if (!["dashboard", "cinema", "music", "performance", "remote", "search"].includes(module.id) && !connected) return "Connect to server";
+  return null;
+}

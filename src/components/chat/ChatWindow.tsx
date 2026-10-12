@@ -1,4 +1,5 @@
 import { visiblePins } from "@/lib/messagePins";
+import { ImageEditDialog } from "./ImageEditDialog";
 import { ScheduleTextDialog } from "./ScheduleTextDialog";
 import { REACTION_EMOJIS, type ReactionEmoji, type MessageReply } from "@contracts/messagePayload";
 import { replyPreview } from "@/lib/messageReplies";
@@ -131,6 +132,7 @@ export function ChatWindow({
   onToggleMessageHidden: (message: LocalMessage) => void;
 }) {
   const [locationOpen, setLocationOpen] = useState(false);
+  const [imageEditFile, setImageEditFile] = useState<File | null>(null);
   const [scheduleDraft, setScheduleDraft] = useState<{ text: string; reply?: MessageReply; revision: number } | null>(null);
   const [draft, setDraft] = useState(() => loadDraft(conversation.id, myId, draftServer));
   const draftRevision = useRef(0);
@@ -492,6 +494,10 @@ export function ChatWindow({
           </button>
         </div>
       )}
+      {imageEditFile && <ImageEditDialog key={imageEditFile.name + imageEditFile.lastModified} file={imageEditFile} recipient={title} onClose={() => setImageEditFile(null)} onSend={file => {
+        if (!composer.canAttach || recording) throw new Error("This conversation is unavailable for sending pictures.");
+        onSendImage(file);
+      }} />}
       {scheduleDraft && <ScheduleTextDialog text={scheduleDraft.text} onClose={() => setScheduleDraft(null)} onManager={onShowSchedules}
         onSchedule={async date => {
           if (!composer.canSend || recording) throw new Error("This conversation is no longer available for scheduling.");
@@ -520,7 +526,7 @@ export function ChatWindow({
                 className="hidden"
                 onChange={e => {
                   const f = e.target.files?.[0];
-                  if (f) onSendImage(f);
+                  if (f) setImageEditFile(f);
                   e.target.value = "";
                 }}
               />

@@ -57,6 +57,10 @@ jobs:
           "$RUNNER_TEMP/locat-browser-tests/node_modules/.bin/playwright" install --with-deps chromium
       - name: Verify actual rendered Music DSP signal
         run: node scripts/test-music-signal.mjs
+      - name: Verify login-first browser and native entry
+        run: node scripts/test-login-entry.mjs
+      - name: Verify actual rendered image crop and rotation
+        run: node scripts/test-image-edit.mjs
       - name: Validate additive database bootstrap on MariaDB
         env:
           DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
