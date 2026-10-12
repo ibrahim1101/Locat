@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createMediaAccessRequest, decideMediaAccessRequest, getMediaAccessRequest,
-  listMediaAccessRequests, revokeMediaAccessRequests,
+  listMediaAccessRequests, revokeMediaAccessRequests, revokeMediaLibraryRequests,
 } from "./deviceMediaAccess";
 
 describe("paired device media access request lifecycle", () => {
@@ -28,6 +28,16 @@ describe("paired device media access request lifecycle", () => {
     expect(decideMediaAccessRequest(981, 501, request.id, true, 3001)?.status).toBe("approved");
     expect(getMediaAccessRequest(981, 502, request.id, 3000 + 5 * 60_000)).toBeNull();
     expect(decideMediaAccessRequest(981, 501, request.id, false, 3000 + 5 * 60_000)).toBeNull();
+  });
+  it("withdrawal invalidates only the affected source library approvals", () => {
+    const photo = createMediaAccessRequest(base, 3500);
+    const music = createMediaAccessRequest({ ...base, libraryId: "folder-music" }, 3501);
+    expect(decideMediaAccessRequest(981, 501, photo.id, true, 3502)?.status).toBe("approved");
+    revokeMediaLibraryRequests(981, 501, "folder-photos");
+    expect(getMediaAccessRequest(981, 502, photo.id, 3503)).toBeNull();
+    expect(getMediaAccessRequest(981, 502, music.id, 3503)?.status).toBe("pending");
+    revokeMediaLibraryRequests(981, 501);
+    expect(getMediaAccessRequest(981, 502, music.id, 3504)).toBeNull();
   });
   it("revocation removes requests for either participating device", () => {
     const request = createMediaAccessRequest(base, 4000);
