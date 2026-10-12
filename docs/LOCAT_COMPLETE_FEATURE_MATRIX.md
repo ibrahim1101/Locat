@@ -119,8 +119,27 @@ The sources are `docs/FEATURE_MATRIX.md`, `docs/LOCAT_2_0_JOURNEY_AND_HANDOFF.md
 
 Baseline tests: recorded `279 passed / 26 DB skipped` locally; CI core included MariaDB; Remote `47 passed`. Packaging proves compilation, not behavior. Current in-session test results belong in `docs/LOCAT_UNIFIED_ENGINEERING_HISTORY.md` and must supersede this baseline only with exact evidence.
 
-## Current-session environment and publication blockers
+## Current verification and historical publication blockers
 
 The development branch and draft PR #7 are published. Root reports native workflow filters updated to include the complete-ecosystem branch, Docker FFmpeg added and optional read-only `compose.media.yaml` supplied. These changes are not fresh CI/image/native-build verification. Automatic review initially rejected publication twice. The user subsequently directly approved publication; the branch and draft PR #7 are now published. Corrected-source core/Docker/Chromium and signed APK packaging passed at 723647f; all three desktop packages and the newer versionCode APK workflow passed; physical acceptance remains open.
 
 Current environment lacks Docker, Cargo and Java. Chromium download was corrupt and browser verification did not complete. Local source checks pass: 334 tests across 55 files, including 28 real MariaDB integration tests; fresh canonical migrations passed; typecheck/build passed; lint zero errors/12 warnings; Remote 47/47. Corrected-source browser signal and Docker CI checks passed at 723647f; native physical acceptance remains pending. One additional local fresh-migration repeat failed after destructive contact-table recreation (errno1932/16 cascades), despite primary local and both CI suites passing; cause unresolved.
+
+### Latest verified source, 2026-10-12
+
+The older 334-test environment report above is historical. Packaged source
+8382a59 now passes 382 tests across 65 files, including 35 real MariaDB cases,
+fresh migration/bootstrap, Docker/media readiness and real Chromium audio in
+both core CI runs 38214438381 / 38214432772. Local tests passed twice after
+fresh migrations (26 tables), TypeScript/build passed, lint has zero errors
+and 12 existing warnings, and Remote 47/47 passed. Signed Android run
+38214432639 and all three desktop jobs in 38214432675 passed for that source.
+
+Native chat databases/offline pointers now isolate canonical server origin
+and account; backup metadata uses the actual server. Unassigned old native
+archives are preserved without automatic ownership guesses. Legacy migration/
+export and physical upgrade acceptance remain open. The historical failing
+repeat remains recorded; the later full disposable-database runs pass.
+See ECOSYSTEM_PREVIEW_DOWNLOADS.md for exact matching artifacts and
+NATIVE_SERVER_STORAGE.md for upgrade limitations. Full ecosystem and physical
+release gates remain open.

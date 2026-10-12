@@ -365,3 +365,21 @@ See NATIVE_SERVER_STORAGE.md. The previous scheduled-text source 85c4d20
 passed push core run 38213817491 and signed Android run 38213817326,
 artifact 11731150284; remaining desktop/PR checks were still running when
 this source increment was prepared.
+
+### 2026-10-12 — Verified scheduling/isolation package evidence
+
+Packaged runtime 8382a59bf3296bd97e1da08cf1304014abaf6aba passed both core
+workflows 38214438381 / 38214432772: 382 tests across 65 files, database fresh
+migration/bootstrap, Docker/media readiness and real Chromium audio checks.
+Signed Android workflow 38214432639 passed; artifact 11732115081 is unexpired
+and matches this runtime SHA. Desktop workflow 38214432675 passed all three
+jobs, with matching unexpired artifacts: Windows 11732175682 (NSIS EXE),
+Linux 11731401517 (DEB/AppImage), macOS 11731296335 (APP/DMG). Exact links are
+recorded in ECOSYSTEM_PREVIEW_DOWNLOADS.md and draft PR #7.
+
+Remote Python regressions additionally passed 47/47 in the current checkout.
+No physical upgrade/host restart/notifications/network switch or complete
+49-feature acceptance is claimed. Legacy native archive migration/export,
+direct scheduled-message key-change detection, calls, MFA/passkeys, expiry/
+view limits and incomplete ecosystem modules remain explicit open work.
+This evidence/download documentation follow-up changes no runtime source.
