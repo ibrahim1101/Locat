@@ -21,7 +21,13 @@ const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await page.route('**/api/ready', route => route.fulfill({ json: { app: 'Locat', status: 'ready' } }));
-  await page.route('**/api/trpc/**', route => route.fulfill({ json: [{ result: { data: { json: null } } }] }));
+  await page.route('**/api/trpc/**', route => {
+    if (route.request().url().includes('auth.register')) {
+      const input = route.request().postDataJSON()['0'].json;
+      return route.fulfill({ json: [{ result: { data: { json: { token: 'test-only', user: { id: 1, username: input.username, displayName: input.displayName, lcCode: 'TEST1234', publicKey: input.keys.publicKey, bio: null, usernameVisibility: 'everyone', profileVisibility: 'everyone', presenceVisibility: 'everyone', allowAvatarDownload: false } } } } }] });
+    }
+    return route.fulfill({ json: [{ result: { data: { json: null } } }] });
+  });
   await page.goto(`${origin}/music`);
   await page.getByRole('heading', { name: 'Welcome back' }).waitFor();
   assert.equal(await page.getByRole('navigation', { name: 'Modules' }).count(), 0);
@@ -32,6 +38,20 @@ try {
   await connection.click();
   await page.getByRole('dialog').waitFor();
   assert.equal(await page.getByRole('textbox', { name: 'Server address' }).count(), 1);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'New to Locat? Create account' }).click();
+  await page.getByRole('textbox', { name: 'Username', exact: true }).fill('testalice');
+  await page.locator('#password').fill('Evergreen orbit meadow 9274!');
+  await page.locator('#password-confirm').fill('Evergreen orbit meadow 9274!');
+  await page.getByRole('button', { name: 'Create account', exact: true }).click();
+  await page.getByTestId('dashboard-masthead').waitFor();
+  assert.equal(new URL(page.url()).pathname, '/');
+  assert.equal(await page.getByTestId('module-card-messages').getAttribute('aria-disabled'), null);
+  assert.equal(await page.getByTestId('module-card-calendar').getAttribute('aria-disabled'), 'true');
+  assert.equal(await page.getByTestId('module-card-hub').getAttribute('aria-disabled'), 'true');
+  await page.context().setOffline(true);
+  await page.waitForFunction(() => document.querySelector('[data-testid="module-card-messages"]')?.getAttribute('aria-disabled') === 'true');
+  assert.equal(await page.getByTestId('module-card-music').getAttribute('aria-disabled'), null);
   await page.close();
   const native = await browser.newPage();
   await native.addInitScript(() => { window.__TAURI_INTERNALS__ = {}; });
