@@ -1,3 +1,4 @@
+import { MusicFrequencyResponse } from "./MusicFrequencyResponse";
 import { MUSIC_PRESET_KEY, parseMusicPresets, upsertMusicPreset, type SavedMusicPreset } from "@/lib/musicPresets";
 import { connectEqGraph, sanitizePoints, parametricPreset, FILTER_TYPES, MAX_EQ_POINTS, type EqPoint } from "@/lib/musicEq";
 import { useEffect, useRef, useState } from "react";
@@ -55,6 +56,7 @@ export function MusicEqualizer({ src, onEnded, repeatOne = false, autoplay = fal
   const graphLease = useRef(0);
   const { bands, gains, mode, preamp, preset, kind, points } = settings;
   const frequencies = FREQUENCIES[bands];
+  const responsePoints: EqPoint[] = kind === "parametric" ? points : frequencies.map((frequency, index) => ({ type: "peaking" as const, frequency, gain: gains[index], q: bands === 31 ? 4.3 : bands === 15 ? 2.2 : bands === 10 ? 1.4 : 0.7 }));
 
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch { /* storage may be disabled */ }
@@ -98,8 +100,7 @@ export function MusicEqualizer({ src, onEnded, repeatOne = false, autoplay = fal
     const active = graph.current;
     if (!active) return;
     const { source, context, filters, preamp: preampNode } = active;
-    const activePoints = kind === "parametric" ? points : frequencies.map((frequency, index) => ({ type: "peaking" as const, frequency, gain: gains[index], q: bands === 31 ? 4.3 : bands === 15 ? 2.2 : bands === 10 ? 1.4 : 0.7 }));
-    connectEqGraph(source, context, filters, preampNode, activePoints, preamp, mode === "pure");
+    connectEqGraph(source, context, filters, preampNode, responsePoints, preamp, mode === "pure");
   }, [bands, mode, gains, preamp, frequencies, kind, points]);
 
   const update = (patch: Partial<Settings>) => setSettings(previous => ({ ...previous, ...patch }));
@@ -142,6 +143,7 @@ export function MusicEqualizer({ src, onEnded, repeatOne = false, autoplay = fal
         </div>)}
         <button type="button" disabled={points.length >= MAX_EQ_POINTS} onClick={() => update({ points: [...points, { type: "peaking", frequency: 1000, gain: 0, q: 1 }], preset: "Custom" })} className="rounded-lg border px-3 py-2 text-sm">Add filter</button>
       </div>}
+      <MusicFrequencyResponse points={responsePoints} preamp={preamp} bypass={mode === "pure"} />
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </section>
   </div>;
