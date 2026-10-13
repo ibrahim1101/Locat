@@ -5,8 +5,17 @@ export type MediaAccessRequest = {
 };
 const TTL_MS = 5 * 60_000;
 const requests = new Map<string, MediaAccessRequest>();
+export type MediaTransferGrant = Pick<MediaAccessRequest, "userId" | "sourceDeviceId" | "requesterDeviceId" | "libraryId"> & { transferId: string; expiresAt: number };
+const grants = new Map<string, MediaTransferGrant>();
+const GRANT_TTL_MS = 2 * 60_000;
+export function getMediaTransferGrant(userId: number, transferId: string, now = Date.now()) {
+  prune(now);
+  const grant = grants.get(transferId);
+  return grant && grant.userId === userId ? { ...grant } : null;
+}
 function prune(now: number) {
   for (const [id, item] of requests) if (now - item.createdAt >= TTL_MS) requests.delete(id);
+  for (const [id, grant] of grants) if (now >= grant.expiresAt) grants.delete(id);
 }
 export function createMediaAccessRequest(input: Omit<MediaAccessRequest, "id" | "status" | "createdAt">, now = Date.now()) {
   prune(now);
@@ -33,6 +42,7 @@ export function decideMediaAccessRequest(userId: number, sourceDeviceId: number,
 }
 export function revokeMediaAccessRequests(userId: number, deviceId: number) {
   for (const [id, item] of requests) if (item.userId === userId && (item.sourceDeviceId === deviceId || item.requesterDeviceId === deviceId)) requests.delete(id);
+  for (const [id, grant] of grants) if (grant.userId === userId && (grant.sourceDeviceId === deviceId || grant.requesterDeviceId === deviceId)) grants.delete(id);
 }
 
 /** Revoke requests and approvals tied to a withdrawn source library. */
@@ -40,6 +50,7 @@ export function revokeMediaLibraryRequests(userId: number, sourceDeviceId: numbe
   for (const [id, item] of requests) {
     if (item.userId === userId && item.sourceDeviceId === sourceDeviceId && (libraryId === undefined || item.libraryId === libraryId)) requests.delete(id);
   }
+  for (const [id, grant] of grants) if (grant.userId === userId && grant.sourceDeviceId === sourceDeviceId && (libraryId === undefined || grant.libraryId === libraryId)) grants.delete(id);
 }
 
 /** An approval is a short-lived, single-use authorization for a later
@@ -49,5 +60,7 @@ export function consumeMediaAccessApproval(userId: number, requesterDeviceId: nu
   const item = requests.get(id);
   if (!item || item.userId !== userId || item.requesterDeviceId !== requesterDeviceId || item.status !== "approved") return null;
   requests.delete(id);
+  grants.set(id, { transferId: id, userId: item.userId, sourceDeviceId: item.sourceDeviceId,
+    requesterDeviceId: item.requesterDeviceId, libraryId: item.libraryId, expiresAt: now + GRANT_TTL_MS });
   return { ...item };
 }

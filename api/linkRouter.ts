@@ -1,7 +1,7 @@
 import { issueLinkChallenge, answerLinkChallenge, verifyLinkProof, validateLinkPublicKey, canonicalLinkPublicKey, revokeLinkProofs } from "./linkProof";
 import { z } from "zod";
 import { publishMediaTransferSignal, consumeMediaTransferSignal, revokeMediaTransferSignals } from "./mediaTransferSignals";
-import { createMediaAccessRequest, listMediaAccessRequests, getMediaAccessRequest, decideMediaAccessRequest, revokeMediaAccessRequests, revokeMediaLibraryRequests, consumeMediaAccessApproval } from "./deviceMediaAccess";
+import { createMediaAccessRequest, listMediaAccessRequests, getMediaAccessRequest, decideMediaAccessRequest, revokeMediaAccessRequests, revokeMediaLibraryRequests, consumeMediaAccessApproval, getMediaTransferGrant } from "./deviceMediaAccess";
 import { publishDeviceLibraries, discoverDeviceLibraries, unpublishDeviceLibraries, hasPublishedLibrary } from "./deviceMediaDiscovery";
 import { TRPCError } from "@trpc/server";
 import { getTableColumns, and, eq, desc, inArray, isNull, ne, lt, sql } from "drizzle-orm";
@@ -183,6 +183,13 @@ export const linkRouter = createRouter({
       if (ctx.linkDeviceId === input.toDeviceId) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose another device" });
       await ownedDevice(ctx.user.id, input.toDeviceId);
       await requireVerifiedPair(ctx.user.id, ctx.linkDeviceId, input.toDeviceId);
+      const grant = getMediaTransferGrant(ctx.user.id, input.transferId);
+      if (!grant || !(
+        (ctx.linkDeviceId === grant.sourceDeviceId && input.toDeviceId === grant.requesterDeviceId) ||
+        (ctx.linkDeviceId === grant.requesterDeviceId && input.toDeviceId === grant.sourceDeviceId)
+      )) throw new TRPCError({ code: "FORBIDDEN", message: "An active source-approved transfer is required" });
+      if (!hasPublishedLibrary(ctx.user.id, grant.sourceDeviceId, grant.libraryId))
+        throw new TRPCError({ code: "FORBIDDEN", message: "Source library is no longer shared" });
       const ok = publishMediaTransferSignal({ userId: ctx.user.id, transferId: input.transferId, fromDeviceId: ctx.linkDeviceId, toDeviceId: input.toDeviceId, publicKey: input.publicKey });
       if (!ok) throw new TRPCError({ code: "CONFLICT", message: "Key signal already published" });
       return { ok: true };
@@ -193,6 +200,13 @@ export const linkRouter = createRouter({
       limit(`media-key-receive:${ctx.user.id}:${ctx.linkDeviceId}`, 60, 60_000);
       await ownedDevice(ctx.user.id, input.fromDeviceId);
       await requireVerifiedPair(ctx.user.id, ctx.linkDeviceId, input.fromDeviceId);
+      const grant = getMediaTransferGrant(ctx.user.id, input.transferId);
+      if (!grant || !(
+        (ctx.linkDeviceId === grant.sourceDeviceId && input.fromDeviceId === grant.requesterDeviceId) ||
+        (ctx.linkDeviceId === grant.requesterDeviceId && input.fromDeviceId === grant.sourceDeviceId)
+      )) throw new TRPCError({ code: "FORBIDDEN", message: "An active source-approved transfer is required" });
+      if (!hasPublishedLibrary(ctx.user.id, grant.sourceDeviceId, grant.libraryId))
+        throw new TRPCError({ code: "FORBIDDEN", message: "Source library is no longer shared" });
       const signal = consumeMediaTransferSignal(ctx.user.id, input.transferId, input.fromDeviceId, ctx.linkDeviceId);
       if (!signal) throw new TRPCError({ code: "NOT_FOUND", message: "Signal expired or unavailable" });
       // Server-authenticated routing is NOT an authenticated ECDH transcript.
@@ -214,7 +228,7 @@ export const linkRouter = createRouter({
       if (!consumed) throw new TRPCError({ code: "CONFLICT", message: "Approval expired or already used" });
       // The source device must separately select files and establish an
       // encrypted transfer. Never return a filesystem path or download URL.
-      return { authorized: true, sourceDeviceId: consumed.sourceDeviceId, libraryId: consumed.libraryId, transferReady: false };
+      return { authorized: true, transferId: input.requestId, sourceDeviceId: consumed.sourceDeviceId, libraryId: consumed.libraryId, transferReady: false };
     }),
     pendingRequests: deviceQuery.query(({ ctx }) => {
       return listMediaAccessRequests(ctx.user.id, ctx.linkDeviceId);

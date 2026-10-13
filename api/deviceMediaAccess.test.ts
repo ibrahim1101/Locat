@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createMediaAccessRequest, decideMediaAccessRequest, getMediaAccessRequest,
-  listMediaAccessRequests, revokeMediaAccessRequests, revokeMediaLibraryRequests, consumeMediaAccessApproval,
+  listMediaAccessRequests, revokeMediaAccessRequests, revokeMediaLibraryRequests, consumeMediaAccessApproval, getMediaTransferGrant,
 } from "./deviceMediaAccess";
 
 describe("paired device media access request lifecycle", () => {
@@ -55,5 +55,30 @@ describe("paired device media access request lifecycle", () => {
     const other = createMediaAccessRequest(base, 4002);
     revokeMediaAccessRequests(981, 501);
     expect(getMediaAccessRequest(981, 502, other.id, 4003)).toBeNull();
+  });
+  it("issues a device-bound short-lived grant only after source approval and negotiation", () => {
+    const req = createMediaAccessRequest(base, 8000);
+    expect(getMediaTransferGrant(981, req.id, 8001)).toBeNull();
+    decideMediaAccessRequest(981, 501, req.id, true, 8002);
+    expect(getMediaTransferGrant(981, req.id, 8003)).toBeNull();
+    expect(consumeMediaAccessApproval(981, 502, req.id, 8004)?.id).toBe(req.id);
+    expect(getMediaTransferGrant(982, req.id, 8005)).toBeNull();
+    expect(getMediaTransferGrant(981, req.id, 8005)).toMatchObject({
+      sourceDeviceId: 501, requesterDeviceId: 502, libraryId: "folder-photos", transferId: req.id,
+    });
+    expect(consumeMediaAccessApproval(981, 502, req.id, 8006)).toBeNull();
+    expect(getMediaTransferGrant(981, req.id, 8004 + 120_000)).toBeNull();
+  });
+  it("revokes negotiated grants on source library withdrawal and device revocation", () => {
+    const one = createMediaAccessRequest(base, 9000);
+    decideMediaAccessRequest(981, 501, one.id, true, 9001);
+    consumeMediaAccessApproval(981, 502, one.id, 9002);
+    revokeMediaLibraryRequests(981, 501, "folder-photos");
+    expect(getMediaTransferGrant(981, one.id, 9003)).toBeNull();
+    const two = createMediaAccessRequest(base, 9100);
+    decideMediaAccessRequest(981, 501, two.id, true, 9101);
+    consumeMediaAccessApproval(981, 502, two.id, 9102);
+    revokeMediaAccessRequests(981, 502);
+    expect(getMediaTransferGrant(981, two.id, 9103)).toBeNull();
   });
 });
