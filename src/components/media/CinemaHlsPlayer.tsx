@@ -25,6 +25,14 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     let startupTimer: ReturnType<typeof setTimeout> | undefined;
     let userPaused = false;
     const snapshot = playbackSnapshot.current;
+    const restoringStream = Boolean(snapshot && snapshot.url !== url);
+    const previousSubtitle = restoringStream ? video.textTracks.length > 0 ? Array.from(video.textTracks).findIndex(track => track.mode === "showing") : -1 : -1;
+    const previousAudioTrack = restoringStream && "audioTracks" in video ? (() => {
+      const tracks = (video as HTMLVideoElement & { audioTracks?: { length: number; [index: number]: { enabled: boolean } } }).audioTracks;
+      if (!tracks) return -1;
+      for (let i = 0; i < tracks.length; i++) if (tracks[i].enabled) return i;
+      return -1;
+    })() : -1;
     queueMicrotask(() => {
       if (!cancelled) {
         setError("");
@@ -38,6 +46,16 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       video.muted = snapshot.muted;
       video.playbackRate = snapshot.rate;
     }
+    const restoreTrackPreferences = () => {
+      if (cancelled || !restoringStream) return;
+      if (previousSubtitle >= 0 && previousSubtitle < video.textTracks.length) {
+        for (let i = 0; i < video.textTracks.length; i++) video.textTracks[i].mode = i === previousSubtitle ? "showing" : "disabled";
+      }
+      if (previousAudioTrack >= 0 && "audioTracks" in video) {
+        const tracks = (video as HTMLVideoElement & { audioTracks?: { length: number; [index: number]: { enabled: boolean } } }).audioTracks;
+        if (tracks && previousAudioTrack < tracks.length) for (let i = 0; i < tracks.length; i++) tracks[i].enabled = i === previousAudioTrack;
+      }
+    };
     let positionRestored = false;
     const restoreSeek = () => {
       if (positionRestored) return;
@@ -74,6 +92,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     const onWaiting = () => setStatus("Buffering…");
     const onSeeking = () => { update(); setStatus("Seeking…"); };
     video.addEventListener("loadedmetadata", restoreSeek);
+    video.addEventListener("loadedmetadata", restoreTrackPreferences);
     video.addEventListener("canplay", restoreSeek);
     const onSeeked = () => { update(); setStatus(video.paused ? "Paused" : "Playing"); report(); };
     video.addEventListener("playing", onPlaying);
@@ -125,6 +144,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       video.removeAttribute("src");
       video.load();
       video.removeEventListener("loadedmetadata", restoreSeek);
+      video.removeEventListener("loadedmetadata", restoreTrackPreferences);
       video.removeEventListener("canplay", restoreSeek);
       video.removeEventListener("playing", onPlaying);
       video.removeEventListener("pause", onPause);
