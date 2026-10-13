@@ -4,7 +4,7 @@ import Hls from "hls.js";
 export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autoplay = true, onPositionChange }: { url: string; durationSeconds?: number; startSeconds?: number; autoplay?: boolean; onPositionChange?: (position: number, playing: boolean) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const positionCallback = useRef(onPositionChange);
-  const playbackSnapshot = useRef<{ url: string; sourcePosition: number; paused: boolean; volume: number; muted: boolean; rate: number; subtitleIndex: number; subtitleLanguage: string; subtitleLabel: string; audioIndex: number; audioLanguage: string; audioLabel: string } | null>(null);
+  const playbackSnapshot = useRef<{ url: string; sourcePosition: number; paused: boolean; volume: number; muted: boolean; rate: number; subtitleIndex: number; subtitleLanguage: string; subtitleLabel: string; audioIndex: number; audioLanguage: string; audioLabel: string; hlsSubtitleLanguage: string; hlsSubtitleLabel: string; hlsAudioLanguage: string; hlsAudioLabel: string } | null>(null);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("Preparing transcoded playback…");
   const [buffered, setBuffered] = useState(0);
@@ -15,6 +15,8 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     const video = videoRef.current;
     if (!video) return;
     let hls: Hls | null = null;
+    let selectedHlsSubtitle = { language: "", label: "" };
+    let selectedHlsAudio = { language: "", label: "" };
     let cancelled = false;
     let manifestRetries = 0;
     let mediaRecoveryAttempts = 0;
@@ -116,6 +118,29 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     video.addEventListener("timeupdate", update);
     if (Hls.isSupported()) {
       hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: is4k ? 30 : 12, maxMaxBufferLength: is4k ? 60 : 24, backBufferLength: 15, maxBufferSize: is4k ? 120 * 1024 * 1024 : 40 * 1024 * 1024 });
+      const restoreHlsTracks = () => {
+        if (cancelled || !restoringStream || !snapshot || !hls) return;
+        if (snapshot.hlsSubtitleLanguage) {
+          const index = hls.subtitleTracks.findIndex(track => normalizeTrack(track.lang ?? "") === normalizeTrack(snapshot.hlsSubtitleLanguage) && (!snapshot.hlsSubtitleLabel || normalizeTrack(track.name ?? "") === normalizeTrack(snapshot.hlsSubtitleLabel)));
+          const fallback = hls.subtitleTracks.findIndex(track => normalizeTrack(track.lang ?? "") === normalizeTrack(snapshot.hlsSubtitleLanguage));
+          if (index >= 0 || fallback >= 0) hls.subtitleTrack = index >= 0 ? index : fallback;
+        }
+        if (snapshot.hlsAudioLanguage) {
+          const index = hls.audioTracks.findIndex(track => normalizeTrack(track.lang ?? "") === normalizeTrack(snapshot.hlsAudioLanguage) && (!snapshot.hlsAudioLabel || normalizeTrack(track.name ?? "") === normalizeTrack(snapshot.hlsAudioLabel)));
+          const fallback = hls.audioTracks.findIndex(track => normalizeTrack(track.lang ?? "") === normalizeTrack(snapshot.hlsAudioLanguage));
+          if (index >= 0 || fallback >= 0) hls.audioTrack = index >= 0 ? index : fallback;
+        }
+      };
+      hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, restoreHlsTracks);
+      hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, restoreHlsTracks);
+      hls.on(Hls.Events.SUBTITLE_TRACK_SWITCHED, () => {
+        const track = hls?.subtitleTracks[hls.subtitleTrack];
+        if (track) selectedHlsSubtitle = { language: track.lang ?? "", label: track.name ?? "" };
+      });
+      hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, () => {
+        const track = hls?.audioTracks[hls.audioTrack];
+        if (track) selectedHlsAudio = { language: track.lang ?? "", label: track.name ?? "" };
+      });
       hls.on(Hls.Events.BUFFER_APPENDED, () => { if (!cancelled) update(); });
       hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!cancelled) { setStatus("Ready"); if (shouldAutoplay && is4k && !initialPlaybackStarted) { waitingForBuffer = true; setStatus("Pre-buffering 4K (target 12 seconds)…"); update(); startupTimer = setTimeout(() => { if (!cancelled && waitingForBuffer && !userPaused) { waitingForBuffer = false; setStatus("Starting with available buffer…"); void video.play().catch(() => setStatus("Press Play to begin")); } }, 20000); } else if (shouldAutoplay) void video.play().catch(() => setStatus("Press Play to begin")); else setStatus("Paused at restored position"); } });
       hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -143,7 +168,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       queueMicrotask(() => { if (!cancelled) setError("This browser does not support HLS playback or Media Source Extensions."); });
     }
     return () => {
-      playbackSnapshot.current = { url, sourcePosition: startSeconds + (Number.isFinite(video.currentTime) ? video.currentTime : 0), paused: video.paused || userPaused, volume: video.volume, muted: video.muted, rate: video.playbackRate, subtitleIndex: Array.from(video.textTracks).findIndex(track => track.mode === "showing"), subtitleLanguage: Array.from(video.textTracks).find(track => track.mode === "showing")?.language ?? "", subtitleLabel: Array.from(video.textTracks).find(track => track.mode === "showing")?.label ?? "", audioIndex: (() => { const tracks = (video as HTMLVideoElement & { audioTracks?: { length: number; [index: number]: { enabled: boolean } } }).audioTracks; if (!tracks) return -1; for (let i = 0; i < tracks.length; i++) if (tracks[i].enabled) return i; return -1; })(), audioLanguage: (() => { const tracks = (video as HTMLVideoElement & { audioTracks?: { length: number; [index: number]: { enabled: boolean; language?: string } } }).audioTracks; if (!tracks) return ""; for (let i = 0; i < tracks.length; i++) if (tracks[i].enabled) return tracks[i].language ?? ""; return ""; })(), audioLabel: (() => { const tracks = (video as HTMLVideoElement & { audioTracks?: { length: number; [index: number]: { enabled: boolean; label?: string } } }).audioTracks; if (!tracks) return ""; for (let i = 0; i < tracks.length; i++) if (tracks[i].enabled) return tracks[i].label ?? ""; return ""; })() };
+      playbackSnapshot.current = { url, sourcePosition: startSeconds + (Number.isFinite(video.currentTime) ? video.currentTime : 0), paused: video.paused || userPaused, volume: video.volume, muted: video.muted, rate: video.playbackRate, subtitleIndex: Array.from(video.textTracks).findIndex(track => track.mode === "showing"), subtitleLanguage: Array.from(video.textTracks).find(track => track.mode === "showing")?.language ?? "", subtitleLabel: Array.from(video.textTracks).find(track => track.mode === "showing")?.label ?? "", audioIndex: (() => { const tracks = (video as HTMLVideoElement & { audioTracks?: { length: number; [index: number]: { enabled: boolean } } }).audioTracks; if (!tracks) return -1; for (let i = 0; i < tracks.length; i++) if (tracks[i].enabled) return i; return -1; })(), audioLanguage: (() => { const tracks = (video as HTMLVideoElement & { audioTracks?: { length: number; [index: number]: { enabled: boolean; language?: string } } }).audioTracks; if (!tracks) return ""; for (let i = 0; i < tracks.length; i++) if (tracks[i].enabled) return tracks[i].language ?? ""; return ""; })(), audioLabel: (() => { const tracks = (video as HTMLVideoElement & { audioTracks?: { length: number; [index: number]: { enabled: boolean; label?: string } } }).audioTracks; if (!tracks) return ""; for (let i = 0; i < tracks.length; i++) if (tracks[i].enabled) return tracks[i].label ?? ""; return ""; })(), hlsSubtitleLanguage: selectedHlsSubtitle.language, hlsSubtitleLabel: selectedHlsSubtitle.label, hlsAudioLanguage: selectedHlsAudio.language, hlsAudioLabel: selectedHlsAudio.label };
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
       if (startupTimer) clearTimeout(startupTimer);
