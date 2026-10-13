@@ -4,7 +4,7 @@ import Hls from "hls.js";
 export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autoplay = true, onPositionChange }: { url: string; durationSeconds?: number; startSeconds?: number; autoplay?: boolean; onPositionChange?: (position: number, playing: boolean) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const positionCallback = useRef(onPositionChange);
-  const playbackSnapshot = useRef<{ url: string; sourcePosition: number; paused: boolean; volume: number; muted: boolean; rate: number; subtitleIndex: number; audioIndex: number } | null>(null);
+  const playbackSnapshot = useRef<{ url: string; sourcePosition: number; paused: boolean; volume: number; muted: boolean; rate: number; subtitleIndex: number; subtitleLanguage: string; subtitleLabel: string; audioIndex: number; audioLanguage: string; audioLabel: string } | null>(null);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("Preparing transcoded playback…");
   const [buffered, setBuffered] = useState(0);
@@ -28,6 +28,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     const restoringStream = Boolean(snapshot && snapshot.url !== url);
     const previousSubtitle = restoringStream ? snapshot!.subtitleIndex : -1;
     const previousAudioTrack = restoringStream ? snapshot!.audioIndex : -1;
+    const normalizeTrack = (value: string) => value.trim().toLowerCase();
     queueMicrotask(() => {
       if (!cancelled) {
         setError("");
@@ -42,13 +43,27 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       video.playbackRate = snapshot.rate;
     }
     const restoreTrackPreferences = () => {
-      if (cancelled || !restoringStream) return;
-      if (previousSubtitle >= 0 && previousSubtitle < video.textTracks.length) {
-        for (let i = 0; i < video.textTracks.length; i++) video.textTracks[i].mode = i === previousSubtitle ? "showing" : "disabled";
+      if (cancelled || !restoringStream || !snapshot) return;
+      const subtitleTracks = Array.from(video.textTracks);
+      const subtitleIndex = snapshot.subtitleLanguage
+        ? subtitleTracks.findIndex(track => normalizeTrack(track.language) === normalizeTrack(snapshot.subtitleLanguage) && (!snapshot.subtitleLabel || normalizeTrack(track.label) === normalizeTrack(snapshot.subtitleLabel)))
+        : -1;
+      const chosenSubtitle = subtitleIndex >= 0 ? subtitleIndex : snapshot.subtitleLanguage
+        ? subtitleTracks.findIndex(track => normalizeTrack(track.language) === normalizeTrack(snapshot.subtitleLanguage))
+        : previousSubtitle;
+      if (chosenSubtitle >= 0 && chosenSubtitle < subtitleTracks.length) {
+        subtitleTracks.forEach((track, index) => { track.mode = index === chosenSubtitle ? "showing" : "disabled"; });
       }
-      if (previousAudioTrack >= 0 && "audioTracks" in video) {
-        const tracks = (video as HTMLVideoElement & { audioTracks?: { length: number; [index: number]: { enabled: boolean } } }).audioTracks;
-        if (tracks && previousAudioTrack < tracks.length) for (let i = 0; i < tracks.length; i++) tracks[i].enabled = i === previousAudioTrack;
+      const tracks = (video as HTMLVideoElement & { audioTracks?: { length: number; [index: number]: { enabled: boolean; language?: string; label?: string } } }).audioTracks;
+      if (tracks) {
+        let chosenAudio = -1;
+        if (snapshot.audioLanguage) {
+          for (let i = 0; i < tracks.length; i++) {
+            if (normalizeTrack(tracks[i].language ?? "") === normalizeTrack(snapshot.audioLanguage) && (!snapshot.audioLabel || normalizeTrack(tracks[i].label ?? "") === normalizeTrack(snapshot.audioLabel))) { chosenAudio = i; break; }
+          }
+          if (chosenAudio < 0) for (let i = 0; i < tracks.length; i++) if (normalizeTrack(tracks[i].language ?? "") === normalizeTrack(snapshot.audioLanguage)) { chosenAudio = i; break; }
+        } else chosenAudio = previousAudioTrack;
+        if (chosenAudio >= 0 && chosenAudio < tracks.length) for (let i = 0; i < tracks.length; i++) tracks[i].enabled = i === chosenAudio;
       }
     };
     let positionRestored = false;
@@ -89,6 +104,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     video.addEventListener("loadedmetadata", restoreSeek);
     video.addEventListener("loadedmetadata", restoreTrackPreferences);
     video.addEventListener("canplay", restoreSeek);
+    video.addEventListener("canplay", restoreTrackPreferences);
     const onSeeked = () => { update(); setStatus(video.paused ? "Paused" : "Playing"); report(); };
     video.addEventListener("playing", onPlaying);
     video.addEventListener("pause", onPause);
@@ -127,7 +143,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       queueMicrotask(() => { if (!cancelled) setError("This browser does not support HLS playback or Media Source Extensions."); });
     }
     return () => {
-      playbackSnapshot.current = { url, sourcePosition: startSeconds + (Number.isFinite(video.currentTime) ? video.currentTime : 0), paused: video.paused || userPaused, volume: video.volume, muted: video.muted, rate: video.playbackRate, subtitleIndex: Array.from(video.textTracks).findIndex(track => track.mode === "showing"), audioIndex: (() => { const tracks = (video as HTMLVideoElement & { audioTracks?: { length: number; [index: number]: { enabled: boolean } } }).audioTracks; if (!tracks) return -1; for (let i = 0; i < tracks.length; i++) if (tracks[i].enabled) return i; return -1; })() };
+      playbackSnapshot.current = { url, sourcePosition: startSeconds + (Number.isFinite(video.currentTime) ? video.currentTime : 0), paused: video.paused || userPaused, volume: video.volume, muted: video.muted, rate: video.playbackRate, subtitleIndex: Array.from(video.textTracks).findIndex(track => track.mode === "showing"), subtitleLanguage: Array.from(video.textTracks).find(track => track.mode === "showing")?.language ?? "", subtitleLabel: Array.from(video.textTracks).find(track => track.mode === "showing")?.label ?? "", audioIndex: (() => { const tracks = (video as HTMLVideoElement & { audioTracks?: { length: number; [index: number]: { enabled: boolean } } }).audioTracks; if (!tracks) return -1; for (let i = 0; i < tracks.length; i++) if (tracks[i].enabled) return i; return -1; })(), audioLanguage: (() => { const tracks = (video as HTMLVideoElement & { audioTracks?: { length: number; [index: number]: { enabled: boolean; language?: string } } }).audioTracks; if (!tracks) return ""; for (let i = 0; i < tracks.length; i++) if (tracks[i].enabled) return tracks[i].language ?? ""; return ""; })(), audioLabel: (() => { const tracks = (video as HTMLVideoElement & { audioTracks?: { length: number; [index: number]: { enabled: boolean; label?: string } } }).audioTracks; if (!tracks) return ""; for (let i = 0; i < tracks.length; i++) if (tracks[i].enabled) return tracks[i].label ?? ""; return ""; })() };
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
       if (startupTimer) clearTimeout(startupTimer);
@@ -141,6 +157,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       video.removeEventListener("loadedmetadata", restoreSeek);
       video.removeEventListener("loadedmetadata", restoreTrackPreferences);
       video.removeEventListener("canplay", restoreSeek);
+      video.removeEventListener("canplay", restoreTrackPreferences);
       video.removeEventListener("playing", onPlaying);
       video.removeEventListener("pause", onPause);
       video.removeEventListener("timeupdate", report);
