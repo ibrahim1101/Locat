@@ -26,6 +26,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let startupTimer: ReturnType<typeof setTimeout> | undefined;
     let userPaused = false;
+    let nativeReadyCleanup: (() => void) | undefined;
     const snapshot = playbackSnapshot.current;
     const restoringStream = Boolean(snapshot && snapshot.url !== url);
     const previousSubtitle = restoringStream ? snapshot!.subtitleIndex : -1;
@@ -162,7 +163,23 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       hls.loadSource(url);
       hls.attachMedia(video);
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      // Native HLS (Safari/iOS) does not emit HLS.js MANIFEST_PARSED events.
+      // Apply the same autoplay preference after the native media is ready.
+      const onNativeReady = () => {
+        if (cancelled) return;
+        restoreSeek();
+        restoreTrackPreferences();
+        if (shouldAutoplay && !initialPlaybackStarted && !userPaused) {
+          initialPlaybackStarted = true;
+          void video.play().catch(() => setStatus("Press Play to begin"));
+        } else if (!shouldAutoplay) {
+          setStatus("Paused at restored position");
+        }
+      };
+      video.addEventListener("canplay", onNativeReady);
       video.src = url;
+      // Register cleanup with the shared effect teardown below.
+      nativeReadyCleanup = () => video.removeEventListener("canplay", onNativeReady);
     } else {
       // Schedule unsupported-browser feedback outside the synchronous effect body.
       queueMicrotask(() => { if (!cancelled) setError("This browser does not support HLS playback or Media Source Extensions."); });
@@ -172,6 +189,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
       if (startupTimer) clearTimeout(startupTimer);
+      nativeReadyCleanup?.();
       hls?.destroy();
       // Release server-side FFmpeg and temporary HLS segments on player exit/quality change.
       const releaseUrl = new URL(url, window.location.origin);
