@@ -4,6 +4,7 @@ import Hls from "hls.js";
 export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autoplay = true, onPositionChange }: { url: string; durationSeconds?: number; startSeconds?: number; autoplay?: boolean; onPositionChange?: (position: number, playing: boolean) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const positionCallback = useRef(onPositionChange);
+  const playbackSnapshot = useRef<{ url: string; sourcePosition: number; paused: boolean; volume: number; muted: boolean; rate: number } | null>(null);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("Preparing transcoded playback…");
   const [buffered, setBuffered] = useState(0);
@@ -23,6 +24,20 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let startupTimer: ReturnType<typeof setTimeout> | undefined;
     let userPaused = false;
+    const snapshot = playbackSnapshot.current;
+    const restorePosition = snapshot && snapshot.url !== url ? Math.max(0, snapshot.sourcePosition - startSeconds) : 0;
+    const shouldAutoplay = snapshot && snapshot.url !== url ? !snapshot.paused : autoplay;
+    if (snapshot && snapshot.url !== url) {
+      video.volume = snapshot.volume;
+      video.muted = snapshot.muted;
+      video.playbackRate = snapshot.rate;
+    }
+    const restoreSeek = () => {
+      if (!cancelled && restorePosition > 0 && Number.isFinite(restorePosition)) {
+        const limit = Number.isFinite(video.duration) && video.duration > 0 ? Math.max(0, video.duration - 0.1) : restorePosition;
+        video.currentTime = Math.min(restorePosition, limit);
+      }
+    };
     const update = () => {
       let ahead = 0;
       let bufferedSeconds = 0;
@@ -30,7 +45,6 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
         bufferedSeconds += Math.max(0, video.buffered.end(i) - video.buffered.start(i));
         if (video.buffered.start(i) <= video.currentTime && video.buffered.end(i) >= video.currentTime) {
           ahead = Math.max(0, video.buffered.end(i) - video.currentTime);
-          break;
         }
       }
       setBufferedAhead(Math.round(ahead));
@@ -48,6 +62,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     const onPause = () => { if (waitingForBuffer) { userPaused = true; waitingForBuffer = false; if (startupTimer) clearTimeout(startupTimer); } setStatus("Paused"); report(); };
     const onWaiting = () => setStatus("Buffering…");
     const onSeeking = () => { update(); setStatus("Seeking…"); };
+    video.addEventListener("loadedmetadata", restoreSeek);
     const onSeeked = () => { update(); setStatus(video.paused ? "Paused" : "Playing"); report(); };
     video.addEventListener("playing", onPlaying);
     video.addEventListener("pause", onPause);
@@ -60,7 +75,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     if (Hls.isSupported()) {
       hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: is4k ? 30 : 12, maxMaxBufferLength: is4k ? 60 : 24, backBufferLength: 15, maxBufferSize: is4k ? 120 * 1024 * 1024 : 40 * 1024 * 1024 });
       hls.on(Hls.Events.BUFFER_APPENDED, () => { if (!cancelled) update(); });
-      hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!cancelled) { setStatus("Ready"); if (autoplay && is4k && !initialPlaybackStarted) { waitingForBuffer = true; setStatus("Pre-buffering 4K (target 12 seconds)…"); update(); startupTimer = setTimeout(() => { if (!cancelled && waitingForBuffer && !userPaused) { waitingForBuffer = false; setStatus("Starting with available buffer…"); void video.play().catch(() => setStatus("Press Play to begin")); } }, 20000); } else if (autoplay) void video.play().catch(() => setStatus("Press Play to begin")); else setStatus("Paused at restored position"); } });
+      hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!cancelled) { setStatus("Ready"); if (shouldAutoplay && is4k && !initialPlaybackStarted) { waitingForBuffer = true; setStatus("Pre-buffering 4K (target 12 seconds)…"); update(); startupTimer = setTimeout(() => { if (!cancelled && waitingForBuffer && !userPaused) { waitingForBuffer = false; setStatus("Starting with available buffer…"); void video.play().catch(() => setStatus("Press Play to begin")); } }, 20000); } else if (shouldAutoplay) void video.play().catch(() => setStatus("Press Play to begin")); else setStatus("Paused at restored position"); } });
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (!data.fatal || cancelled) return;
         if (data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR && manifestRetries < 3) {
@@ -86,6 +101,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       queueMicrotask(() => { if (!cancelled) setError("This browser does not support HLS playback or Media Source Extensions."); });
     }
     return () => {
+      playbackSnapshot.current = { url, sourcePosition: startSeconds + (Number.isFinite(video.currentTime) ? video.currentTime : 0), paused: video.paused || userPaused, volume: video.volume, muted: video.muted, rate: video.playbackRate };
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
       if (startupTimer) clearTimeout(startupTimer);
@@ -96,6 +112,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       void fetch(releaseUrl, { method: "POST", credentials: "include", keepalive: true }).catch(() => {});
       video.removeAttribute("src");
       video.load();
+      video.removeEventListener("loadedmetadata", restoreSeek);
       video.removeEventListener("playing", onPlaying);
       video.removeEventListener("pause", onPause);
       video.removeEventListener("timeupdate", report);
