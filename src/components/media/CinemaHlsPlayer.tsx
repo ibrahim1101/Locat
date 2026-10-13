@@ -25,6 +25,8 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     let startupTimer: ReturnType<typeof setTimeout> | undefined;
     let userPaused = false;
     const snapshot = playbackSnapshot.current;
+    setError("");
+    setStatus("Preparing transcoded playback…");
     const restorePosition = snapshot && snapshot.url !== url ? Math.max(0, snapshot.sourcePosition - startSeconds) : 0;
     const shouldAutoplay = snapshot && snapshot.url !== url ? !snapshot.paused : autoplay;
     if (snapshot && snapshot.url !== url) {
@@ -32,10 +34,15 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       video.muted = snapshot.muted;
       video.playbackRate = snapshot.rate;
     }
+    let positionRestored = false;
     const restoreSeek = () => {
+      if (positionRestored) return;
       if (!cancelled && restorePosition > 0 && Number.isFinite(restorePosition)) {
         const limit = Number.isFinite(video.duration) && video.duration > 0 ? Math.max(0, video.duration - 0.1) : restorePosition;
-        video.currentTime = Math.min(restorePosition, limit);
+        try {
+          video.currentTime = Math.min(restorePosition, limit);
+          positionRestored = true;
+        } catch { /* Wait for seekable metadata on the next event. */ }
       }
     };
     const update = () => {
@@ -63,6 +70,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     const onWaiting = () => setStatus("Buffering…");
     const onSeeking = () => { update(); setStatus("Seeking…"); };
     video.addEventListener("loadedmetadata", restoreSeek);
+    video.addEventListener("canplay", restoreSeek);
     const onSeeked = () => { update(); setStatus(video.paused ? "Paused" : "Playing"); report(); };
     video.addEventListener("playing", onPlaying);
     video.addEventListener("pause", onPause);
@@ -113,6 +121,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       video.removeAttribute("src");
       video.load();
       video.removeEventListener("loadedmetadata", restoreSeek);
+      video.removeEventListener("canplay", restoreSeek);
       video.removeEventListener("playing", onPlaying);
       video.removeEventListener("pause", onPause);
       video.removeEventListener("timeupdate", report);
