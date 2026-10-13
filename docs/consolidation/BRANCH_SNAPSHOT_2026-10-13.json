@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "repository": "ibrahim1101/Locat",
+  "snapshotDate": "2026-10-13",
+  "baselineReleaseSha": "98cb3563e638c246cf9020cb89fe4a5f5a113ad8",
+  "defaultBranch": "main",
+  "policy": "Preserve all branch tips and unique commits. Do not delete, force-push, merge, or close PRs until separate approval and verification.",
+  "branches": [
+    {
+      "name": "chore/locat-2.0-quality",
+      "commit": "a32f831f3d529b87c06a7dc8ff4aa1800e85b4d4",
+      "relatedOpenPRs": [
+        {
+          "number": 2,
+          "role": "head"
+        }
+      ]
+    },
+    {
+      "name": "chore/locat-2.0-stabilization-handoff",
+      "commit": "60170ca36124e5b90f79cc2f83278975ca3b7656",
+      "relatedOpenPRs": []
+    },
+    {
+      "name": "feat/locat-1.0",
+      "commit": "3b324ef0e74dedaccaf6fd513d69b94a93d057ce",
+      "relatedOpenPRs": []
+    },
+    {
+      "name": "feat/locat-2.0",
+      "commit": "30fcd931aaba1a298c348873c80e4bb3d09a5528",
+      "relatedOpenPRs": [
+        {
+          "number": 3,
+          "role": "base"
+        },
+        {
+          "number": 2,
+          "role": "base"
+        }
+      ]
+    },
+    {
+      "name": "feat/locat-cinema-complete",
+      "commit": "05b10c86b8fce84cc4ae18561b469104afb3634e",
+      "relatedOpenPRs": []
+    },
+    {
+      "name": "feat/locat-complete-ecosystem",
+      "commit": "5001e219f48adac87713857ee7a2513858aa4bf5",
+      "relatedOpenPRs": [
+        {
+          "number": 7,
+          "role": "head"
+        }
+      ]
+    },
+    {
+      "name": "feat/locat-media-hub",
+      "commit": "62cd389294d91fe796862d9b2ee9174989cf281b",
+      "relatedOpenPRs": []
+    },
+    {
+      "name": "feat/locat-music-equalizer",
+      "commit": "59067139eb6037350b457e156e988af9781b8519",
+      "relatedOpenPRs": [
+        {
+          "number": 4,
+          "role": "head"
+        }
+      ]
+    },
+    {
+      "name": "feat/locat-remote-prototype",
+      "commit": "940930543c0fc09c47d2011794601218548cf2f3",
+      "relatedOpenPRs": [
+        {
+          "number": 5,
+          "role": "head"
+        }
+      ]
+    },
+    {
+      "name": "feat/locat-unified-platforms",
+      "commit": "2845da64ea456b7a6749913fbfc37fbfef8c7882",
+      "relatedOpenPRs": [
+        {
+          "number": 7,
+          "role": "base"
+        },
+        {
+          "number": 6,
+          "role": "head"
+        }
+      ]
+    },
+    {
+      "name": "fix/locat-2.0-app-lock-biometric-guard",
+      "commit": "aa06bf495fbfda53e82d47bf480742ebddbc4245",
+      "relatedOpenPRs": [
+        {
+          "number": 6,
+          "role": "base"
+        },
+        {
+          "number": 4,
+          "role": "base"
+        }
+      ]
+    },
+    {
+      "name": "fix/locat-install-mobile-foundation",
+      "commit": "e16e924d59cfd4428922fb21b49ad3c9b85e077b",
+      "relatedOpenPRs": [
+        {
+          "number": 1,
+          "role": "head"
+        }
+      ]
+    },
+    {
+      "name": "fix/locat-link-security-review",
+      "commit": "52e11d2ce56e22f99a06e1a9d624e71b9c6d89f5",
+      "relatedOpenPRs": [
+        {
+          "number": 3,
+          "role": "head"
+        }
+      ]
+    },
+    {
+      "name": "main",
+      "commit": "e2e21df2ebcde61f4c0b15b0f39c64933f46794f",
+      "relatedOpenPRs": [
+        {
+          "number": 8,
+          "role": "base"
+        },
+        {
+          "number": 5,
+          "role": "base"
+        },
+        {
+          "number": 1,
+          "role": "base"
+        }
+      ]
+    },
+    {
+      "name": "release/locat-v1.0",
+      "commit": "98cb3563e638c246cf9020cb89fe4a5f5a113ad8",
+      "relatedOpenPRs": [
+        {
+          "number": 8,
+          "role": "head"
+        }
+      ]
+    }
+  ],
+  "unrelatedHistory": [
+    "feat/locat-media-hub"
+  ],
+  "integrationTarget": "release/locat-v1.0"
+}
