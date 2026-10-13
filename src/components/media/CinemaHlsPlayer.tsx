@@ -26,6 +26,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let startupTimer: ReturnType<typeof setTimeout> | undefined;
     let userPaused = false;
+    let playbackRequested = false;
     let nativeReadyCleanup: (() => void) | undefined;
     const snapshot = playbackSnapshot.current;
     const restoringStream = Boolean(snapshot && snapshot.url !== url);
@@ -80,6 +81,13 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
         } catch { /* Wait for seekable metadata on the next event. */ }
       }
     };
+    const requestPlayback = () => {
+      if (cancelled || userPaused || playbackRequested || !video.paused) return;
+      playbackRequested = true;
+      void video.play().catch(() => {
+        if (!cancelled) { playbackRequested = false; setStatus("Press Play to begin"); }
+      });
+    };
     const update = () => {
       let ahead = 0;
       let bufferedSeconds = 0;
@@ -96,13 +104,13 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
         if (startupTimer) clearTimeout(startupTimer);
         waitingForBuffer = false;
         initialPlaybackStarted = true;
-        void video.play().catch(() => setStatus("Press Play to begin"));
+        requestPlayback();
       }
     };
     const report = () => positionCallback.current?.(startSeconds + video.currentTime, !video.paused);
     // Keep the decoder recovery budget across brief successful playback events.
     // Otherwise a damaged stream can alternate between playing and fatal errors forever.
-    const onPlaying = () => { if (startupTimer) clearTimeout(startupTimer); initialPlaybackStarted = true; waitingForBuffer = false; setError(""); setStatus("Playing"); report(); };
+    const onPlaying = () => { playbackRequested = false; if (startupTimer) clearTimeout(startupTimer); initialPlaybackStarted = true; waitingForBuffer = false; setError(""); setStatus("Playing"); report(); };
     const onPause = () => { if (waitingForBuffer) { userPaused = true; waitingForBuffer = false; if (startupTimer) clearTimeout(startupTimer); } setStatus("Paused"); report(); };
     const onWaiting = () => setStatus("Buffering…");
     const onSeeking = () => { update(); setStatus("Seeking…"); };
@@ -145,7 +153,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
         if (track) selectedHlsAudio = { language: track.lang ?? "", label: track.name ?? "" };
       });
       hls.on(Hls.Events.BUFFER_APPENDED, () => { if (!cancelled) update(); });
-      hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!cancelled) { setStatus("Ready"); if (shouldAutoplay && is4k && !initialPlaybackStarted) { waitingForBuffer = true; setStatus("Pre-buffering 4K (target 12 seconds)…"); update(); startupTimer = setTimeout(() => { if (!cancelled && waitingForBuffer && !userPaused) { waitingForBuffer = false; setStatus("Starting with available buffer…"); void video.play().catch(() => setStatus("Press Play to begin")); } }, 20000); } else if (shouldAutoplay) void video.play().catch(() => setStatus("Press Play to begin")); else setStatus("Paused at restored position"); } });
+      hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!cancelled) { setStatus("Ready"); if (shouldAutoplay && is4k && !initialPlaybackStarted) { waitingForBuffer = true; setStatus("Pre-buffering 4K (target 12 seconds)…"); update(); startupTimer = setTimeout(() => { if (!cancelled && waitingForBuffer && !userPaused) { waitingForBuffer = false; setStatus("Starting with available buffer…"); requestPlayback(); } }, 20000); } else if (shouldAutoplay) void video.play().catch(() => setStatus("Press Play to begin")); else setStatus("Paused at restored position"); } });
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (!data.fatal || cancelled) return;
         if (data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR && manifestRetries < 3) {
