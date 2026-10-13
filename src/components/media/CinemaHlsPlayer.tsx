@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
+import { createCinemaStallRecovery, getCinemaStartupBufferTarget } from "../../lib/cinemaPlayback";
 
 export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autoplay = true, onPositionChange }: { url: string; durationSeconds?: number; startSeconds?: number; autoplay?: boolean; onPositionChange?: (position: number, playing: boolean) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -28,10 +29,6 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     let userPaused = false;
     let playbackRequested = false;
     let nativeReadyCleanup: (() => void) | undefined;
-    let stallTimer: ReturnType<typeof setTimeout> | undefined;
-    let stallRecoveries = 0;
-    let stallEpisodeActive = false;
-    const MAX_STALL_RECOVERIES = 2;
     const snapshot = playbackSnapshot.current;
     const restoringStream = Boolean(snapshot && snapshot.url !== url);
     const previousSubtitle = restoringStream ? snapshot!.subtitleIndex : -1;
@@ -97,6 +94,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
         if (!cancelled) setStatus("Press Play to begin");
       });
     };
+    const startupBufferTarget = () => getCinemaStartupBufferTarget(durationSeconds && durationSeconds > startSeconds ? durationSeconds - startSeconds : video.duration);
     const update = () => {
       let ahead = 0;
       let bufferedSeconds = 0;
@@ -109,7 +107,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       setBufferedAhead(Math.round(ahead));
       const total = durationSeconds && durationSeconds > 0 ? durationSeconds : video.duration;
       setBuffered(Number.isFinite(total) && total > 0 ? Math.min(100, Math.round(bufferedSeconds / total * 100)) : 0);
-      if (waitingForBuffer && ahead >= 12 && !cancelled && !userPaused) {
+      if (waitingForBuffer && ahead >= startupBufferTarget() && !cancelled && !userPaused) {
         if (startupTimer) clearTimeout(startupTimer);
         waitingForBuffer = false;
         initialPlaybackStarted = true;
@@ -117,32 +115,26 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       }
     };
     const report = () => positionCallback.current?.(startSeconds + video.currentTime, !video.paused);
-    // Keep the decoder recovery budget across brief successful playback events.
-    // Otherwise a damaged stream can alternate between playing and fatal errors forever.
-    const onPlaying = () => { stallEpisodeActive = false; if (stallTimer) clearTimeout(stallTimer); playbackRequested = false; if (startupTimer) clearTimeout(startupTimer); initialPlaybackStarted = true; waitingForBuffer = false; setError(""); setStatus("Playing"); report(); };
-    const onPause = () => { stallEpisodeActive = false; if (stallTimer) clearTimeout(stallTimer); if (startupTimer) clearTimeout(startupTimer); if (waitingForBuffer) { userPaused = true; waitingForBuffer = false; } setStatus("Paused"); report(); };
-    const onWaiting = () => {
-      setStatus("Buffering…");
-      if (stallTimer) clearTimeout(stallTimer);
-      if (video.paused || waitingForBuffer || !initialPlaybackStarted || stallEpisodeActive) return;
-      stallEpisodeActive = true;
-      stallTimer = setTimeout(() => {
-        if (cancelled || video.paused || video.seeking || video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) return;
-        if (hls && stallRecoveries < MAX_STALL_RECOVERIES) {
-          stallRecoveries += 1;
-          setStatus(`Stream stalled — retrying (${stallRecoveries}/${MAX_STALL_RECOVERIES})…`);
-          hls.startLoad(-1);
-        } else if (stallRecoveries >= MAX_STALL_RECOVERIES) {
-          setStatus("Stream stalled — try seeking or changing quality");
-        }
-      }, 12000);
-    };
-    const onSeeking = () => { stallEpisodeActive = false; if (stallTimer) clearTimeout(stallTimer); stallRecoveries = 0; update(); setStatus("Seeking…"); };
+    // A single stalled episode schedules bounded retries even when the browser
+    // emits only one 'waiting' event. The retry budget persists across stalls.
+    const stallRecovery = createCinemaStallRecovery({
+      isStalled: () => !cancelled && !!hls && initialPlaybackStarted && !waitingForBuffer &&
+        !video.paused && !video.seeking && video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA,
+      recover: (attempt, maxAttempts) => {
+        setStatus(`Stream stalled — retrying (${attempt}/${maxAttempts})…`);
+        hls?.startLoad(-1);
+      },
+      exhausted: () => setStatus("Stream stalled — try seeking or changing quality"),
+    });
+    const onPlaying = () => { stallRecovery.end(); playbackRequested = false; if (startupTimer) clearTimeout(startupTimer); initialPlaybackStarted = true; waitingForBuffer = false; setError(""); setStatus("Playing"); report(); };
+    const onPause = () => { stallRecovery.end(); if (startupTimer) clearTimeout(startupTimer); if (waitingForBuffer) { userPaused = true; waitingForBuffer = false; } setStatus("Paused"); report(); };
+    const onWaiting = () => { setStatus("Buffering…"); stallRecovery.begin(); };
+    const onSeeking = () => { stallRecovery.end(true); update(); setStatus("Seeking…"); };
     video.addEventListener("loadedmetadata", restoreSeek);
     video.addEventListener("loadedmetadata", restoreTrackPreferences);
     video.addEventListener("canplay", restoreSeek);
     video.addEventListener("canplay", restoreTrackPreferences);
-    const onSeeked = () => { stallEpisodeActive = false; stallRecoveries = 0; update(); setStatus(video.paused ? "Paused" : "Playing"); report(); };
+    const onSeeked = () => { stallRecovery.end(true); update(); setStatus(video.paused ? "Paused" : "Playing"); report(); };
     video.addEventListener("playing", onPlaying);
     video.addEventListener("pause", onPause);
     video.addEventListener("timeupdate", report);
@@ -177,7 +169,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
         if (track) selectedHlsAudio = { language: track.lang ?? "", label: track.name ?? "" };
       });
       hls.on(Hls.Events.BUFFER_APPENDED, () => { if (!cancelled) update(); });
-      hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!cancelled) { setStatus("Ready"); if (shouldAutoplay && is4k && !initialPlaybackStarted) { waitingForBuffer = true; setStatus("Pre-buffering 4K (target 12 seconds)…"); update(); startupTimer = setTimeout(() => { if (!cancelled && waitingForBuffer && !userPaused) { waitingForBuffer = false; setStatus("Starting with available buffer…"); requestPlayback(); } }, 20000); } else if (shouldAutoplay) void video.play().catch(() => setStatus("Press Play to begin")); else setStatus("Paused at restored position"); } });
+      hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!cancelled) { setStatus("Ready"); if (shouldAutoplay && is4k && !initialPlaybackStarted) { waitingForBuffer = true; setStatus(`Pre-buffering 4K (target ${startupBufferTarget().toFixed(1)} seconds)…`); startupTimer = setTimeout(() => { if (!cancelled && waitingForBuffer && !userPaused) { waitingForBuffer = false; setStatus("Starting with available buffer…"); requestPlayback(); } }, 20000); update(); } else if (shouldAutoplay) void video.play().catch(() => setStatus("Press Play to begin")); else setStatus("Paused at restored position"); } });
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (!data.fatal || cancelled) return;
         if (data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR && manifestRetries < 3) {
@@ -223,7 +215,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
       if (startupTimer) clearTimeout(startupTimer);
-      if (stallTimer) clearTimeout(stallTimer);
+      stallRecovery.dispose();
       nativeReadyCleanup?.();
       hls?.destroy();
       // Release server-side FFmpeg and temporary HLS segments on player exit/quality change.
