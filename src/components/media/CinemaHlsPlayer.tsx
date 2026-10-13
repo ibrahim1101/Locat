@@ -4,7 +4,7 @@ import Hls from "hls.js";
 export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autoplay = true, onPositionChange }: { url: string; durationSeconds?: number; startSeconds?: number; autoplay?: boolean; onPositionChange?: (position: number, playing: boolean) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const positionCallback = useRef(onPositionChange);
-  const playbackSnapshot = useRef<{ url: string; sourcePosition: number; paused: boolean; volume: number; muted: boolean; rate: number } | null>(null);
+  const playbackSnapshot = useRef<{ url: string; sourcePosition: number; paused: boolean; volume: number; muted: boolean; rate: number; subtitleIndex: number; audioIndex: number } | null>(null);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("Preparing transcoded playback…");
   const [buffered, setBuffered] = useState(0);
@@ -26,13 +26,8 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     let userPaused = false;
     const snapshot = playbackSnapshot.current;
     const restoringStream = Boolean(snapshot && snapshot.url !== url);
-    const previousSubtitle = restoringStream ? video.textTracks.length > 0 ? Array.from(video.textTracks).findIndex(track => track.mode === "showing") : -1 : -1;
-    const previousAudioTrack = restoringStream && "audioTracks" in video ? (() => {
-      const tracks = (video as HTMLVideoElement & { audioTracks?: { length: number; [index: number]: { enabled: boolean } } }).audioTracks;
-      if (!tracks) return -1;
-      for (let i = 0; i < tracks.length; i++) if (tracks[i].enabled) return i;
-      return -1;
-    })() : -1;
+    const previousSubtitle = restoringStream ? snapshot!.subtitleIndex : -1;
+    const previousAudioTrack = restoringStream ? snapshot!.audioIndex : -1;
     queueMicrotask(() => {
       if (!cancelled) {
         setError("");
@@ -132,7 +127,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       queueMicrotask(() => { if (!cancelled) setError("This browser does not support HLS playback or Media Source Extensions."); });
     }
     return () => {
-      playbackSnapshot.current = { url, sourcePosition: startSeconds + (Number.isFinite(video.currentTime) ? video.currentTime : 0), paused: video.paused || userPaused, volume: video.volume, muted: video.muted, rate: video.playbackRate };
+      playbackSnapshot.current = { url, sourcePosition: startSeconds + (Number.isFinite(video.currentTime) ? video.currentTime : 0), paused: video.paused || userPaused, volume: video.volume, muted: video.muted, rate: video.playbackRate, subtitleIndex: Array.from(video.textTracks).findIndex(track => track.mode === "showing"), audioIndex: (() => { const tracks = (video as HTMLVideoElement & { audioTracks?: { length: number; [index: number]: { enabled: boolean } } }).audioTracks; if (!tracks) return -1; for (let i = 0; i < tracks.length; i++) if (tracks[i].enabled) return i; return -1; })() };
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
       if (startupTimer) clearTimeout(startupTimer);
