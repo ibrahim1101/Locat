@@ -25,7 +25,9 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     let userPaused = false;
     const update = () => {
       let ahead = 0;
+      let bufferedSeconds = 0;
       for (let i = 0; i < video.buffered.length; i++) {
+        bufferedSeconds += Math.max(0, video.buffered.end(i) - video.buffered.start(i));
         if (video.buffered.start(i) <= video.currentTime && video.buffered.end(i) >= video.currentTime) {
           ahead = Math.max(0, video.buffered.end(i) - video.currentTime);
           break;
@@ -33,7 +35,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       }
       setBufferedAhead(Math.round(ahead));
       const total = durationSeconds && durationSeconds > 0 ? durationSeconds : video.duration;
-      setBuffered(Number.isFinite(total) && total > 0 ? Math.min(100, Math.round(ahead / total * 100)) : 0);
+      setBuffered(Number.isFinite(total) && total > 0 ? Math.min(100, Math.round(bufferedSeconds / total * 100)) : 0);
       if (waitingForBuffer && ahead >= 12 && !cancelled && !userPaused) {
         if (startupTimer) clearTimeout(startupTimer);
         waitingForBuffer = false;
@@ -45,10 +47,14 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     const onPlaying = () => { mediaRecoveryAttempts = 0; if (startupTimer) clearTimeout(startupTimer); initialPlaybackStarted = true; waitingForBuffer = false; setError(""); setStatus("Playing"); report(); };
     const onPause = () => { if (waitingForBuffer) { userPaused = true; waitingForBuffer = false; if (startupTimer) clearTimeout(startupTimer); } setStatus("Paused"); report(); };
     const onWaiting = () => setStatus("Buffering…");
+    const onSeeking = () => { update(); setStatus("Seeking…"); };
+    const onSeeked = () => { update(); setStatus(video.paused ? "Paused" : "Playing"); report(); };
     video.addEventListener("playing", onPlaying);
     video.addEventListener("pause", onPause);
     video.addEventListener("timeupdate", report);
     video.addEventListener("waiting", onWaiting);
+    video.addEventListener("seeking", onSeeking);
+    video.addEventListener("seeked", onSeeked);
     video.addEventListener("progress", update);
     video.addEventListener("timeupdate", update);
     if (Hls.isSupported()) {
@@ -94,6 +100,8 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       video.removeEventListener("pause", onPause);
       video.removeEventListener("timeupdate", report);
       video.removeEventListener("waiting", onWaiting);
+      video.removeEventListener("seeking", onSeeking);
+      video.removeEventListener("seeked", onSeeked);
       video.removeEventListener("progress", update);
       video.removeEventListener("timeupdate", update);
     };
@@ -102,7 +110,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
   return <div className="space-y-2">
     <video crossOrigin="anonymous" ref={videoRef} controls playsInline preload="metadata" className="max-h-[55vh] w-full rounded-xl bg-black" />
     <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-secondary">
-      <span aria-live="polite">{status}</span><span>{durationSeconds && durationSeconds > 0 ? `Position: ${formatTime(startSeconds)} + stream time · Source duration: ${formatTime(durationSeconds)} · ` : ""}Buffered ahead: {bufferedAhead}s ({buffered}%)</span>
+      <span aria-live="polite">{status}</span><span>{durationSeconds && durationSeconds > 0 ? `Position: ${formatTime(startSeconds)} + stream time · Source duration: ${formatTime(durationSeconds)} · ` : ""}Buffered ahead: {bufferedAhead}s · Total buffered: {buffered}%</span>
     </div>
     {error && <p role="alert" className="rounded-lg border border-destructive/50 p-2 text-sm text-destructive">{error}</p>}
   </div>;
