@@ -25,8 +25,12 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     let startupTimer: ReturnType<typeof setTimeout> | undefined;
     let userPaused = false;
     const snapshot = playbackSnapshot.current;
-    setError("");
-    setStatus("Preparing transcoded playback…");
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setError("");
+        setStatus("Preparing transcoded playback…");
+      }
+    });
     const restorePosition = snapshot && snapshot.url !== url ? Math.max(0, snapshot.sourcePosition - startSeconds) : 0;
     const shouldAutoplay = snapshot && snapshot.url !== url ? !snapshot.paused : autoplay;
     if (snapshot && snapshot.url !== url) {
