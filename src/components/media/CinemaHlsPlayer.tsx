@@ -16,6 +16,8 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     let hls: Hls | null = null;
     let cancelled = false;
     let manifestRetries = 0;
+    let mediaRecoveryAttempts = 0;
+    const MAX_MEDIA_RECOVERIES = 3;
     let waitingForBuffer = false;
     let initialPlaybackStarted = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -40,7 +42,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       }
     };
     const report = () => positionCallback.current?.(startSeconds + video.currentTime, !video.paused);
-    const onPlaying = () => { if (startupTimer) clearTimeout(startupTimer); initialPlaybackStarted = true; waitingForBuffer = false; setError(""); setStatus("Playing"); report(); };
+    const onPlaying = () => { mediaRecoveryAttempts = 0; if (startupTimer) clearTimeout(startupTimer); initialPlaybackStarted = true; waitingForBuffer = false; setError(""); setStatus("Playing"); report(); };
     const onPause = () => { if (waitingForBuffer) { userPaused = true; waitingForBuffer = false; if (startupTimer) clearTimeout(startupTimer); } setStatus("Paused"); report(); };
     const onWaiting = () => setStatus("Buffering…");
     video.addEventListener("playing", onPlaying);
@@ -59,8 +61,9 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
           manifestRetries += 1;
           setStatus(`Preparing stream… retry ${manifestRetries}/3`);
           retryTimer = setTimeout(() => { if (!cancelled) hls?.loadSource(url); }, 2000);
-        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-          setStatus("Recovering decoder…");
+        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR && mediaRecoveryAttempts < MAX_MEDIA_RECOVERIES) {
+          mediaRecoveryAttempts += 1;
+          setStatus(`Recovering decoder… attempt ${mediaRecoveryAttempts}/${MAX_MEDIA_RECOVERIES}`);
           hls?.recoverMediaError();
         } else {
           setError("HLS playback failed: " + data.details);
