@@ -100,7 +100,9 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       }
     };
     const report = () => positionCallback.current?.(startSeconds + video.currentTime, !video.paused);
-    const onPlaying = () => { mediaRecoveryAttempts = 0; if (startupTimer) clearTimeout(startupTimer); initialPlaybackStarted = true; waitingForBuffer = false; setError(""); setStatus("Playing"); report(); };
+    // Keep the decoder recovery budget across brief successful playback events.
+    // Otherwise a damaged stream can alternate between playing and fatal errors forever.
+    const onPlaying = () => { if (startupTimer) clearTimeout(startupTimer); initialPlaybackStarted = true; waitingForBuffer = false; setError(""); setStatus("Playing"); report(); };
     const onPause = () => { if (waitingForBuffer) { userPaused = true; waitingForBuffer = false; if (startupTimer) clearTimeout(startupTimer); } setStatus("Paused"); report(); };
     const onWaiting = () => setStatus("Buffering…");
     const onSeeking = () => { update(); setStatus("Seeking…"); };
