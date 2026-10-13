@@ -133,7 +133,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       };
       hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, restoreHlsTracks);
       hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, restoreHlsTracks);
-      hls.on(Hls.Events.SUBTITLE_TRACK_SWITCHED, () => {
+      hls.on(Hls.Events.SUBTITLE_TRACK_SWITCH, () => {
         const track = hls?.subtitleTracks[hls.subtitleTrack];
         if (track) selectedHlsSubtitle = { language: track.lang ?? "", label: track.name ?? "" };
       });
