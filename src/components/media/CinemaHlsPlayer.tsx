@@ -119,7 +119,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     // Keep the decoder recovery budget across brief successful playback events.
     // Otherwise a damaged stream can alternate between playing and fatal errors forever.
     const onPlaying = () => { if (stallTimer) clearTimeout(stallTimer); playbackRequested = false; if (startupTimer) clearTimeout(startupTimer); initialPlaybackStarted = true; waitingForBuffer = false; setError(""); setStatus("Playing"); report(); };
-    const onPause = () => { if (stallTimer) clearTimeout(stallTimer); if (waitingForBuffer) { userPaused = true; waitingForBuffer = false; if (startupTimer) clearTimeout(startupTimer); } setStatus("Paused"); report(); };
+    const onPause = () => { if (stallTimer) clearTimeout(stallTimer); if (startupTimer) clearTimeout(startupTimer); if (waitingForBuffer) { userPaused = true; waitingForBuffer = false; } setStatus("Paused"); report(); };
     const onWaiting = () => {
       setStatus("Buffering…");
       if (stallTimer) clearTimeout(stallTimer);
@@ -135,12 +135,12 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
         }
       }, 12000);
     };
-    const onSeeking = () => { if (stallTimer) clearTimeout(stallTimer); update(); setStatus("Seeking…"); };
+    const onSeeking = () => { if (stallTimer) clearTimeout(stallTimer); stallRecoveries = 0; update(); setStatus("Seeking…"); };
     video.addEventListener("loadedmetadata", restoreSeek);
     video.addEventListener("loadedmetadata", restoreTrackPreferences);
     video.addEventListener("canplay", restoreSeek);
     video.addEventListener("canplay", restoreTrackPreferences);
-    const onSeeked = () => { update(); setStatus(video.paused ? "Paused" : "Playing"); report(); };
+    const onSeeked = () => { stallRecoveries = 0; update(); setStatus(video.paused ? "Paused" : "Playing"); report(); };
     video.addEventListener("playing", onPlaying);
     video.addEventListener("pause", onPause);
     video.addEventListener("timeupdate", report);
