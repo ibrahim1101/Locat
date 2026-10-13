@@ -84,8 +84,13 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     const requestPlayback = () => {
       if (cancelled || userPaused || playbackRequested || !video.paused) return;
       playbackRequested = true;
-      void video.play().catch(() => {
-        if (!cancelled) { playbackRequested = false; setStatus("Press Play to begin"); }
+      void video.play().then(() => {
+        // A resolved play() promise is no longer pending, even if 'playing'
+        // is delayed by buffering. Allow a future explicit recovery request.
+        playbackRequested = false;
+      }).catch(() => {
+        playbackRequested = false;
+        if (!cancelled) setStatus("Press Play to begin");
       });
     };
     const update = () => {
