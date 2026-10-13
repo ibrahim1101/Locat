@@ -28,6 +28,9 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     let userPaused = false;
     let playbackRequested = false;
     let nativeReadyCleanup: (() => void) | undefined;
+    let stallTimer: ReturnType<typeof setTimeout> | undefined;
+    let stallRecoveries = 0;
+    const MAX_STALL_RECOVERIES = 2;
     const snapshot = playbackSnapshot.current;
     const restoringStream = Boolean(snapshot && snapshot.url !== url);
     const previousSubtitle = restoringStream ? snapshot!.subtitleIndex : -1;
@@ -115,10 +118,24 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
     const report = () => positionCallback.current?.(startSeconds + video.currentTime, !video.paused);
     // Keep the decoder recovery budget across brief successful playback events.
     // Otherwise a damaged stream can alternate between playing and fatal errors forever.
-    const onPlaying = () => { playbackRequested = false; if (startupTimer) clearTimeout(startupTimer); initialPlaybackStarted = true; waitingForBuffer = false; setError(""); setStatus("Playing"); report(); };
-    const onPause = () => { if (waitingForBuffer) { userPaused = true; waitingForBuffer = false; if (startupTimer) clearTimeout(startupTimer); } setStatus("Paused"); report(); };
-    const onWaiting = () => setStatus("Buffering…");
-    const onSeeking = () => { update(); setStatus("Seeking…"); };
+    const onPlaying = () => { if (stallTimer) clearTimeout(stallTimer); playbackRequested = false; if (startupTimer) clearTimeout(startupTimer); initialPlaybackStarted = true; waitingForBuffer = false; setError(""); setStatus("Playing"); report(); };
+    const onPause = () => { if (stallTimer) clearTimeout(stallTimer); if (waitingForBuffer) { userPaused = true; waitingForBuffer = false; if (startupTimer) clearTimeout(startupTimer); } setStatus("Paused"); report(); };
+    const onWaiting = () => {
+      setStatus("Buffering…");
+      if (stallTimer) clearTimeout(stallTimer);
+      if (video.paused || waitingForBuffer || !initialPlaybackStarted) return;
+      stallTimer = setTimeout(() => {
+        if (cancelled || video.paused || video.seeking || video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) return;
+        if (hls && stallRecoveries < MAX_STALL_RECOVERIES) {
+          stallRecoveries += 1;
+          setStatus(`Stream stalled — retrying (${stallRecoveries}/${MAX_STALL_RECOVERIES})…`);
+          hls.startLoad(-1);
+        } else if (stallRecoveries >= MAX_STALL_RECOVERIES) {
+          setStatus("Stream stalled — try seeking or changing quality");
+        }
+      }, 12000);
+    };
+    const onSeeking = () => { if (stallTimer) clearTimeout(stallTimer); update(); setStatus("Seeking…"); };
     video.addEventListener("loadedmetadata", restoreSeek);
     video.addEventListener("loadedmetadata", restoreTrackPreferences);
     video.addEventListener("canplay", restoreSeek);
@@ -204,6 +221,7 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
       if (startupTimer) clearTimeout(startupTimer);
+      if (stallTimer) clearTimeout(stallTimer);
       nativeReadyCleanup?.();
       hls?.destroy();
       // Release server-side FFmpeg and temporary HLS segments on player exit/quality change.
