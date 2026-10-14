@@ -62,6 +62,15 @@ describe("native Android Back history", () => {
     expect(history).toEqual(["/"]);
   });
 
+  it("bounds long-lived query navigation without losing the most recent pages", () => {
+    const history: string[] = [];
+    for (let index = 0; index < 100; index++) recordNativeRoute(history, `/search?q=${index}`);
+    expect(history).toHaveLength(64);
+    expect(history[0]).toBe("/search?q=36");
+    expect(history[63]).toBe("/search?q=99");
+    expect(popNativeRoute(history, "/search?q=99")).toBe("/search?q=98");
+  });
+
   it("preserves query-string navigation as distinct history entries", () => {
     const history = ["/", "/search?q=one"];
     recordNativeRoute(history, "/search?q=two");
