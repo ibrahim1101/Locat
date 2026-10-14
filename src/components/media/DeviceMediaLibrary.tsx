@@ -12,32 +12,35 @@ export function DeviceMediaLibrary({ kind, onPhoto }: { kind: MediaKind; onPhoto
   const [active, setActive] = useState<DeviceMedia | null>(null), [source, setSource] = useState("");
   const lease = useRef(0), photoRequest = useRef<AbortController | null>(null), blobUrl = useRef("");
   const close = useCallback(() => { photoRequest.current?.abort(); if (blobUrl.current) URL.revokeObjectURL(blobUrl.current); blobUrl.current = ""; setActive(null); setSource(""); }, []);
-  const scan = useCallback(async (ask: boolean) => {
+  const scan = useCallback(async (ask: boolean, preservePlayback = false) => {
     if (!bridge) return;
-    const ticket = ++lease.current; close(); setRows([]); setBusy(true); setNotice("");
+    const ticket = ++lease.current;
+    if (!preservePlayback) { close(); setRows([]); }
+    setBusy(true); setNotice("");
     try {
       const permission = await (ask ? bridge.plugin.authorize({ kind }) : bridge.plugin.status({ kind }));
       if (ticket !== lease.current) return; setAccess(permission.access);
-      if (permission.access === "denied") { setNotice("Allow media access to show this device’s library. You can also open files manually."); return; }
+      if (permission.access === "denied") { close(); setRows([]); setNotice("Allow media access to show this device’s library. You can also open files manually."); return; }
       let before = ""; const collected = new Map<string, DeviceMedia>();
       do {
         const page = await bridge.plugin.list({ kind, before });
         if (ticket !== lease.current) return;
         setAccess(page.access);
+        if (page.access === "denied") { close(); setRows([]); setNotice("Media access was revoked. Allow access to refresh your library."); return; }
         for (const row of page.items) if (supportsMedia(row, kind)) collected.set(row.id, row);
         if (page.next && page.next === before) throw new Error("Library cursor did not advance. Try refreshing.");
         before = page.next;
         // Metadata-only pages; bounded UI display below. No movie/music bytes loaded here.
       } while (before);
       if (ticket === lease.current) { setRows([...collected.values()]); setNotice(collected.size ? "" : "No supported indexed media is available with this permission."); }
-    } catch (error) { if (ticket === lease.current) { setRows([]); setNotice(error instanceof Error ? error.message : "Could not read library."); } }
+    } catch (error) { if (ticket === lease.current) { if (!preservePlayback) setRows([]); setNotice(error instanceof Error ? error.message : "Could not read library."); } }
     finally { if (ticket === lease.current) setBusy(false); }
   }, [bridge, close, kind]);
   useEffect(() => { void scan(false); return () => {
     // Invalidate the latest asynchronous scan, including scans started by refresh.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     lease.current++; photoRequest.current?.abort(); if (blobUrl.current) URL.revokeObjectURL(blobUrl.current); }; }, [scan]);
-  useEffect(() => { if (!bridge) return; const refresh = () => { if (document.visibilityState === "visible") void scan(false); }; document.addEventListener("visibilitychange", refresh); return () => document.removeEventListener("visibilitychange", refresh); }, [bridge, scan]);
+  useEffect(() => { if (!bridge) return; const refresh = () => { if (document.visibilityState === "visible") void scan(false, true); }; document.addEventListener("visibilitychange", refresh); return () => document.removeEventListener("visibilitychange", refresh); }, [bridge, scan]);
   const activeFile = useMemo(() => active ? { name: active.name, size: active.size, lastModified: active.modified } : null, [active]);
   const groups = groupMedia(sortMedia(rows.filter(row => `${row.name} ${row.folder} ${row.album ?? ""} ${row.artist ?? ""}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())), sort), grouping);
   const [expanded, setExpanded] = useState(""); const [page, setPage] = useState(0);
