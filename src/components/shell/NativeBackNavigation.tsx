@@ -15,9 +15,7 @@ export function NativeBackNavigation() {
   const previous = useRef<string[]>([]);
   const current = location.pathname + location.search;
   const currentRef = useRef(current);
-  currentRef.current = current;
   const navigateRef = useRef(navigate);
-  navigateRef.current = navigate;
   useEffect(() => {
     if (!isNativeShell()) return;
     const stack = previous.current;
@@ -27,6 +25,11 @@ export function NativeBackNavigation() {
       else stack.push(current);
     }
   }, [current]);
+
+  useEffect(() => {
+    currentRef.current = current;
+    navigateRef.current = navigate;
+  }, [current, navigate]);
 
   useEffect(() => {
     if (!isNativeShell()) return;
