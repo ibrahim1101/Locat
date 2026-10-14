@@ -51,10 +51,14 @@ export function NativeBackNavigation() {
         return;
       }
       const stack = previous.current;
-      if (stack.length > 1) {
+      if (currentRef.current === "/" || currentRef.current === "/dashboard") {
+        // Treat the dashboard as the root even when the user reached it
+        // through a link; Back must never unexpectedly reopen old pages.
+        stack.splice(0, stack.length, currentRef.current);
+      } else if (stack.length > 1) {
         stack.pop();
         navigateRef.current(stack[stack.length - 1], { replace: true });
-      } else if (currentRef.current !== "/" && currentRef.current !== "/dashboard") {
+      } else {
         navigateRef.current("/", { replace: true });
       }
       // On the root, consume Back; only the explicit exit action may close Locat.
