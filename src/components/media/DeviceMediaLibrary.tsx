@@ -16,6 +16,9 @@ export function DeviceMediaLibrary({ kind, onPhoto }: { kind: MediaKind; onPhoto
   const scan = useCallback(async (ask: boolean, preservePlayback = false) => {
     if (!bridge) return;
     const ticket = ++lease.current;
+    // A new scan supersedes any in-flight photo read; otherwise an older
+    // photo selection could still complete after permissions or files change.
+    photoRequest.current?.abort();
     if (!preservePlayback) { close(); setRows([]); }
     setBusy(true); setNotice("");
     try {
