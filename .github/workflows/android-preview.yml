@@ -7,6 +7,7 @@ on:
       - fix/locat-2.0-app-lock-biometric-guard
       - feat/locat-unified-platforms
       - feat/locat-complete-ecosystem
+      - release/locat-v1.0
     paths:
       - "remote/**"
       - "src/**"
