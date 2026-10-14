@@ -20,7 +20,7 @@ describe("Cinema stalled stream recovery", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
 
-  it("deduplicates waiting events, retries twice, and reports exhaustion once", () => {
+  it("deduplicates waiting events, retries progressively, and reports exhaustion once", () => {
     const recover = vi.fn();
     const exhausted = vi.fn();
     const recovery = createCinemaStallRecovery({ isStalled: () => true, recover, exhausted });
@@ -28,10 +28,10 @@ describe("Cinema stalled stream recovery", () => {
     recovery.begin();
     vi.advanceTimersByTime(12_000);
     expect(recover).toHaveBeenCalledExactlyOnceWith(1, 2);
-    vi.advanceTimersByTime(12_000);
+    vi.advanceTimersByTime(24_000);
     expect(recover).toHaveBeenLastCalledWith(2, 2);
     expect(recover).toHaveBeenCalledTimes(2);
-    vi.advanceTimersByTime(12_000);
+    vi.advanceTimersByTime(48_000);
     expect(exhausted).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(60_000);
     expect(recover).toHaveBeenCalledTimes(2);
@@ -64,19 +64,33 @@ describe("Cinema stalled stream recovery", () => {
     expect(recover).not.toHaveBeenCalled();
   });
 
-  it("retains retry budget across playback episodes but resets after seek", () => {
+  it("retains retry budget across episodes but resets after seek", () => {
     const recover = vi.fn();
     const recovery = createCinemaStallRecovery({ isStalled: () => true, recover, exhausted: vi.fn(), delayMs: 100 });
     recovery.begin();
     vi.advanceTimersByTime(100);
     recovery.end();
     recovery.begin();
-    vi.advanceTimersByTime(100);
+    vi.advanceTimersByTime(200);
     expect(recover.mock.calls.map(([attempt]) => attempt)).toEqual([1, 2]);
     recovery.end(true);
     recovery.begin();
     vi.advanceTimersByTime(100);
     expect(recover.mock.calls.map(([attempt]) => attempt)).toEqual([1, 2, 1]);
+    recovery.dispose();
+  });
+
+  it("clamps invalid options and caps exponential delay", () => {
+    const recover = vi.fn();
+    const exhausted = vi.fn();
+    const recovery = createCinemaStallRecovery({ isStalled: () => true, recover, exhausted, delayMs: 100_000, maxAttempts: 1 });
+    recovery.begin();
+    vi.advanceTimersByTime(59_999);
+    expect(recover).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(recover).toHaveBeenCalledExactlyOnceWith(1, 1);
+    vi.advanceTimersByTime(60_000);
+    expect(exhausted).toHaveBeenCalledTimes(1);
     recovery.dispose();
   });
 });
