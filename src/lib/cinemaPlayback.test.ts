@@ -93,4 +93,30 @@ describe("Cinema stalled stream recovery", () => {
     expect(exhausted).toHaveBeenCalledTimes(1);
     recovery.dispose();
   });
+  it("does not rearm recovery after synchronous resume or disposal", () => {
+    for (const mode of ["resume", "dispose"] as const) {
+      const exhausted = vi.fn();
+      const recover = vi.fn();
+      let stalled = true;
+      let recovery: ReturnType<typeof createCinemaStallRecovery>;
+      recovery = createCinemaStallRecovery({
+        isStalled: () => stalled,
+        recover: () => {
+          recover();
+          if (mode === "resume") stalled = false;
+          else recovery.dispose();
+        },
+        exhausted,
+        delayMs: 100,
+      });
+      recovery.begin();
+      vi.advanceTimersByTime(100);
+      expect(recover).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+      vi.advanceTimersByTime(120_000);
+      expect(exhausted).not.toHaveBeenCalled();
+      recovery.dispose();
+    }
+  });
+
 });
