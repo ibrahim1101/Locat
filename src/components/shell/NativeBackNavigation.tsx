@@ -14,6 +14,10 @@ export function NativeBackNavigation() {
   const location = useLocation();
   const previous = useRef<string[]>([]);
   const current = location.pathname + location.search;
+  const currentRef = useRef(current);
+  currentRef.current = current;
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
   useEffect(() => {
     if (!isNativeShell()) return;
     const stack = previous.current;
@@ -46,9 +50,9 @@ export function NativeBackNavigation() {
       const stack = previous.current;
       if (stack.length > 1) {
         stack.pop();
-        navigate(stack[stack.length - 1], { replace: true });
-      } else if (current !== "/" && current !== "/dashboard") {
-        navigate("/", { replace: true });
+        navigateRef.current(stack[stack.length - 1], { replace: true });
+      } else if (currentRef.current !== "/" && currentRef.current !== "/dashboard") {
+        navigateRef.current("/", { replace: true });
       }
       // On the root, consume Back; only the explicit exit action may close Locat.
       event.preventDefault();
@@ -74,6 +78,6 @@ export function NativeBackNavigation() {
     window.addEventListener("locat:back", back);
     window.addEventListener("keydown", keyboard);
     return () => { disposed = true; void subscription?.remove(); window.removeEventListener("locat:back", back); window.removeEventListener("keydown", keyboard); };
-  }, [current, navigate]);
+  }, []);
   return null;
 }
