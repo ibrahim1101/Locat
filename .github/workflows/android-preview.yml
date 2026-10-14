@@ -2,24 +2,6 @@ name: Locat 2.0 Preview APK
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - fix/locat-2.0-app-lock-biometric-guard
-      - feat/locat-unified-platforms
-      - feat/locat-complete-ecosystem
-      - release/locat-v1.0
-    paths:
-      - "remote/**"
-      - "src/**"
-      - "api/**"
-      - "public/**"
-      - "contracts/**"
-      - "scripts/**"
-      - "package.json"
-      - "package-lock.json"
-      - "vite.config.ts"
-      - "capacitor.config.json"
-      - ".github/workflows/android-preview.yml"
 
 concurrency:
   group: locat-preview-android-${{ github.ref }}
