@@ -126,8 +126,8 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
       },
       exhausted: () => setStatus("Stream stalled — try seeking or changing quality"),
     });
-    const onPlaying = () => { stallRecovery.end(); playbackRequested = false; if (startupTimer) clearTimeout(startupTimer); initialPlaybackStarted = true; waitingForBuffer = false; setError(""); setStatus("Playing"); report(); };
-    const onPause = () => { stallRecovery.end(); if (startupTimer) clearTimeout(startupTimer); if (waitingForBuffer) { userPaused = true; waitingForBuffer = false; } setStatus("Paused"); report(); };
+    const onPlaying = () => { stallRecovery.end(true); playbackRequested = false; if (startupTimer) clearTimeout(startupTimer); initialPlaybackStarted = true; waitingForBuffer = false; setError(""); setStatus("Playing"); report(); };
+    const onPause = () => { stallRecovery.end(); playbackRequested = false; if (startupTimer) clearTimeout(startupTimer); if (waitingForBuffer) { userPaused = true; waitingForBuffer = false; } setStatus("Paused"); report(); };
     const onWaiting = () => { setStatus("Buffering…"); stallRecovery.begin(); };
     const onSeeking = () => { stallRecovery.end(true); update(); setStatus("Seeking…"); };
     video.addEventListener("loadedmetadata", restoreSeek);
@@ -175,7 +175,8 @@ export function CinemaHlsPlayer({ url, durationSeconds, startSeconds = 0, autopl
         if (data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR && manifestRetries < 3) {
           manifestRetries += 1;
           setStatus(`Preparing stream… retry ${manifestRetries}/3`);
-          retryTimer = setTimeout(() => { if (!cancelled) hls?.loadSource(url); }, 2000);
+          if (retryTimer) clearTimeout(retryTimer);
+          retryTimer = setTimeout(() => { retryTimer = undefined; if (!cancelled) hls?.loadSource(url); }, 2000);
         } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR && mediaRecoveryAttempts < MAX_MEDIA_RECOVERIES) {
           mediaRecoveryAttempts += 1;
           setStatus(`Recovering decoder… attempt ${mediaRecoveryAttempts}/${MAX_MEDIA_RECOVERIES}`);
