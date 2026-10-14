@@ -32,7 +32,7 @@ export type Ui3ModuleAvailability = {
   id: string;
   route: string;
   status: "available" | "beta" | "planned";
-  availability: "available" | "beta" | "planned" | "disabled";
+  availability: "available" | "beta" | "planned" | "offline" | "admin-only";
   reason?: string;
 };
 
@@ -44,7 +44,7 @@ export function projectUi3ModuleAvailability(connected: boolean, isAdmin: boolea
       id: module.id,
       route: module.route,
       status: module.status,
-      availability: reason ? (module.status === "planned" ? "planned" : "disabled") : module.status,
+      availability: reason ? (module.status === "planned" ? "planned" : module.adminOnly && !isAdmin ? "admin-only" : "offline") : module.status,
       ...(reason ? { reason } : {}),
     };
   });
