@@ -1,4 +1,5 @@
 /** Pure navigation history policy shared by Android Back handling and tests. */
+const MAX_NATIVE_BACK_ENTRIES = 64;
 function isDashboardRoute(route: string): boolean {
   const pathname = route.split("?")[0];
   return pathname === "/" || pathname === "/dashboard";
@@ -14,6 +15,9 @@ export function recordNativeRoute(history: string[], route: string): void {
   const existing = history.lastIndexOf(route);
   if (existing >= 0) history.splice(existing + 1);
   else history.push(route);
+  // Search/filter query changes can otherwise accumulate indefinitely during
+  // a long-lived Android session. Keep the most recent navigable history.
+  if (history.length > MAX_NATIVE_BACK_ENTRIES) history.splice(0, history.length - MAX_NATIVE_BACK_ENTRIES);
 }
 
 export function popNativeRoute(history: string[], current: string): string | null {
