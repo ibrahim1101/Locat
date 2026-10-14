@@ -37,6 +37,18 @@ describe("native Android Back history", () => {
     expect(history).toEqual(["/"]);
   });
 
+  it("keeps dashboard URLs with query parameters as safe roots", () => {
+    const history = ["/", "/cinema", "/music"];
+    recordNativeRoute(history, "/dashboard?tab=activity");
+    expect(history).toEqual(["/dashboard?tab=activity"]);
+    expect(popNativeRoute(history, "/dashboard?tab=activity")).toBeNull();
+    recordNativeRoute(history, "/photos");
+    expect(popNativeRoute(history, "/photos")).toBe("/dashboard?tab=activity");
+    recordNativeRoute(history, "/?welcome=1");
+    expect(history).toEqual(["/?welcome=1"]);
+    expect(popNativeRoute(history, "/?welcome=1")).toBeNull();
+  });
+
   it("preserves query-string navigation as distinct history entries", () => {
     const history = ["/", "/search?q=one"];
     recordNativeRoute(history, "/search?q=two");
