@@ -49,6 +49,19 @@ describe("native Android Back history", () => {
     expect(popNativeRoute(history, "/?welcome=1")).toBeNull();
   });
 
+  it("handles Back before the route-tracking effect has recorded the current page", () => {
+    const history = ["/", "/cinema"];
+    expect(popNativeRoute(history, "/music")).toBe("/cinema");
+    expect(history).toEqual(["/", "/cinema"]);
+    expect(popNativeRoute(history, "/cinema")).toBe("/");
+  });
+
+  it("truncates stale forward entries when Back races with navigation", () => {
+    const history = ["/", "/cinema", "/music", "/photos"];
+    expect(popNativeRoute(history, "/cinema")).toBe("/");
+    expect(history).toEqual(["/"]);
+  });
+
   it("preserves query-string navigation as distinct history entries", () => {
     const history = ["/", "/search?q=one"];
     recordNativeRoute(history, "/search?q=two");
