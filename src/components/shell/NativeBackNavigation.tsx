@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { isNativeShell } from "@/lib/native";
 import { detectPlatform } from "@/lib/platform";
+import { popNativeRoute, recordNativeRoute } from "@/lib/nativeBackHistory";
 
 /**
  * Native shell Back navigation: first let overlays consume Back, then navigate
@@ -18,12 +19,7 @@ export function NativeBackNavigation() {
   const navigateRef = useRef(navigate);
   useEffect(() => {
     if (!isNativeShell()) return;
-    const stack = previous.current;
-    if (stack[stack.length - 1] !== current) {
-      const existing = stack.lastIndexOf(current);
-      if (existing >= 0) stack.splice(existing + 1);
-      else stack.push(current);
-    }
+    recordNativeRoute(previous.current, current);
   }, [current]);
 
   useEffect(() => {
@@ -50,17 +46,8 @@ export function NativeBackNavigation() {
         event.preventDefault();
         return;
       }
-      const stack = previous.current;
-      if (currentRef.current === "/" || currentRef.current === "/dashboard") {
-        // Treat the dashboard as the root even when the user reached it
-        // through a link; Back must never unexpectedly reopen old pages.
-        stack.splice(0, stack.length, currentRef.current);
-      } else if (stack.length > 1) {
-        stack.pop();
-        navigateRef.current(stack[stack.length - 1], { replace: true });
-      } else {
-        navigateRef.current("/", { replace: true });
-      }
+      const target = popNativeRoute(previous.current, currentRef.current);
+      if (target !== null) navigateRef.current(target, { replace: true });
       // On the root, consume Back; only the explicit exit action may close Locat.
       event.preventDefault();
     };
