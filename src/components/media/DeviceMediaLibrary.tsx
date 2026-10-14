@@ -61,8 +61,13 @@ export function DeviceMediaLibrary({ kind, onPhoto }: { kind: MediaKind; onPhoto
     if (row.file) blobUrl.current = url;
     if (kind !== "photos") { activeRef.current = row; setActive(row); setSource(url); setAutoplay(play); return; }
     const controller = new AbortController(); photoRequest.current = controller;
-    try { const file = await readLibraryPhoto(row, url, controller.signal); if (!controller.signal.aborted) onPhoto?.(file); }
-    catch (error) { if (!controller.signal.aborted) setNotice(error instanceof Error ? error.message : "Could not open photo."); }
+    const selectionLease = lease.current;
+    try {
+      const file = await readLibraryPhoto(row, url, controller.signal);
+      if (!controller.signal.aborted && photoRequest.current === controller && selectionLease === lease.current) onPhoto?.(file);
+    } catch (error) {
+      if (!controller.signal.aborted && photoRequest.current === controller && selectionLease === lease.current) setNotice(error instanceof Error ? error.message : "Could not open photo.");
+    }
     finally { if (photoRequest.current === controller) { photoRequest.current = null; if (blobUrl.current) URL.revokeObjectURL(blobUrl.current); blobUrl.current = ""; } }
   };
   return <section aria-label="Device media library" className="my-4 space-y-3 rounded-2xl border bg-card p-4"><h2 className="font-semibold">Device {kind === "cinema" ? "videos" : kind === "music" ? "music" : "photos"}</h2>
