@@ -17,6 +17,9 @@ export function recordNativeRoute(history: string[], route: string): void {
 }
 
 export function popNativeRoute(history: string[], current: string): string | null {
+  // The native Back event can arrive before the route-tracking effect runs.
+  // Synchronize with the visible route before removing its history entry.
+  recordNativeRoute(history, current);
   if (isDashboardRoute(current)) {
     history.splice(0, history.length, current);
     return null;
