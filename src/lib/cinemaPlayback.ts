@@ -43,6 +43,13 @@ export function createCinemaStallRecovery({
       }
       attempts += 1;
       recover(attempts, retryLimit);
+      // recover() can synchronously end or dispose this recovery episode.
+      // Do not rearm a timer after that, or after playback resumes.
+      if (!active || disposed) return;
+      if (!isStalled()) {
+        active = false;
+        return;
+      }
       schedule();
     }, delay);
   };
