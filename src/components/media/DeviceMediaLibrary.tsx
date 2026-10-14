@@ -11,7 +11,8 @@ export function DeviceMediaLibrary({ kind, onPhoto }: { kind: MediaKind; onPhoto
   const [autoplay, setAutoplay] = useState(false);
   const [active, setActive] = useState<DeviceMedia | null>(null), [source, setSource] = useState("");
   const lease = useRef(0), photoRequest = useRef<AbortController | null>(null), blobUrl = useRef("");
-  const close = useCallback(() => { photoRequest.current?.abort(); if (blobUrl.current) URL.revokeObjectURL(blobUrl.current); blobUrl.current = ""; setActive(null); setSource(""); }, []);
+  const activeRef = useRef<DeviceMedia | null>(null);
+  const close = useCallback(() => { photoRequest.current?.abort(); if (blobUrl.current) URL.revokeObjectURL(blobUrl.current); blobUrl.current = ""; activeRef.current = null; setActive(null); setSource(""); }, []);
   const scan = useCallback(async (ask: boolean, preservePlayback = false) => {
     if (!bridge) return;
     const ticket = ++lease.current;
@@ -32,7 +33,12 @@ export function DeviceMediaLibrary({ kind, onPhoto }: { kind: MediaKind; onPhoto
         before = page.next;
         // Metadata-only pages; bounded UI display below. No movie/music bytes loaded here.
       } while (before);
-      if (ticket === lease.current) { setRows([...collected.values()]); setNotice(collected.size ? "" : "No supported indexed media is available with this permission."); }
+      if (ticket === lease.current) {
+        const current = activeRef.current;
+        if (current && !collected.has(current.id)) close();
+        setRows([...collected.values()]);
+        setNotice(collected.size ? "" : "No supported indexed media is available with this permission.");
+      }
     } catch (error) { if (ticket === lease.current) { if (!preservePlayback) setRows([]); setNotice(error instanceof Error ? error.message : "Could not read library."); } }
     finally { if (ticket === lease.current) setBusy(false); }
   }, [bridge, close, kind]);
@@ -50,7 +56,7 @@ export function DeviceMediaLibrary({ kind, onPhoto }: { kind: MediaKind; onPhoto
     const url = row.file ? URL.createObjectURL(row.file) : bridge?.source(row.uri);
     if (!url) { setNotice("Native media access unavailable."); return; }
     if (row.file) blobUrl.current = url;
-    if (kind !== "photos") { setActive(row); setSource(url); setAutoplay(play); return; }
+    if (kind !== "photos") { activeRef.current = row; setActive(row); setSource(url); setAutoplay(play); return; }
     const controller = new AbortController(); photoRequest.current = controller;
     try { const file = await readLibraryPhoto(row, url, controller.signal); if (!controller.signal.aborted) onPhoto?.(file); }
     catch (error) { if (!controller.signal.aborted) setNotice(error instanceof Error ? error.message : "Could not open photo."); }
