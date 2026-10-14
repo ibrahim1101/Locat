@@ -9,6 +9,7 @@ import { ServerConnectionControl } from "./components/ServerConnectionControl";
 import { useLocation } from "react-router";
 import { MODULES, moduleDisabledReason } from "./modules/registry";
 
+const Ui3IntegrationHost = lazy(() => import("./ui3-integration/Ui3IntegrationHost"));
 const Photos = lazy(() => import("./pages/Photos"));
 const Remote = lazy(() => import("./pages/Remote"));
 const Performance = lazy(() => import("./pages/Performance"));
@@ -29,6 +30,7 @@ export default function App() {
   const blocked = (current && moduleDisabledReason(current, connected, !!state.user.isAdmin)) || (location.pathname === "/admin" && (!connected || !state.user.isAdmin));
   return (
     <><ServerConnectionControl authenticated />{blocked ? <Dashboard /> : <Routes>
+      <Route path="/__ui3-integration" element={<Suspense fallback={<p role="status">Opening UI 3.0 integration checkpoint…</p>}><Ui3IntegrationHost /></Suspense>} />
       <Route path="/photos" element={<Suspense fallback={<p role="status">Opening Photos…</p>}><Photos /></Suspense>} />
       <Route path="/search" element={<Suspense fallback={<p role="status" className="p-6">Opening Search…</p>}><SearchPage /></Suspense>} />
       <Route path="/hub" element={<Suspense fallback={<p role="status" className="p-6">Opening Hub…</p>}><Hub /></Suspense>} />
