@@ -1,3 +1,4 @@
+import { evaluateFeatureAvailability } from "../lib/featureAvailability";
 import {
   MessageCircle, ShieldAlert, Radio, Lock, Users, Server, WifiOff,
   KeyRound, Workflow, Search, Calendar, Share2, Puzzle, LayoutDashboard, Film, Music2, Activity,
@@ -126,8 +127,8 @@ export const availableModules = MODULES.filter((m) => m.status !== "planned");
 
 /** Local tools stay usable during an authenticated offline session. */
 export function moduleDisabledReason(module: LocatModule, connected: boolean, isAdmin: boolean): string | null {
-  if (module.status === "planned") return "Not implemented yet";
-  if (module.adminOnly && !isAdmin) return "Administrator access required";
-  if (!["dashboard", "cinema", "music", "performance", "remote", "search", "photos"].includes(module.id) && !connected) return "Connect to server";
-  return null;
+  return evaluateFeatureAvailability(
+    { status: module.status, adminOnly: module.adminOnly, requiresServer: !["dashboard", "cinema", "music", "performance", "remote", "search", "photos"].includes(module.id) },
+    { connected, isAdmin },
+  ).reason;
 }
