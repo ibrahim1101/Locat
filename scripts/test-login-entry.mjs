@@ -186,7 +186,7 @@ try {
   await library.getByRole('button', { name: 'Use non-server mode', exact: true }).click();
   await library.getByRole('link', { name: 'Local Cinema', exact: false }).click();
   await library.getByRole('button', { name: 'Allow media access', exact: true }).click();
-  await library.getByText('3 files', { exact: true }).waitFor();
+  await library.getByRole('region', { name: 'Device media library' }).locator('span.shrink-0').getByText('3 files', { exact: true }).waitFor();
   await library.getByRole('button', { name: 'Movies/Family/ 2 files', exact: true }).click();
   const libraryItems = library.getByRole('region', { name: 'Device media library' }).locator('li button');
   assert.equal(await libraryItems.first().locator('span.block').textContent(), 'Movie 2.webm');
@@ -201,7 +201,7 @@ try {
   await library.getByRole('link', { name: 'Back to local sections', exact: true }).click();
   await library.getByRole('link', { name: 'Local Music', exact: false }).click();
   await library.getByRole('button', { name: 'Allow media access', exact: true }).click();
-  await library.getByText('2 files', { exact: true }).waitFor();
+  await library.getByRole('region', { name: 'Device media library' }).locator('span.shrink-0').getByText('2 files', { exact: true }).waitFor();
   await library.getByLabel('Media grouping').selectOption('album');
   await library.getByRole('button', { name: 'Test album 2 files', exact: true }).click();
   await library.getByRole('region', { name: 'Device media library' }).locator('li button').first().click();
@@ -217,7 +217,7 @@ try {
   await library.waitForFunction(() => document.querySelector('[aria-label="Photo editor preview"]').width > 1);
   await library.evaluate(() => { window.libraryAccess.photos = 'denied'; });
   await library.getByRole('button', { name: 'Refresh library', exact: true }).click();
-  await library.getByText('0 files', { exact: true }).waitFor();
+  await library.getByRole('region', { name: 'Device media library' }).locator('span.shrink-0').getByText('0 files', { exact: true }).waitFor();
   assert.equal(await library.getByRole('button', { name: 'Pictures/Camera/ 1 files', exact: true }).count(), 0);
   assert.ok((await library.evaluate(() => window.libraryCalls)).includes('list:cinema:3'));
   assert.equal(libraryRpc, 0);
