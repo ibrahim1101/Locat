@@ -98,8 +98,7 @@ describe("Cinema stalled stream recovery", () => {
       const exhausted = vi.fn();
       const recover = vi.fn();
       let stalled = true;
-      let recovery: ReturnType<typeof createCinemaStallRecovery>;
-      recovery = createCinemaStallRecovery({
+      const recovery = createCinemaStallRecovery({
         isStalled: () => stalled,
         recover: () => {
           recover();
